@@ -1,0 +1,3 @@
+src/resources/org/apache/cassandra/config/version.properties
+build/
+src/gen-java/
