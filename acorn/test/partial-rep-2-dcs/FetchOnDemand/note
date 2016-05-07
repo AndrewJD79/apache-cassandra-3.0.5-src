@@ -1,0 +1,8 @@
+time mvn compile exec:java
+time mvn package -DskipTests
+
+# run on the cluster
+./run.sh
+
+# local debugging
+time (mvn package -DskipTests && time ./_run.sh `hostname` `date +'%y%m%d-%H%M%S'`
