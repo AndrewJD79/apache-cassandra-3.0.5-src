@@ -8,9 +8,6 @@ import joptsimple.OptionSet;
 
 class Conf {
 	public static String dt_begin;
-	public static final String[] hns = {"mdc-s40", "mdc-s50"};
-	public static String data_dir = "/mnt/mdc-data/pr/2n/test";
-	public static String dc;
 	private static final OptionParser _opt_parser = new OptionParser() {{
 		accepts("help", "Show this help message");
 	}};
@@ -35,37 +32,30 @@ class Conf {
 			System.exit(1);
 		}
 
+		// I don't think I need a hostname. I only need a DC name. Interesting that
+		// Cassandra thinks it's just us-east and us-west, not like us-east-1. I
+		// wonder what's gonna happen when you add both us-west-1 and us-west-2. If
+		// they change dynamically, wouldn't it make any trouble?
+		//
+		// $ nodetool status
+		// Datacenter: us-east
+		// ===================
+		// Status=Up/Down
+		// |/ State=Normal/Leaving/Joining/Moving
+		// --  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
+		// UN  54.160.83.23    211.5 KB   256          100.0%            ce88ef0e-0bca-458d-ba95-02e8cf755642  1e
+		// Datacenter: us-west
+		// ===================
+		// Status=Up/Down
+		// |/ State=Normal/Leaving/Joining/Moving
+		// --  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
+		// UN  54.177.212.255  211.71 KB  256          100.0%            3c7a698c-705c-42c4-b27e-93262c53b7b3  1b
+		//
+		// http://stackoverflow.com/questions/19489498/getting-cassandra-datacenter-name-in-cqlsh
+		//
+		//Cons.P("hostname: %s", Util.Hostname());
+
 		dt_begin = (String) nonop_args.get(0);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmmss");
-		long dt_begin_milli = sdf.parse(dt_begin).getTime();
-
-		int i = 0;
-		for (; i < hns.length; i ++) {
-			if (Util.Hostname().equals(hns[i])) {
-				dc = String.format("DC%d", i);
-				break;
-			}
-		}
-		if (i == hns.length)
-			throw new RuntimeException("unknown hostname: " + Util.Hostname());
-
-		System.out.printf("dt_begin: %s %d\n", dt_begin, dt_begin_milli);
-		System.out.printf("hns:      %s\n", Arrays.toString(hns));
-		System.out.printf("data_dir: %s\n", data_dir);
-		System.out.printf("dc:       %s\n", dc);
-	}
-
-
-	public static int NumDCs() {
-		return hns.length;
-	}
-
-
-	private static String _cass_src_dn = null;
-	public static String CassandraSrcDn() {
-		if (_cass_src_dn != null)
-			return _cass_src_dn;
-		_cass_src_dn = System.getProperty("user.home") + "/work/cassandra";
-		return _cass_src_dn;
 	}
 }

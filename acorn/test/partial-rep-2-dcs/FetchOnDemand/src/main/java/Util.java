@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 class Util {
 	static private String _hostname = null;
 
-	// we take only the first part of hostname, e.g., abc from abc.cc.gatech.edu
+	// We take only the first part of hostname, e.g., abc from abc.cc.gatech.edu
 	static String Hostname() throws java.net.UnknownHostException {
 		if (_hostname != null)
 			return _hostname;
