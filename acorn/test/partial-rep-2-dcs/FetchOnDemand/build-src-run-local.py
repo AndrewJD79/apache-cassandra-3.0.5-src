@@ -70,24 +70,7 @@ def RunLocal(cur_datetime):
 		Util.RunSubp("killall -qw FetchOnDemand-0.1.ja[r] || true", shell = True)
 
 		cmd = "java -cp target/FetchOnDemand-0.1.jar:`cat %s` FetchOnDemand %s" % (fn_dep_class_path, cur_datetime)
-		#Util.RunSubp(cmd, shell = True)
-		# TODO: debugging
-		_RunSubp(cmd)
-
-
-def _RunSubp(cmd):
-	Cons.P(cmd)
-	p = subprocess.Popen(cmd, shell=True)
-	stdouterr = p.communicate()[0]
-
-#	# communidate() waits for termination
-#	stdouterr = p.communicate()[0]
-#	rc = p.returncode
-#	if rc != 0:
-#		raise RuntimeError("Error: cmd=[%s] rc=%d stdouterr=[%s]" % (cmd, rc, stdouterr))
-#	if print_result and (len(stdouterr) > 0):
-#		Cons.P(stdouterr)
-#	return stdouterr
+		Util.RunSubp(cmd, shell = True)
 
 
 def main(argv):
