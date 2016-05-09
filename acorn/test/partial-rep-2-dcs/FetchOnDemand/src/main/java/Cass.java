@@ -128,68 +128,50 @@ class Cass {
 
 		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
 		try (Cons.MT _ = new Cons.MT("Creating schema ...")) {
-			StringBuilder q = null;
+			String q = null;
 			try {
-				q = new StringBuilder();
-				// TODO: factor out the local_dc_remote_dcs string.
-				q.append(
-						String.format("CREATE KEYSPACE %s WITH replication = {"
-							+ " 'class' : 'NetworkTopologyStrategy'"
-							+ ", '%s' : 1"
-							, _ks_name, _local_dc)
-						);
+				// Prepare datacenter query string
+				StringBuilder q_dcs = new StringBuilder();
+				q_dcs.append(String.format(", '%s' : 1", _local_dc));
 				for (String r: _remote_dcs)
-					q.append(String.format(", '%s' : 1", r));
-				q.append(" }; ");
+					q_dcs.append(String.format(", '%s' : 1", r));
 
-				_sess.execute(q.toString());
+				q = String.format("CREATE KEYSPACE %s WITH replication = {"
+						+ " 'class' : 'NetworkTopologyStrategy'%s};"
+						, _ks_name, q_dcs);
+				Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.ALL);
+				_sess.execute(s);
+				// It shouldn't already exist. The keyspace name is supposed to be
+				// unique for each run. No need to catch AlreadyExistsException.
 
-			// It shouldn't already exist. The keyspace name is supposed to be unique
-			// for each run.
-			//} catch (AlreadyExistsException e) {
-
-				_sess.execute(String.format("CREATE TABLE %s.%s"
-							+ " (obj_id int"
-							+ ", user text, topic text"	// attributes
-							+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
-							+ ");",
-							_ks_name, _table_name));
+				q = String.format("CREATE TABLE %s.%s"
+						+ " (obj_id int"
+						+ ", user text, topic text"	// attributes
+						+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
+						+ ");",
+						_ks_name, _table_name);
+				s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.ALL);
+				_sess.execute(s);
 			} catch (com.datastax.driver.core.exceptions.DriverException e) {
 				Cons.P("Exception %s. query=[%s]", e, q);
 				throw e;
 			}
 		}
 
-//		try {
-//			StringBuilder sb = new StringBuilder();
-//			sb.append("CREATE KEYSPACE " + _meta_ks_name + " WITH replication = { "
-//					+ "'class' : 'NetworkTopologyStrategy'");
-//			for (int i = 0; i < Conf.NumDCs(); i ++)
-//				sb.append(String.format(", 'DC%d' : 1", i));
-//			sb.append(" }; ");
-//
-//			_sess.execute(sb.toString());
-//		} catch (AlreadyExistsException e) {}
-//
-//
-//		try {
-//			_sess.execute(String.format("CREATE TABLE %s.%s ("
-//						+ "exp_id text, "
-//						+ "tid int, "
-//						+ "hn text, "
-//						+ "time bigint, "
-//						+ "PRIMARY KEY (exp_id, tid) "
-//						+ "); ",
-//						_meta_ks_name, _csync_table_name));
-//		} catch (AlreadyExistsException e) {}
-//
-//		long et = System.currentTimeMillis();
-//		System.out.printf("%d ms\n", et - bt);
+		// Note: global sync can be implemented by east writing something with CL
+		// ALL and everyone, including east itself, keeps reading the value with CL
+		// LOCAL_ONE until it sees the value.
+		//
+		// Note: agreeing on a future time can be implemented similarily. east
+		// posting a near future time with CL ALL and make sure the time is well in
+		// the future (like 1 sec after).
 	}
 
 	public static void WaitForSchemaCreation()
 		throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Wating for schema creation ...")) {
+			// TODO: update to the latest one.
+			//
 			// Select data from the last created table with a CL local_ONE until
 			// there is no exception.
 			String q = String.format("select obj_id from %s.%s", _ks_name, _table_name);
