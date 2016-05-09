@@ -69,7 +69,7 @@ def RunLocal(cur_datetime):
 	with Cons.MeasureTime("Running locally ..."):
 		Util.RunSubp("killall -qw FetchOnDemand-0.1.ja[r] || true", shell = True)
 
-		cmd = "java -cp target/FetchOnDemand-0.1.jar:`cat %s` FetchOnDemand %s" % (fn_dep_class_path, cur_datetime)
+		cmd = "java -cp target/FetchOnDemand-0.1.jar:`cat %s` FetchOnDemand %s 2>&1" % (fn_dep_class_path, cur_datetime)
 		Util.RunSubp(cmd, shell = True)
 
 
