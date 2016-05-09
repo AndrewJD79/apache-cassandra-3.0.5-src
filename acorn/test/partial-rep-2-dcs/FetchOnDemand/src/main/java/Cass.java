@@ -17,6 +17,7 @@ class Cass {
 
 	private static String _local_dc = null;
 	private static List<String> _remote_dcs = null;
+	private static List<String> _all_dcs = null;
 
 	private static String _ks_name = null;
 	private static String _table_name = "t0";
@@ -106,6 +107,11 @@ class Cass {
 			for (String r: _remote_dcs)
 				System.out.printf(" %s", r);
 			System.out.printf("\n");
+
+			_all_dcs = new ArrayList<String>();
+			_all_dcs.add(_local_dc);
+			for (String r: _remote_dcs)
+				_all_dcs.add(r);
 		}
 	}
 
@@ -129,29 +135,73 @@ class Cass {
 		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
 		try (Cons.MT _ = new Cons.MT("Creating schema ...")) {
 			String q = null;
+			// It takes about exactly the same time with ALL and LOCAL_ONE. I wonder
+			// it's always ALL implicitly.
+			//ConsistencyLevel cl = ConsistencyLevel.ALL;
+			ConsistencyLevel cl = ConsistencyLevel.LOCAL_ONE;
 			try {
 				// Prepare datacenter query string
 				StringBuilder q_dcs = new StringBuilder();
-				q_dcs.append(String.format(", '%s' : 1", _local_dc));
-				for (String r: _remote_dcs)
+				for (String r: _all_dcs)
 					q_dcs.append(String.format(", '%s' : 1", r));
 
-				q = String.format("CREATE KEYSPACE %s WITH replication = {"
-						+ " 'class' : 'NetworkTopologyStrategy'%s};"
-						, _ks_name, q_dcs);
-				Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.ALL);
-				_sess.execute(s);
-				// It shouldn't already exist. The keyspace name is supposed to be
-				// unique for each run. No need to catch AlreadyExistsException.
+				// Object keyspace
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_name, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+					// It shouldn't already exist. The keyspace name is supposed to be
+					// unique for each run. No need to catch AlreadyExistsException.
 
-				q = String.format("CREATE TABLE %s.%s"
-						+ " (obj_id int"
-						+ ", user text, topic text"	// attributes
-						+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
-						+ ");",
-						_ks_name, _table_name);
-				s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.ALL);
-				_sess.execute(s);
+					q = String.format("CREATE TABLE %s.%s"
+							+ " (obj_id int"
+							+ ", user text, topic text"	// attributes
+							+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
+							+ ");",
+							_ks_name, _table_name);
+					s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+				}
+
+				// Attribute popularity keyspace
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_name_attr_pop, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+
+					// These are periodically updated (broadcasted).
+					for (String dc: _all_dcs) {
+						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
+								, _ks_name_attr_pop, dc.replace("-", "_"));
+						s = new SimpleStatement(q).setConsistencyLevel(cl);
+						_sess.execute(s);
+
+						q = String.format("CREATE TABLE %s.%s_topic (topic text, PRIMARY KEY (topic));"
+								, _ks_name_attr_pop, dc.replace("-", "_"));
+						s = new SimpleStatement(q).setConsistencyLevel(cl);
+						_sess.execute(s);
+					}
+				}
+
+				// Object location keyspace.
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_name_obj_loc, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+
+					// The CLs of the operations on this table determines the consistency
+					// model of the applications.
+					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
+							, _ks_name_obj_loc);
+					s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+				}
 			} catch (com.datastax.driver.core.exceptions.DriverException e) {
 				Cons.P("Exception %s. query=[%s]", e, q);
 				throw e;
@@ -170,11 +220,9 @@ class Cass {
 	public static void WaitForSchemaCreation()
 		throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Wating for schema creation ...")) {
-			// TODO: update to the latest one.
-			//
 			// Select data from the last created table with a CL local_ONE until
 			// there is no exception.
-			String q = String.format("select obj_id from %s.%s", _ks_name, _table_name);
+			String q = String.format("select obj_id from %s.obj_loc", _ks_name_obj_loc);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking:");
 			boolean first = true;
@@ -203,29 +251,6 @@ class Cass {
 			}
 			System.out.printf(" exists\n");
 		}
-
-//		String q = "SELECT * FROM " + _meta_ks_name + "." + _csync_table_name + ";";
-//
-//		while (true) {
-//			try {
-//				ResultSet rs = _sess.execute(q);
-//				break;
-//			} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
-//				if (e.getMessage().equals("Keyspace " + _meta_ks_name + " does not exist"))
-//					;
-//				else if (e.getMessage().equals("unconfigured columnfamily " + _csync_table_name))
-//					;
-//				else {
-//					throw e;
-//				}
-//			}
-//
-//			System.out.printf(".");
-//			System.out.flush();
-//			Thread.sleep(100);
-//		}
-//
-//		long et = System.currentTimeMillis();
 	}
 
 //	static public void Sync(int tid)
