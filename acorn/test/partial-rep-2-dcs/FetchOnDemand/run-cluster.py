@@ -5,6 +5,7 @@
 import datetime
 import os
 import pprint
+import subprocess
 import sys
 import threading
 
@@ -65,11 +66,23 @@ def main(argv):
 				" -o %s" \
 				" %s/build-src-run-local.py %s 2>&1" \
 				% (fn_pssh_hn, dn_pssh_out, dn_this, cur_datetime)
-		Util.RunSubp(cmd, shell = True)
-		# Check manually if something doesn't go right
+		_RunSubp(cmd)
 
 	# Check output with more
 	Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
+
+
+def _RunSubp(cmd):
+	Cons.P(cmd)
+
+	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	# communidate() waits for termination
+	stdouterr = p.communicate()[0]
+	rc = p.returncode
+	if rc != 0:
+		Cons.P("Error: cmd=[%s] rc=%d" % (cmd, rc))
+	if len(stdouterr) > 0:
+		Cons.P(stdouterr)
 
 
 if __name__ == "__main__":
