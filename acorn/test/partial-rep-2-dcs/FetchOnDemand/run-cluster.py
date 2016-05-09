@@ -32,7 +32,11 @@ def RsyncSrcToUsWest1():
 	with Cons.MeasureTime("rsync src to us-west-1 ..."):
 		ip = GetUsWest1PubIp()
 		#Cons.P(ip)
-		cmd = "rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' ~/work/acorn/acorn %s:work/acorn/" % ip
+		# Make sure you sync only source files. Syncing build result confuses the
+		# build system.
+		cmd = "cd ~/work/acorn/acorn/test/partial-rep-2-dcs/FetchOnDemand" \
+				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml src" \
+				" %s:work/acorn/acorn/test/partial-rep-2-dcs/FetchOnDemand/" % ip
 		Util.RunSubp(cmd, shell = True)
 
 
@@ -63,6 +67,9 @@ def main(argv):
 				% (fn_pssh_hn, dn_pssh_out, dn_this, cur_datetime)
 		Util.RunSubp(cmd, shell = True)
 		# Check manually if something doesn't go right
+
+	# Check output with more
+	Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
 
 
 if __name__ == "__main__":
