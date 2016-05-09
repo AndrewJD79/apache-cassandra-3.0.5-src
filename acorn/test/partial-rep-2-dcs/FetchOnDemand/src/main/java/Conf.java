@@ -7,7 +7,7 @@ import joptsimple.OptionSet;
 
 
 class Conf {
-	public static String dt_begin;
+	private static String _dt_begin;
 	private static final OptionParser _opt_parser = new OptionParser() {{
 		accepts("help", "Show this help message");
 	}};
@@ -55,7 +55,13 @@ class Conf {
 		//
 		//Cons.P("hostname: %s", Util.Hostname());
 
-		dt_begin = (String) nonop_args.get(0);
-		SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmmss");
+		_dt_begin = (String) nonop_args.get(0);
+
+		// TODO: clean up
+		//SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmmss");
+	}
+
+	public static String ExpID() {
+		return _dt_begin;
 	}
 }
