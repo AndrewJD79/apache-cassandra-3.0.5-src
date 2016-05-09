@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import datetime
 import os
 import subprocess
 import sys
@@ -90,12 +91,16 @@ def _RunSubp(cmd):
 
 
 def main(argv):
-	if len(argv) != 2:
+	cur_datetime = None
+	if len(argv) == 1:
+		cur_datetime = datetime.datetime.utcnow().strftime("%y%m%d-%H%M%S")
+		Cons.P("Experiment date time not provided. Using current datetime %s" % cur_datetime)
+	elif len(argv) == 2:
+		cur_datetime = argv[1]
+	else:
 		print "Usage: %s cur_datetime (used for identifying each run)" % argv[0]
 		print "  E.g.: %s 160507-191237" % argv[0]
 		sys.exit(1)
-
-	cur_datetime = argv[1]
 
 	BuildSrc()
 	RunLocal(cur_datetime)
