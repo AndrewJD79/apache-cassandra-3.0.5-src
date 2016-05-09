@@ -19,6 +19,20 @@ public class Cons
 		P(String.format(fmt, o));
 	}
 
+	// nnl: no new line
+	public static void Pnnl(Object o) {
+		if (_ind_len > 0) {
+			System.out.print(o.toString().replaceAll("(?m)^", _ind.toString()));
+		} else {
+			System.out.print(o);
+		}
+		System.out.flush();
+	}
+
+	public static void Pnnl(String fmt, Object... o) {
+		Pnnl(String.format(fmt, o));
+	}
+
 	// MT: MeasureTime
 	public static class MT implements AutoCloseable
 	{
