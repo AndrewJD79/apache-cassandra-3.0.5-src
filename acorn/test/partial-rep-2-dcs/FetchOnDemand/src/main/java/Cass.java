@@ -12,16 +12,18 @@ import com.datastax.driver.core.policies.*;
 
 
 class Cass {
-	private static String _ks_name = "pr_ondemand_client";
-	private static String _table_name = "t0";
-	private static String _meta_ks_name = "pr_meta";
-	private static String _csync_table_name = "client_sync";
-
 	private static Cluster _cluster;
 	private static Session _sess;
 
 	private static String _local_dc = null;
 	private static List<String> _remote_dcs = null;
+
+	private static String _ks_name = null;
+	private static String _table_name = "t0";
+	// Attribute popularity keyspace. A table per attribute.
+	private static String _ks_name_attr_pop = null;
+	// Object location keyspace.
+	private static String _ks_name_obj_loc  = null;
 
 	public static void Init() {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
@@ -54,6 +56,15 @@ class Cass {
 			Cons.P("Connected to cluster '%s'.", metadata.getClusterName());
 
 			_WaitUntilYouSee2DCs();
+
+			// Cassandra doesn't like "-".
+			_ks_name = "partial_rep_test_" + Conf.ExpID().replace("-", "_");
+
+			_ks_name_attr_pop = _ks_name + "_attr_pop";
+			_ks_name_obj_loc  = _ks_name + "_obj_loc";
+
+			// TODO: clean up
+			//private static String _csync_table_name = "client_sync";
 		} catch (Exception e) {
 			System.err.println("Exception: " + e.getMessage());
 			e.printStackTrace();
@@ -105,92 +116,128 @@ class Cass {
 		}
 	}
 
+	public static String LocalDC() {
+		return _local_dc;
+	}
 
-//	public static void CreateSchema() {
-//		// TODO
-//		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
-//		//
-////		System.out.printf("Creating schema ... ");
-////		long bt = System.currentTimeMillis();
-////		try {
-////			StringBuilder sb = new StringBuilder();
-////			sb.append("CREATE KEYSPACE " + _ks_name + " WITH replication = { "
-////					+ "'class' : 'NetworkTopologyStrategy'");
-////			for (int i = 0; i < Conf.NumDCs(); i ++)
-////				sb.append(String.format(", 'DC%d' : 1", i));
-////			sb.append(" }; ");
-////
-////			_sess.execute(sb.toString());
-////		} catch (AlreadyExistsException e) {}
-////		//_sess.execute("use " + _ks_name + ";");
-////
-////		try {
-////			StringBuilder sb = new StringBuilder();
-////			sb.append("CREATE KEYSPACE " + _meta_ks_name + " WITH replication = { "
-////					+ "'class' : 'NetworkTopologyStrategy'");
-////			for (int i = 0; i < Conf.NumDCs(); i ++)
-////				sb.append(String.format(", 'DC%d' : 1", i));
-////			sb.append(" }; ");
-////
-////			_sess.execute(sb.toString());
-////		} catch (AlreadyExistsException e) {}
-////
-////		try {
-////			_sess.execute(String.format("CREATE TABLE %s.%s ("
-////						+ "exp_dt text, "	// experiment date time
-////						+ "tid int, "						// 4
-////						+ "PRIMARY KEY (exp_dt, tid) "
-////						+ "); ",
-////						_ks_name, _table_name));
-////		} catch (AlreadyExistsException e) {}
-////
-////		try {
-////			_sess.execute(String.format("CREATE TABLE %s.%s ("
-////					+ "exp_dt text, "	// experiment date time
-////					+ "tid int, "
-////					+ "hn text, "
-////					+ "time bigint, "
-////					+ "PRIMARY KEY (exp_dt, tid) "
-////					+ "); ",
-////					_meta_ks_name, _csync_table_name));
-////		} catch (AlreadyExistsException e) {}
-////
-////		long et = System.currentTimeMillis();
-////		System.out.printf("%d ms\n", et - bt);
-//	}
+	public static void CreateSchema() {
+		// You want to make sure that each test is starting from a clean sheet.
+		// - Use experiment ID!
+		// - A centralized event monitor would serve too. SQS is not an option though.
+		//   Messages don't seem to cross region boundaries.
+
+		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
+		try (Cons.MT _ = new Cons.MT("Creating schema ...")) {
+			StringBuilder q = null;
+			try {
+				q = new StringBuilder();
+				// TODO: factor out the local_dc_remote_dcs string.
+				q.append(
+						String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'"
+							+ ", '%s' : 1"
+							, _ks_name, _local_dc)
+						);
+				for (String r: _remote_dcs)
+					q.append(String.format(", '%s' : 1", r));
+				q.append(" }; ");
+
+				_sess.execute(q.toString());
+
+			// It shouldn't already exist. The keyspace name is supposed to be unique
+			// for each run.
+			//} catch (AlreadyExistsException e) {
+
+				_sess.execute(String.format("CREATE TABLE %s.%s"
+							+ " (obj_id int"
+							+ ", user text, topic text"	// attributes
+							+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
+							+ ");",
+							_ks_name, _table_name));
+			} catch (com.datastax.driver.core.exceptions.DriverException e) {
+				Cons.P("Exception %s. query=[%s]", e, q);
+				throw e;
+			}
+		}
+
+//		try {
+//			StringBuilder sb = new StringBuilder();
+//			sb.append("CREATE KEYSPACE " + _meta_ks_name + " WITH replication = { "
+//					+ "'class' : 'NetworkTopologyStrategy'");
+//			for (int i = 0; i < Conf.NumDCs(); i ++)
+//				sb.append(String.format(", 'DC%d' : 1", i));
+//			sb.append(" }; ");
 //
-//	public static void WaitForSchemaCreation()
-//		throws InterruptedException {
-//		// TODO
-////	//
-////		System.out.printf("Waiting for schema creation ");
-////		long bt = System.currentTimeMillis();
-////
-////		String q = "SELECT * FROM " + _meta_ks_name + "." + _csync_table_name + ";";
-////
-////		while (true) {
-////			try {
-////				ResultSet rs = _sess.execute(q);
-////				break;
-////			} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
-////				if (e.getMessage().equals("Keyspace " + _meta_ks_name + " does not exist"))
-////					;
-////				else if (e.getMessage().equals("unconfigured columnfamily " + _csync_table_name))
-////					;
-////				else {
-////					throw e;
-////				}
-////			}
-////
-////			System.out.printf(".");
-////			System.out.flush();
-////			Thread.sleep(100);
-////		}
-////
-////		long et = System.currentTimeMillis();
-////		System.out.printf(" %d ms\n", et - bt);
-//	}
+//			_sess.execute(sb.toString());
+//		} catch (AlreadyExistsException e) {}
 //
+//
+//		try {
+//			_sess.execute(String.format("CREATE TABLE %s.%s ("
+//						+ "exp_id text, "
+//						+ "tid int, "
+//						+ "hn text, "
+//						+ "time bigint, "
+//						+ "PRIMARY KEY (exp_id, tid) "
+//						+ "); ",
+//						_meta_ks_name, _csync_table_name));
+//		} catch (AlreadyExistsException e) {}
+//
+//		long et = System.currentTimeMillis();
+//		System.out.printf("%d ms\n", et - bt);
+	}
+
+	public static void WaitForSchemaCreation()
+		throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Wating for schema creation ...")) {
+			// TODO: Select data from the last created table with local CL until
+			// there is no exception.
+			String q = String.format("select obj_id from %s.%s", _ks_name, _table_name);
+			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			Cons.Pnnl("Checking:");
+			boolean first = true;
+			while (true) {
+				try {
+					_sess.execute(s);
+					break;
+				} catch (com.datastax.driver.core.exceptions.DriverException e) {
+					Cons.P("Exception %s. query=[%s]", e, q);
+					if (first) {
+						System.out.printf(" ");
+						first = false;
+					}
+					System.out.printf(".");
+					System.out.flush();
+					Thread.sleep(100);
+				}
+			}
+			System.out.printf(" exists\n");
+		}
+
+//		String q = "SELECT * FROM " + _meta_ks_name + "." + _csync_table_name + ";";
+//
+//		while (true) {
+//			try {
+//				ResultSet rs = _sess.execute(q);
+//				break;
+//			} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
+//				if (e.getMessage().equals("Keyspace " + _meta_ks_name + " does not exist"))
+//					;
+//				else if (e.getMessage().equals("unconfigured columnfamily " + _csync_table_name))
+//					;
+//				else {
+//					throw e;
+//				}
+//			}
+//
+//			System.out.printf(".");
+//			System.out.flush();
+//			Thread.sleep(100);
+//		}
+//
+//		long et = System.currentTimeMillis();
+	}
+
 //	static public void Sync(int tid)
 //		throws java.net.UnknownHostException, java.lang.InterruptedException {
 //		long bt = System.currentTimeMillis();
@@ -207,14 +254,14 @@ class Cass {
 //		throws java.net.UnknownHostException, java.lang.InterruptedException {
 //		if (Conf.dc.equals("DC1")) {
 //			String q = String.format(
-//					"INSERT INTO %s.%s (exp_dt, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
+//					"INSERT INTO %s.%s (exp_id, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
 //					_meta_ks_name, _csync_table_name,
 //					Conf.dt_begin, tid, Util.Hostname(), System.currentTimeMillis());
 //			_sess.execute(q);
 //		} else if (Conf.dc.equals("DC0")) {
 //			long bt = System.currentTimeMillis();
 //			String q = String.format(
-//					"SELECT * FROM %s.%s WHERE exp_dt='%s' AND tid=%d;",
+//					"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
 //					_meta_ks_name, _csync_table_name, Conf.dt_begin, tid);
 //			while (true) {
 //				ResultSet rs = _sess.execute(q);
@@ -247,14 +294,14 @@ class Cass {
 //		throws java.net.UnknownHostException, java.lang.InterruptedException {
 //		if (Conf.dc.equals("DC0")) {
 //			String q = String.format(
-//					"INSERT INTO %s.%s (exp_dt, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
+//					"INSERT INTO %s.%s (exp_id, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
 //					_meta_ks_name, _csync_table_name,
 //					Conf.dt_begin, tid, Util.Hostname(), System.currentTimeMillis());
 //			_sess.execute(q);
 //		} else if (Conf.dc.equals("DC1")) {
 //			long bt = System.currentTimeMillis();
 //			String q = String.format(
-//					"SELECT * FROM %s.%s WHERE exp_dt='%s' AND tid=%d;",
+//					"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
 //					_meta_ks_name, _csync_table_name, Conf.dt_begin, tid);
 //			while (true) {
 //				ResultSet rs = _sess.execute(q);
@@ -289,7 +336,7 @@ class Cass {
 //		System.out.flush();
 //		long bt = System.currentTimeMillis();
 //		String q0 = String.format(
-//				"INSERT INTO %s.%s (exp_dt, tid, pr_tdcs) "
+//				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
 //				+ "VALUES ('%s', %d, {'%s', '%s'});",
 //				_ks_name, _table_name, Conf.dt_begin, tid,
 //				Conf.hns[0], Conf.hns[1]);
@@ -308,7 +355,7 @@ class Cass {
 //		System.out.flush();
 //		long bt = System.currentTimeMillis();
 //		String q0 = String.format(
-//				"INSERT INTO %s.%s (exp_dt, tid, pr_tdcs) "
+//				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
 //				+ "VALUES ('%s', %d, {'%s'});",
 //				_ks_name, _table_name, Conf.dt_begin, tid,
 //				Conf.hns[0]);
@@ -320,7 +367,7 @@ class Cass {
 //	static public int SelectLocal(int tid) {
 //		String q0;
 //		q0 = String.format(
-//				"SELECT * FROM %s.%s WHERE exp_dt='%s' AND tid=%d;",
+//				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
 //				_ks_name, _table_name, Conf.dt_begin, tid);
 //		ResultSet rs = _sess.execute(q0);
 //		List<Row> rows = rs.all();
@@ -329,7 +376,7 @@ class Cass {
 //
 //	static public int SelectFetchOnDemand(int tid, String s_dc, boolean sync) {
 //		ResultSet rs = _sess.execute(String.format(
-//				"SELECT * FROM %s.%s WHERE exp_dt='%s' AND tid=%d AND pr_sdc='%s' AND pr_sync=%s;",
+//				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d AND pr_sdc='%s' AND pr_sync=%s;",
 //				_ks_name, _table_name, Conf.dt_begin, tid, s_dc, sync ? "true" : "false"));
 //		List<Row> rows = rs.all();
 //

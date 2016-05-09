@@ -1,21 +1,13 @@
+import java.net.UnknownHostException;
 import com.datastax.driver.core.*;
 
 public class FetchOnDemand {
-//	private static void CreateSchema()
-//		throws java.lang.InterruptedException, java.net.UnknownHostException {
-//		if (Conf.dc.equals("DC0")) {
-//			Cass.CreateSchema();
-//		} else if (Conf.dc.equals("DC1")) {
-//			Cass.WaitForSchemaCreation();
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//	}
-//
+
 //	// test id
 //	private static int _tid = 0;
 //
 //	private static void TestReadAfterWrite()
-//		throws java.lang.InterruptedException, java.net.UnknownHostException {
+//		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.Sync(_tid);
 //		System.out.printf("TestReadAfterWrite ");
 //		System.out.flush();
@@ -77,7 +69,7 @@ public class FetchOnDemand {
 //	}
 //
 //	private static void TestRegularInsertSelect()
-//		throws java.lang.InterruptedException, java.net.UnknownHostException {
+//		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.Sync(_tid);
 //		System.out.printf("TestRegularInsertSelect\n");
 //		if (Conf.dc.equals("DC0")) {
@@ -109,7 +101,7 @@ public class FetchOnDemand {
 //	}
 //
 //	private static void TestAsyncFetchOnDemand()
-//		throws java.lang.InterruptedException, java.net.UnknownHostException {
+//		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.Sync(_tid);
 //		System.out.printf("TestAsyncFetchOnDemand\n");
 //		if (Conf.dc.equals("DC0")) {
@@ -146,7 +138,7 @@ public class FetchOnDemand {
 //	}
 //
 //	private static void TestSyncFetchOnDemand()
-//		throws java.lang.InterruptedException, java.net.UnknownHostException {
+//		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.Sync(_tid);
 //		System.out.printf("TestSyncFetchOnDemand\n");
 //		if (Conf.dc.equals("DC0")) {
@@ -170,12 +162,9 @@ public class FetchOnDemand {
 		try {
 			Conf.ParseArgs(args);
 
-			// TODO: get current DC from Cass, not from Conf.
 			Cass.Init();
 
-			//
-			// TODO: run only on us-east-1
-			//CreateSchema();
+			CreateSchema();
 
 			// TODO: wait till All DCs see the schema. check every 0.1 sec.
 
@@ -193,5 +182,12 @@ public class FetchOnDemand {
 			e.printStackTrace();
 			System.exit(1);
 		}
+	}
+
+	private static void CreateSchema() throws InterruptedException, UnknownHostException {
+		if (Cass.LocalDC().equals("us-east"))
+			Cass.CreateSchema();
+
+		Cass.WaitForSchemaCreation();
 	}
 }
