@@ -190,7 +190,7 @@ class Cass {
 	public static void WaitForSchemaCreation()
 		throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Wating for schema creation ...")) {
-			// TODO: Select data from the last created table with local CL until
+			// Select data from the last created table with a CL local_ONE until
 			// there is no exception.
 			String q = String.format("select obj_id from %s.%s", _ks_name, _table_name);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
@@ -200,15 +200,23 @@ class Cass {
 				try {
 					_sess.execute(s);
 					break;
+				} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
+					if (e.toString().contains("unconfigured table")) {
+						// The schema is not propagated yet. Wait a bit and retry.
+						if (first) {
+							System.out.printf(" ");
+							first = false;
+						}
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(100);
+					} else {
+						Cons.P("Exception %s. query=[%s]", e, q);
+						throw e;
+					}
 				} catch (com.datastax.driver.core.exceptions.DriverException e) {
 					Cons.P("Exception %s. query=[%s]", e, q);
-					if (first) {
-						System.out.printf(" ");
-						first = false;
-					}
-					System.out.printf(".");
-					System.out.flush();
-					Thread.sleep(100);
+					throw e;
 				}
 			}
 			System.out.printf(" exists\n");
