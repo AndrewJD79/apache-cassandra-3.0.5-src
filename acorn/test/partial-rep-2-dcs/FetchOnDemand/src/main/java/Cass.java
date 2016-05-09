@@ -20,6 +20,9 @@ class Cass {
 	private static Cluster _cluster;
 	private static Session _sess;
 
+	private static String _local_dc = null;
+	private static List<String> _remote_dcs = null;
+
 	public static void Init() {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
 			// The default LoadBalancingPolicy is DCAwareRoundRobinPolicy, which
@@ -59,20 +62,39 @@ class Cass {
 	}
 
 	private static void _WaitUntilYouSee2DCs() throws InterruptedException {
-		ResultSet rs = _sess.execute("select data_center from system.local;");
-		if (rs.all().size() != 1)
-			throw new RuntimeException(String.format("Unexpcted: %d", rs.all().size()));
+		try (Cons.MT _ = new Cons.MT("Wait until you see 2 DCs ...")) {
+			ResultSet rs = _sess.execute("select data_center from system.local;");
+			// Note that calling rs.all() for the second time returns an empty List<>.
+			List<Row> rs_all = rs.all();
+			if (rs_all.size() != 1)
+				throw new RuntimeException(String.format("Unexpcted: %d", rs.all().size()));
 
-		// TODO: ???
-		Cons.P(rs.all().get(0).getString("data_center"));
+			_local_dc = rs_all.get(0).getString("data_center");
+			Cons.P("Local DC: %s", _local_dc);
 
-			// TODO
-		//"select data_center from peers;"
+			Cons.Pnnl("Remote DCs:");
+			boolean first = true;
+			while (true) {
+				rs = _sess.execute("select data_center from system.peers;");
+				rs_all = rs.all();
+				if (rs_all.size() == 1)
+					break;
 
-		while (true) {
-			Metadata metadata = _cluster.getMetadata();
-			Cons.P(metadata.getAllHosts());
-			Thread.sleep(100);
+				if (first) {
+					System.out.print(" ");
+					first = false;
+				}
+				System.out.print(".");
+				System.out.flush();
+				Thread.sleep(100);
+			}
+
+			_remote_dcs = new ArrayList<String>();
+			for (Row r: rs_all)
+				_remote_dcs.add(r.getString("data_center"));
+			for (String r: _remote_dcs)
+				System.out.printf(" %s", r);
+			System.out.printf("\n");
 		}
 	}
 
