@@ -42,23 +42,33 @@ def RsyncSrcToUsWest1():
 
 
 def main(argv):
+	# Experiment ID: Current datetime in UTC
+	# It is a part of the keyspace name.
+	exp_id = None
+
+	if len(argv) == 1:
+		exp_id = datetime.datetime.utcnow().strftime("%y%m%d-%H%M%S")
+	elif len(argv) == 2:
+		exp_id = argv[1]
+	else:
+		print "Usage: %s" % argv[0]
+		sys.exit(1)
+
 	AcornUtil.GenHostfiles()
 
 	RsyncSrcToUsWest1()
 
-	# Current datetime in UTC
-	cur_datetime = datetime.datetime.utcnow().strftime("%y%m%d-%H%M%S")
-	Cons.P("Exp id: %s" % cur_datetime)
+	Cons.P("Exp id: %s" % exp_id)
 
 	dn_this = os.path.dirname(os.path.realpath(__file__))
 	fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
 
 	# Build src and run.
-	#   cur_datetime is for identifying each run. The nodes do not rely on the
+	#   exp_id is for identifying each run. The nodes do not rely on the
 	#   value for synchronizing. They use Cassandra itself for synchronization.
 	with Cons.MeasureTime("Running ..."):
-		dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, cur_datetime)
-		dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, cur_datetime)
+		dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, exp_id)
+		dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, exp_id)
 		Util.RunSubp("mkdir -p %s" % dn_pssh_out)
 		Util.RunSubp("mkdir -p %s" % dn_pssh_err)
 		cmd = "parallel-ssh -h %s" \
@@ -68,7 +78,7 @@ def main(argv):
 				" -o %s" \
 				" -e %s" \
 				" %s/build-src-run-local.py %s 2>&1" \
-				% (fn_pssh_hn, dn_pssh_out, dn_pssh_err, dn_this, cur_datetime)
+				% (fn_pssh_hn, dn_pssh_out, dn_pssh_err, dn_this, exp_id)
 		_RunSubp(cmd)
 
 	# Check output with more
