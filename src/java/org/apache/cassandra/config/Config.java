@@ -315,6 +315,8 @@ public class Config
      */
     public UserFunctionTimeoutPolicy user_function_timeout_policy = UserFunctionTimeoutPolicy.die;
 
+    public AcornOptions acorn_options = new AcornOptions();
+
     public static boolean getOutboundBindAny()
     {
         return outboundBindAny;
