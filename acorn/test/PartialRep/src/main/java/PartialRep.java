@@ -197,7 +197,7 @@ public class PartialRep {
 	private static void CreateSchema() throws InterruptedException, UnknownHostException {
 		if (Cass.LocalDC().equals("us-east")) {
 			if (Cass.SchemaExist()) {
-				Cons.P("Reusing exp id %s", Conf.ExpID());
+				Cons.P("Schema already exists.");
 			} else {
 				Cass.CreateSchema();
 			}
@@ -230,7 +230,7 @@ public class PartialRep {
 			if (Cass.LocalDC().equals("us-east")) {
 				List<Row> rows = Cass.SelectRecordLocal(obj_id);
 				if (rows.size() != 1)
-					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
 				// Poll for 5 secs making sure the record is not propagated.
 				Cons.Pnnl("Checking: ");
@@ -242,7 +242,7 @@ public class PartialRep {
 						System.out.flush();
 						Thread.sleep(100);
 					} else {
-						throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 					}
 					if (System.currentTimeMillis() - bt > 5000) {
 						System.out.printf("\n");

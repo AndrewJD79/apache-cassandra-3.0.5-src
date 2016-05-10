@@ -62,7 +62,7 @@ class Cass {
 			_WaitUntilYouSee2DCs();
 
 			// Cassandra doesn't like "-".
-			_ks_name = "partial_rep_test_" + Conf.ExpID().replace("-", "_");
+			_ks_name = "partial_rep_test";
 
 			_ks_name_attr_pop = _ks_name + "_attr_pop";
 			_ks_name_obj_loc  = _ks_name + "_obj_loc";
@@ -154,9 +154,9 @@ class Cass {
 
 	public static void CreateSchema() {
 		// You want to make sure that each test is starting from a clean sheet.
-		// - Use experiment ID!
-		// - A centralized event monitor would serve too. SQS is not an option though.
-		//   Messages don't seem to cross region boundaries.
+		// - But it takes too much time like 20 secs. Reuse the schema and make
+		//   object IDs unique across runs, using the datetime of the run.
+		// - Drop the keyspaces when the schema changes. (It is re-created.)
 
 		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
 		try (Cons.MT _ = new Cons.MT("Creating schema ...")) {
