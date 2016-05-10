@@ -6,7 +6,7 @@ import java.util.TreeSet;
 import com.datastax.driver.core.*;
 
 
-public class FetchOnDemand {
+public class PartialRep {
 
 //	private static void TestReadAfterWrite()
 //		throws java.lang.InterruptedException, UnknownHostException {
@@ -122,7 +122,7 @@ public class FetchOnDemand {
 //			_SelectAsyncFetchOnDemand(_tid, 0);
 //			_SelectLocalUntil(_tid, 1);
 //			long et = System.currentTimeMillis();
-//			System.out.printf("    got new data in %d ms from FetchOnDemand\n", et - bt);
+//			System.out.printf("    got new data in %d ms from PartialRep\n", et - bt);
 //		} else
 //			throw new RuntimeException("unknown dc: " + Conf.dc);
 //		_tid ++;

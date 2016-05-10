@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# TODO: may want to change the name of the test suite
-
 import datetime
 import os
 import pprint
@@ -35,9 +33,9 @@ def RsyncSrcToUsWest1():
 		#Cons.P(ip)
 		# Make sure you sync only source files. Syncing build result confuses the
 		# build system.
-		cmd = "cd ~/work/acorn/acorn/test/partial-rep-2-dcs/FetchOnDemand" \
+		cmd = "cd ~/work/acorn/acorn/test/PartialRep" \
 				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml src" \
-				" %s:work/acorn/acorn/test/partial-rep-2-dcs/FetchOnDemand/" % ip
+				" %s:work/acorn/acorn/test/PartialRep/" % ip
 		Util.RunSubp(cmd, shell = True)
 
 

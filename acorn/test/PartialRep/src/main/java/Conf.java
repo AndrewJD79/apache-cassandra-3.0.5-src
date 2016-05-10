@@ -13,7 +13,7 @@ class Conf {
 	}};
 
 	private static void _PrintHelp() throws java.io.IOException {
-		System.out.println("Usage: FetchOnDemand [<option>]* dt_begin");
+		System.out.println("Usage: PartialRep [<option>]* dt_begin");
 		System.out.println("  dt_begin: begin date time, which identifies the run. Try `date +\"%y%m%d-%H%M%S\"`.\n");
 		_opt_parser.printHelpOn(System.out);
 	}
