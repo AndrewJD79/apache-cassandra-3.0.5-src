@@ -77,11 +77,17 @@ def main(argv):
 				" -e %s" \
 				" %s/build-src-run-local.py %s 2>&1" \
 				% (fn_pssh_hn, dn_pssh_out, dn_pssh_err, dn_this, exp_id)
-		_RunSubp(cmd)
+		[rc, stdouterr] = _RunSubp(cmd)
 
-	# Check output with more
-	Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
-	Util.RunSubp("more %s/*" % dn_pssh_err, shell = True)
+		# Check output with more
+		Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
+		Util.RunSubp("more %s/*" % dn_pssh_err, shell = True)
+
+		if rc == 0:
+			Cons.P("Success")
+		else:
+			Cons.P("Failure. rc=%d" % rc)
+		Cons.P(Util.Indent(stdouterr, 2))
 
 
 def _RunSubp(cmd):
@@ -91,10 +97,7 @@ def _RunSubp(cmd):
 	# communidate() waits for termination
 	stdouterr = p.communicate()[0]
 	rc = p.returncode
-	if rc != 0:
-		Cons.P("Error: cmd=[%s] rc=%d" % (cmd, rc))
-	if len(stdouterr) > 0:
-		Cons.P(stdouterr)
+	return [rc, stdouterr]
 
 
 if __name__ == "__main__":
