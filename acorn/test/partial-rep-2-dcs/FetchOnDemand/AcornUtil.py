@@ -1,4 +1,5 @@
 import os
+import pprint
 import sys
 
 sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
@@ -14,23 +15,27 @@ def GenHostfiles():
 	fn_pssh_hn = "%s/pssh-hostnames" % dn
 	fn_dc_ip_map = "%s/dc-ip-map" % dn
 
-	# Generate if any of the files doesn't exist
+	# Generate all files if any of them doesn't exist
 	if os.path.isfile(fn_pssh_hn) and os.path.isfile(fn_dc_ip_map):
 		return
 
 	with Cons.MeasureTime("Generating host files ..."):
 		sys.stdout.write("  ")
-		inst_descriptinos = DescInst.GetInstDescs("acorn-server")
+		inst_descriptions = DescInst.GetInstDescs("acorn-server")
+		#Cons.P(pprint.pformat(inst_descriptions, indent=2, width=100))
+
+		# Take only running instances. There can be other instances like "terminated".
+		inst_descriptions = [a for a in inst_descriptions if a["State"]["Name"] == "running"]
 
 		Util.RunSubp("mkdir -p %s" % dn)
 
 		with open(fn_pssh_hn, "w") as fo:
-			for inst_desc in inst_descriptinos:
+			for inst_desc in inst_descriptions:
 				fo.write("%s\n" % inst_desc["PublicIpAddress"])
 		Cons.P("Created %s %d" % (fn_pssh_hn, os.path.getsize(fn_pssh_hn)))
 
 		with open(fn_dc_ip_map, "w") as fo:
-			for inst_desc in inst_descriptinos:
+			for inst_desc in inst_descriptions:
 				az = inst_desc["Placement"]["AvailabilityZone"]
 				dc = az[:-1]
 				ip = inst_desc["PublicIpAddress"]
