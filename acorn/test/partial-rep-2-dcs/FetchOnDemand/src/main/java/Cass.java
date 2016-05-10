@@ -219,7 +219,7 @@ class Cass {
 
 	public static void WaitForSchemaCreation()
 		throws InterruptedException {
-		try (Cons.MT _ = new Cons.MT("Wating for schema creation ...")) {
+		try (Cons.MT _ = new Cons.MT("Waiting for the schema creation ...")) {
 			// Select data from the last created table with a CL local_ONE until
 			// there is no exception.
 			String q = String.format("select obj_id from %s.obj_loc", _ks_name_obj_loc);
@@ -231,21 +231,30 @@ class Cass {
 					_sess.execute(s);
 					break;
 				} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
-					if (e.toString().contains("unconfigured table")) {
-						// The schema is not propagated yet. Wait a bit and retry.
-						if (first) {
-							System.out.printf(" ");
-							first = false;
-						}
-						System.out.printf(".");
-						System.out.flush();
-						Thread.sleep(100);
-					} else {
-						Cons.P("Exception %s. query=[%s]", e, q);
+					char error_code = '-';
+					// Keyspace partial_rep_test_160510_011454_obj_loc does not exist.
+					if (e.toString().matches("(.*)Keyspace (.*) does not exist")) {
+						error_code = 'k';
+					}
+					// unconfigured table
+					else if (e.toString().contains("unconfigured table")) {
+						error_code = 'u';
+					}
+
+					if (error_code == '-') {
+						Cons.P("Exception=[%s] query=[%s]", e, q);
 						throw e;
 					}
+
+					if (first) {
+						System.out.printf(" ");
+						first = false;
+					}
+					System.out.printf("%c", error_code);
+					System.out.flush();
+					Thread.sleep(100);
 				} catch (com.datastax.driver.core.exceptions.DriverException e) {
-					Cons.P("Exception %s. query=[%s]", e, q);
+					Cons.P("Exception=[%s] query=[%s]", e, q);
 					throw e;
 				}
 			}
