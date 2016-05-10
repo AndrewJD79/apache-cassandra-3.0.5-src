@@ -46,9 +46,9 @@ def main(argv):
 
 	RsyncSrcToUsWest1()
 
-	# Need to consider timezone too
+	# Current datetime in UTC
 	cur_datetime = datetime.datetime.utcnow().strftime("%y%m%d-%H%M%S")
-	Cons.P(cur_datetime)
+	Cons.P("Exp id: %s" % cur_datetime)
 
 	dn_this = os.path.dirname(os.path.realpath(__file__))
 	fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
@@ -58,18 +58,22 @@ def main(argv):
 	#   value for synchronizing. They use Cassandra itself for synchronization.
 	with Cons.MeasureTime("Running ..."):
 		dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, cur_datetime)
+		dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, cur_datetime)
 		Util.RunSubp("mkdir -p %s" % dn_pssh_out)
+		Util.RunSubp("mkdir -p %s" % dn_pssh_err)
 		cmd = "parallel-ssh -h %s" \
 				" --option=\"StrictHostKeyChecking no\"" \
 				" --option=\"UserKnownHostsFile /dev/null\"" \
 				" -t 0" \
 				" -o %s" \
+				" -e %s" \
 				" %s/build-src-run-local.py %s 2>&1" \
-				% (fn_pssh_hn, dn_pssh_out, dn_this, cur_datetime)
+				% (fn_pssh_hn, dn_pssh_out, dn_pssh_err, dn_this, cur_datetime)
 		_RunSubp(cmd)
 
 	# Check output with more
 	Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
+	Util.RunSubp("more %s/*" % dn_pssh_err, shell = True)
 
 
 def _RunSubp(cmd):
