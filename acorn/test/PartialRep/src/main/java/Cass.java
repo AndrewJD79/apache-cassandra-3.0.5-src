@@ -183,7 +183,7 @@ class Cass {
 
 					q = String.format("CREATE TABLE %s.%s"
 							+ " (obj_id text"
-							+ ", user text, topic set<text>"	// attributes
+							+ ", user text, topics set<text>"	// attributes
 							+ ", PRIMARY KEY (obj_id)"				// Primary key is mandatory
 							+ ");",
 							_ks_name, _table_name);
@@ -297,7 +297,7 @@ class Cass {
 		}
 
 		String q = String.format(
-				"INSERT INTO %s.%s (obj_id, user, topic) VALUES ('%s', '%s', {%s});"
+				"INSERT INTO %s.%s (obj_id, user, topics) VALUES ('%s', '%s', {%s});"
 				, _ks_name, _table_name,
 				obj_id, user, qs_topics);
 		_sess.execute(q);
