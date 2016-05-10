@@ -303,6 +303,52 @@ class Cass {
 		_sess.execute(q);
 	}
 
+	static public void SelectRecordLocalUntilSucceed(String obj_id) throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Select record %s ", obj_id)) {
+			// Select data from the last created table with a CL local_ONE until
+			// succeed.
+			String q = String.format("select obj_id from %s.%s where obj_id='%s'"
+					, _ks_name, _table_name, obj_id);
+			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			Cons.Pnnl("Checking: ");
+			while (true) {
+				try {
+					ResultSet rs = _sess.execute(s);
+					List<Row> rows = rs.all();
+					if (rows.size() == 0) {
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(10);
+					} else if (rows.size() == 1) {
+						System.out.printf(" found one\n");
+						break;
+					} else {
+						throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+					}
+				} catch (com.datastax.driver.core.exceptions.DriverException e) {
+					Cons.P("Exception=[%s] query=[%s]", e, q);
+					throw e;
+				}
+			}
+		}
+	}
+
+	static public List<Row> SelectRecordLocal(String obj_id) {
+		String q = String.format("select obj_id from %s.%s where obj_id='%s'"
+				, _ks_name, _table_name, obj_id);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			ResultSet rs = _sess.execute(s);
+			List<Row> rows = rs.all();
+			return rows;
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
+
+
+
 //	static public void Sync(int tid)
 //		throws java.net.UnknownHostException, java.lang.InterruptedException {
 //		long bt = System.currentTimeMillis();

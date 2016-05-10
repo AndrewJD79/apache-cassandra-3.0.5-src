@@ -1,5 +1,6 @@
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.TreeSet;
 
 import com.datastax.driver.core.*;
@@ -7,9 +8,6 @@ import com.datastax.driver.core.*;
 
 public class FetchOnDemand {
 
-//	// Unit test id
-//	private static int _tid = 0;
-//
 //	private static void TestReadAfterWrite()
 //		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.Sync(_tid);
@@ -208,31 +206,62 @@ public class FetchOnDemand {
 		Cass.WaitForSchemaCreation();
 	}
 
-	private static void TestPartialRep() {
+	private static int _test_id = 0;
+
+	private static void TestPartialRep() throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
 			// Insert a record
+			//
+			// Object id is constructed from the experiment id and _test_id.  You
+			// cannot just use current date time, since the two machines on the east
+			// and west won't have the same value.
+			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+
 			if (Cass.LocalDC().equals("us-east")) {
-				Cass.InsertRecord(Util.CurDateTime(), "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
-				Cass.InsertRecord(Util.CurDateTime(), "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
+				Cons.P("Insert a record, %s", obj_id);
+				Cass.InsertRecord(obj_id, "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
 			}
 
-			// TODO: Sync
-			// Will need a table for synchronization.
+			// Not sure if you need something like Cass.Sync() here, now when the
+			// obj_id is unique consisting of current date time in milliseconds.
+			// Probably not.
 
-
+			// Check the topic is not replicated to west.
 			if (Cass.LocalDC().equals("us-east")) {
+				List<Row> rows = Cass.SelectRecordLocal(obj_id);
+				if (rows.size() != 1)
+					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
-				// Select. expect no result.
+				// Poll for 5 secs making sure the record is not propagated.
+				Cons.Pnnl("Checking: ");
+				long bt = System.currentTimeMillis();
+				while (true) {
+					List<Row> rows = Cass.SelectRecordLocal(obj_id);
+					if (rows.size() == 0) {
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(100);
+					} else {
+						throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+					}
+					if (System.currentTimeMillis() - bt > 5000) {
+						System.out.printf("\n");
+						break;
+					}
+				}
 			}
 
-			// Check the topic is not replicated to west
+			// Make the topic "prank" popular in the west
+			//
+			// Insert from the east
+			//
+			// Check the record can be selected from both east and west
 
-			if (Cass.LocalDC().equals("us-west")) {
-				// Make the topic popular
-			}
 
-			// Do it again and check the topic is replicated to west
 
+
+			// Make sure the record is propagated to all datacenters.
+			//Cass.SelectRecordLocalUntilSucceed(obj_id);
 		}
 
 //		Cass.Sync(_tid);
