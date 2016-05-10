@@ -3,7 +3,7 @@ import com.datastax.driver.core.*;
 
 public class FetchOnDemand {
 
-//	// test id
+//	// Unit test id
 //	private static int _tid = 0;
 //
 //	private static void TestReadAfterWrite()
@@ -166,9 +166,17 @@ public class FetchOnDemand {
 
 			CreateSchema();
 
-			// TODO: wait till All DCs see the schema. check every 0.1 sec.
+			// Note: do you need to wait until everyone's ready? some nodes can be
+			// slower than others due to build or anything. I'm not sure yet.
 
-			// TODO
+			// TODO: implement partial replication when the keyspace starts with
+			// "partial_rep_" and not ends with ("_attr_pop" or "_obj_loc").
+
+			// TODO: implement
+			TestPartialRep();
+			TestFetchOnDemand();
+
+			// TODO: clean up
 			//TestSyncFetchOnDemand();
 			//TestAsyncFetchOnDemand();
 			//TestRegularInsertSelect();
@@ -189,5 +197,45 @@ public class FetchOnDemand {
 			Cass.CreateSchema();
 
 		Cass.WaitForSchemaCreation();
+	}
+
+	private static void TestPartialRep() {
+		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
+			if (Cass.LocalDC().equals("us-east")) {
+				// Insert a topic
+			} else if (Cass.LocalDC().equals("us-west")) {
+				// Select. expect no result.
+			}
+
+			// Check the topic is not replicated to west
+
+			if (Cass.LocalDC().equals("us-west")) {
+				// Make the topic popular
+			}
+
+			// Do it again and check the topic is replicated to west
+
+		}
+
+//		Cass.Sync(_tid);
+//		System.out.printf("TestSyncFetchOnDemand\n");
+//		if (Conf.dc.equals("DC0")) {
+//			Cass.InsertToDC0(_tid);
+//			_SelectLocalUntil(_tid, 1);
+//		} else if (Conf.dc.equals("DC1")) {
+//			_SelectLocal(_tid, 0);
+//
+//			// wait 1 sec to see if DC0 propagate the insert by mistake
+//			Thread.sleep(1000);
+//			_SelectLocal(_tid, 0);
+//
+//			_SelectSyncFetchOnDemand(_tid, 1);
+//			_SelectLocal(_tid, 1);
+//		} else
+//			throw new RuntimeException("unknown dc: " + Conf.dc);
+//		_tid ++;
+	}
+
+	private static void TestFetchOnDemand() {
 	}
 }
