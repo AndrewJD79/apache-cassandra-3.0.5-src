@@ -1,5 +1,9 @@
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.TreeSet;
+
 import com.datastax.driver.core.*;
+
 
 public class FetchOnDemand {
 
@@ -193,16 +197,30 @@ public class FetchOnDemand {
 	}
 
 	private static void CreateSchema() throws InterruptedException, UnknownHostException {
-		if (Cass.LocalDC().equals("us-east"))
-			Cass.CreateSchema();
+		if (Cass.LocalDC().equals("us-east")) {
+			if (Cass.SchemaExist()) {
+				Cons.P("Reusing exp id %s", Conf.ExpID());
+			} else {
+				Cass.CreateSchema();
+			}
+		}
 
 		Cass.WaitForSchemaCreation();
 	}
 
 	private static void TestPartialRep() {
 		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
+			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
-				// Insert a topic
+				Cass.InsertRecord(Util.CurDateTime(), "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
+				Cass.InsertRecord(Util.CurDateTime(), "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
+			}
+
+			// TODO: Sync
+			// Will need a table for synchronization.
+
+
+			if (Cass.LocalDC().equals("us-east")) {
 			} else if (Cass.LocalDC().equals("us-west")) {
 				// Select. expect no result.
 			}

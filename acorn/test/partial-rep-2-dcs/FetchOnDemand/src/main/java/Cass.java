@@ -5,10 +5,13 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.*;
 import com.datastax.driver.core.policies.*;
+
+import com.google.common.base.Joiner;
 
 
 class Cass {
@@ -126,6 +129,29 @@ class Cass {
 		return _local_dc;
 	}
 
+	public static boolean SchemaExist() {
+		// Check if the created table, that is created last, exists
+		String q = String.format("select obj_id from %s.obj_loc limit 1", _ks_name_obj_loc);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			_sess.execute(s);
+			return true;
+		} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
+			if (e.toString().matches("(.*)Keyspace (.*) does not exist")) {
+				return false;
+			}
+			else if (e.toString().contains("unconfigured table")) {
+				return false;
+			}
+
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
+
 	public static void CreateSchema() {
 		// You want to make sure that each test is starting from a clean sheet.
 		// - Use experiment ID!
@@ -156,9 +182,9 @@ class Cass {
 					// unique for each run. No need to catch AlreadyExistsException.
 
 					q = String.format("CREATE TABLE %s.%s"
-							+ " (obj_id int"
-							+ ", user text, topic text"	// attributes
-							+ ", PRIMARY KEY (obj_id)"	// Primary key is mandatory
+							+ " (obj_id text"
+							+ ", user text, topic set<text>"	// attributes
+							+ ", PRIMARY KEY (obj_id)"				// Primary key is mandatory
 							+ ");",
 							_ks_name, _table_name);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
@@ -260,6 +286,21 @@ class Cass {
 			}
 			System.out.printf(" exists\n");
 		}
+	}
+
+	static public void InsertRecord(String obj_id, String user, Set<String> topics) {
+		StringBuilder qs_topics = new StringBuilder();
+		for (String t: topics) {
+			if (qs_topics.length() > 0)
+				qs_topics.append(", ");
+			qs_topics.append(String.format("'%s'", t));
+		}
+
+		String q = String.format(
+				"INSERT INTO %s.%s (obj_id, user, topic) VALUES ('%s', '%s', {%s});"
+				, _ks_name, _table_name,
+				obj_id, user, qs_topics);
+		_sess.execute(q);
 	}
 
 //	static public void Sync(int tid)
