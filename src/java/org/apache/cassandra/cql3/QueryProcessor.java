@@ -37,6 +37,7 @@ import com.googlecode.concurrentlinkedhashmap.EntryWeigher;
 import com.googlecode.concurrentlinkedhashmap.EvictionListener;
 import org.antlr.runtime.*;
 import org.apache.cassandra.concurrent.ScheduledExecutors;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.Schema;
 import org.apache.cassandra.cql3.functions.Function;
 import org.apache.cassandra.cql3.functions.FunctionName;
@@ -494,8 +495,64 @@ public class QueryProcessor implements QueryHandler
     public static ParsedStatement.Prepared getStatement(String queryStr, ClientState clientState)
     throws RequestValidationException
     {
+        /*
+        // Not sure if the mutations have a mix of acorn and the other keyspaces.
+        int cnt_acorn = 0;
+        int cnt_others = 0;
+        for (IMutation m: mutations) {
+            // We don't consider CounterMutation for now.
+            if (m.getClass().equals(Mutation.class)) {
+                Mutation m0 = (Mutation) m;
+                String ks = m0.getKeyspaceName();
+                final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
+                if (ks.startsWith(acorn_ks_prefix)
+                        && (! ks.endsWith("_attr_pop"))
+                        && (! ks.endsWith("_obj_loc"))
+                        && (! ks.endsWith("_sync"))) {
+                    cnt_acorn ++;
+                } else {
+                    cnt_others ++;
+                }
+            } else {
+                cnt_others ++;
+            }
+        }
+
+        // Is the mutation on acorn keyspace?
+        boolean acorn = false;
+        if (cnt_acorn > 0) {
+            if (cnt_others > 0) {
+                throw new RuntimeException(String.format("Unexpected: cnt_acorn=%d cnt_others=%d", cnt_acorn, cnt_others));
+            } else {
+                acorn = true;
+            }
+        }
+        */
+
         Tracing.trace("Parsing {}", queryStr);
         ParsedStatement statement = parseStatement(queryStr);
+
+        boolean acorn = false;
+        if (statement.getClass().equals(SelectStatement.RawStatement.class)) {
+            final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
+            SelectStatement.RawStatement s = (SelectStatement.RawStatement) statement;
+            if (s.keyspace().startsWith(acorn_ks_prefix)
+                    // TODO:
+                    // && (! s.keyspace().endsWith("_attr_pop"))
+                    && (! s.keyspace().endsWith("_obj_loc"))
+                    && (! s.keyspace().endsWith("_sync"))) {
+                acorn = true;
+                logger.warn("Acorn: statement={} s.keyspace()={} s.columnFamily()={}"
+                        , statement, s.keyspace(), s.columnFamily());
+            }
+        }
+
+        if (acorn) {
+            logger.warn(String.format("Acorn: queryStr=[%s]", queryStr));
+            // TODO: figure out where is the most natural place to issue a query.
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+                logger.warn("Acorn: {}", ste);
+        }
 
         // Set keyspace for statement that require login
         if (statement instanceof CFStatement)
