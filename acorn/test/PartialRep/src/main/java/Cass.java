@@ -62,7 +62,7 @@ class Cass {
 			_WaitUntilYouSee2DCs();
 
 			// Cassandra doesn't like "-".
-			_ks_name = "partial_rep_test";
+			_ks_name = "acorn_test";
 
 			_ks_name_attr_pop = _ks_name + "_attr_pop";
 			_ks_name_obj_loc  = _ks_name + "_obj_loc";
@@ -258,7 +258,7 @@ class Cass {
 					break;
 				} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
 					char error_code = '-';
-					// Keyspace partial_rep_test_160510_011454_obj_loc does not exist.
+					// Keyspace acorn_test_160510_011454_obj_loc does not exist.
 					if (e.toString().matches("(.*)Keyspace (.*) does not exist")) {
 						error_code = 'k';
 					}
