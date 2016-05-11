@@ -210,6 +210,10 @@ public class PartialRep {
 
 	private static void TestPartialRep() throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
+			if ((! Cass.LocalDC().equals("us-east"))
+					&& (! Cass.LocalDC().equals("us-west")))
+				throw new RuntimeException(String.format("Unexpected: local_dc=%s", Cass.LocalDC()));
+
 			// Insert a record
 			//
 			// Object id is constructed from the experiment id and _test_id.  You
@@ -218,14 +222,15 @@ public class PartialRep {
 			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
 			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
 			String topic_uga = String.format("uga-%s", Conf.ExpID());
-
 			// Sync (like execution barrier). Wait till everyone gets here.
 			Cass.Sync();
+
 			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
 				Cons.P("Insert a record, %s", obj_id);
 				Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 			}
+			Cass.Sync();
 
 			// Check the topic is not replicated to west.
 			if (Cass.LocalDC().equals("us-east")) {
@@ -233,8 +238,8 @@ public class PartialRep {
 				if (rows.size() != 1)
 					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
-				// Poll for 3 secs making sure the record is not propagated.
-				Cons.Pnnl("Checking: ");
+				// Poll for 2 secs making sure the record is not propagated.
+				Cons.Pnnl("Checking to see no record is replicated here: ");
 				long bt = System.currentTimeMillis();
 				while (true) {
 					List<Row> rows = Cass.SelectRecordLocal(obj_id);
@@ -245,24 +250,61 @@ public class PartialRep {
 					} else {
 						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 					}
-					if (System.currentTimeMillis() - bt > 3000) {
+					if (System.currentTimeMillis() - bt > 2000) {
 						System.out.printf(" no record found\n");
 						break;
 					}
 				}
 			}
-
 			Cass.Sync();
+
 			// Make the topic tennis popular in the west
 			if (Cass.LocalDC().equals("us-east")) {
+				// This is redundant when you have a Sync() below.
 				Cass.KeepCheckingUntilAnyOfTopicsBecomesPopular("us-west", new TreeSet<String>(Arrays.asList(topic_tennis)));
 			} else if (Cass.LocalDC().equals("us-west")) {
 				Cass.MakeATopicsPopularWithClAll(new TreeSet<String>(Arrays.asList(topic_tennis)));
 			}
-
 			Cass.Sync();
 
-			// TODO: Insert from the east
+			// Insert another record from the east. Expect it immediately visible in
+			// the east and eventually visible in the west.
+			obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			if (Cass.LocalDC().equals("us-east"))
+				Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+			Cass.Sync();
+
+			if (Cass.LocalDC().equals("us-east")) {
+				List<Row> rows = Cass.SelectRecordLocal(obj_id);
+				if (rows.size() != 1)
+					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+			} else {
+				Cons.Pnnl("Checking to see a record replicated here:");
+				long bt = System.currentTimeMillis();
+				boolean first = true;
+				while (true) {
+					List<Row> rows = Cass.SelectRecordLocal(obj_id);
+					if (rows.size() == 0) {
+						if (first) {
+							System.out.printf(" ");
+							first = false;
+						}
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(100);
+					} else if (rows.size() == 1) {
+						System.out.printf(" got it!");
+						break;
+					} else
+						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+
+					if (System.currentTimeMillis() - bt > 2000) {
+						System.out.printf("\n");
+						throw new RuntimeException("Time out :(");
+					}
+				}
+			}
+
 			//
 			// TODO: Check the record can be selected from both east and west
 
