@@ -597,7 +597,8 @@ public class StorageProxy implements StorageProxyMBean
                 final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
                 if (ks.startsWith(acorn_ks_prefix)
                         && (! ks.endsWith("_attr_pop"))
-                        && (! ks.endsWith("_obj_loc"))) {
+                        && (! ks.endsWith("_obj_loc"))
+                        && (! ks.endsWith("_sync"))) {
                     cnt_acorn ++;
                 } else {
                     cnt_others ++;
