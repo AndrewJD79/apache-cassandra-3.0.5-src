@@ -63,9 +63,7 @@ class Cass {
 
 			_WaitUntilYouSee2DCs();
 
-			// Cassandra doesn't like "-".
 			_ks_name = "acorn_test";
-
 			_ks_name_attr_pop = _ks_name + "_attr_pop";
 			_ks_name_obj_loc  = _ks_name + "_obj_loc";
 			_ks_name_sync = _ks_name + "_sync";
@@ -199,7 +197,7 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 
-					// These are periodically updated (broadcasted).
+					// These are periodically updated (broadcasted). Cassandra doesn't like "-".
 					for (String dc: _all_dcs) {
 						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
 								, _ks_name_attr_pop, dc.replace("-", "_"));
