@@ -69,9 +69,6 @@ class Cass {
 			_ks_name_attr_pop = _ks_name + "_attr_pop";
 			_ks_name_obj_loc  = _ks_name + "_obj_loc";
 			_ks_name_sync = _ks_name + "_sync";
-
-			// TODO: clean up
-			//private static String _csync_table_name = "client_sync";
 		} catch (Exception e) {
 			System.err.println("Exception: " + e.getMessage());
 			e.printStackTrace();

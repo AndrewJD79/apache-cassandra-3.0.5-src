@@ -56,9 +56,6 @@ class Conf {
 		//Cons.P("hostname: %s", Util.Hostname());
 
 		_dt_begin = (String) nonop_args.get(0);
-
-		// TODO: clean up
-		//SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmmss");
 	}
 
 	public static String ExpID() {
