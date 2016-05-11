@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.*;
@@ -28,6 +29,7 @@ class Cass {
 	private static String _ks_name_attr_pop = null;
 	// Object location keyspace.
 	private static String _ks_name_obj_loc  = null;
+	private static String _ks_name_sync = null;
 
 	public static void Init() {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
@@ -66,6 +68,7 @@ class Cass {
 
 			_ks_name_attr_pop = _ks_name + "_attr_pop";
 			_ks_name_obj_loc  = _ks_name + "_obj_loc";
+			_ks_name_sync = _ks_name + "_sync";
 
 			// TODO: clean up
 			//private static String _csync_table_name = "client_sync";
@@ -131,7 +134,7 @@ class Cass {
 
 	public static boolean SchemaExist() {
 		// Check if the created table, that is created last, exists
-		String q = String.format("select obj_id from %s.obj_loc limit 1", _ks_name_obj_loc);
+		String q = String.format("select sync_id from %s.s0 limit 1", _ks_name_sync);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			_sess.execute(s);
@@ -228,6 +231,22 @@ class Cass {
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 				}
+
+				// Sync keyspace for testing purpose.
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_name_sync, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+
+					// The CLs of the operations on this table determines the consistency
+					// model of the applications.
+					q = String.format("CREATE TABLE %s.s0 (sync_id text, PRIMARY KEY (sync_id));"
+							, _ks_name_sync);
+					s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+				}
 			} catch (com.datastax.driver.core.exceptions.DriverException e) {
 				Cons.P("Exception %s. query=[%s]", e, q);
 				throw e;
@@ -248,7 +267,7 @@ class Cass {
 		try (Cons.MT _ = new Cons.MT("Waiting for the schema creation ...")) {
 			// Select data from the last created table with a CL local_ONE until
 			// there is no exception.
-			String q = String.format("select obj_id from %s.obj_loc", _ks_name_obj_loc);
+			String q = String.format("select sync_id from %s.s0", _ks_name_sync);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking:");
 			boolean first = true;
@@ -288,7 +307,7 @@ class Cass {
 		}
 	}
 
-	static public void InsertRecord(String obj_id, String user, Set<String> topics) {
+	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) {
 		StringBuilder qs_topics = new StringBuilder();
 		for (String t: topics) {
 			if (qs_topics.length() > 0)
@@ -347,100 +366,126 @@ class Cass {
 		}
 	}
 
+	static public void KeepCheckingUntilAnyOfTopicsBecomesPopular(
+			String pop_table_region, Set<String> topics)
+		throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Wait for the topics %s become popular ...", String.join(", ", topics))) {
+			String q = String.format("select topic from %s.%s_topic where topic in (%s);"
+					, _ks_name_attr_pop, pop_table_region.replace("-", "_")
+					, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
+			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			Cons.Pnnl("Checking: ");
+			long bt = System.currentTimeMillis();
+			while (true) {
+				try {
+					ResultSet rs = _sess.execute(s);
+					List<Row> rows = rs.all();
+					//Cons.P("[%s] %d", q, rows.size());
+					if (rows.size() < topics.size()) {
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(10);
+					} else if (rows.size() == topics.size()) {
+						System.out.printf(" got %d\n", topics.size());
+						break;
+					} else {
+						throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+					}
+				} catch (com.datastax.driver.core.exceptions.DriverException e) {
+					Cons.P("Exception=[%s] query=[%s]", e, q);
+					throw e;
+				}
+
+				if (System.currentTimeMillis() - bt > 5000) {
+					System.out.printf("\n");
+					throw new RuntimeException("Time out");
+				}
+			}
+		}
+	}
+
+	static public void MakeATopicsPopularWithClAll(Set<String> topics) {
+		try (Cons.MT _ = new Cons.MT("Making topics %s popular ...", String.join(", ", topics))) {
+			StringBuilder q = new StringBuilder();
+			try {
+				q.append("BEGIN BATCH");
+				for (String t: topics) {
+					q.append(
+							String.format(
+								" INSERT INTO %s.%s_topic (topic) VALUES ('%s');"
+								, _ks_name_attr_pop, _local_dc.replace("-", "_"), t));
+				}
+				q.append("APPLY BATCH");
+				Statement s = new SimpleStatement(q.toString()).setConsistencyLevel(ConsistencyLevel.ALL);
+				_sess.execute(s);
+			} catch (com.datastax.driver.core.exceptions.DriverException e) {
+				Cons.P("Exception=[%s] query=[%s]", e, q.toString());
+				throw e;
+			}
+		}
+	}
+
+	static private int _sync_id = 0;
+
+	// Sync (wait) until east and west gets here
+	static public void Sync() throws InterruptedException {
+		String q = null;
+		try {
+			Cons.Pnnl("Syncing");
+			long bt = System.currentTimeMillis();
+
+			if ((! LocalDC().equals("us-east")) && (! LocalDC().equals("us-west")))
+				throw new RuntimeException(String.format("Unexpected: %s", LocalDC()));
+
+			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
+			// will propagate eventually.
+			q = String.format("Insert into %s.s0 (sync_id) values ('%s-%s-%d');" ,
+					_ks_name_sync, LocalDC(), Conf.ExpID(), _sync_id);
+			Statement s = new SimpleStatement(q);
+			_sess.execute(s);
+
+			// Keep reading us-(remote_dc)-(exp_id)-(sync_id) with CL LOCAL_ONE until
+			// it sees the message from the other side.
+			String peer_dc;
+			if (LocalDC().equals("us-east")) {
+				peer_dc = "us-west";
+			} else {
+				peer_dc = "us-east";
+			}
+			q = String.format("select sync_id from %s.s0 where sync_id='%s-%s-%d';" ,
+					_ks_name_sync, peer_dc, Conf.ExpID(), _sync_id);
+			s = new SimpleStatement(q);
+			boolean first = true;
+			while (true) {
+				ResultSet rs = _sess.execute(s);
+				List<Row> rows = rs.all();
+				if (rows.size() == 0) {
+					if (first) {
+						System.out.printf(" ");
+						first = false;
+					}
+					System.out.printf(".");
+					System.out.flush();
+					Thread.sleep(100);
+				} else if (rows.size() == 1) {
+					break;
+				} else
+					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+
+				if (System.currentTimeMillis() - bt > 10000)
+					throw new RuntimeException("Sync timed out :(");
+			}
+
+			_sync_id ++;
+
+			System.out.printf(" took %d ms\n", System.currentTimeMillis() - bt);
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
 
 
-//	static public void Sync(int tid)
-//		throws java.net.UnknownHostException, java.lang.InterruptedException {
-//		long bt = System.currentTimeMillis();
-//		System.out.printf("\nSync tid=%d ", tid);
-//		System.out.flush();
-//		long timeout_milli = 30000;
-//		Sync0(tid, timeout_milli);
-//		Sync1(tid, timeout_milli);
-//		long et = System.currentTimeMillis();
-//		System.out.printf(" %d ms\n", et - bt);
-//	}
-//
-//	static private void Sync0(int tid, long timeout_milli)
-//		throws java.net.UnknownHostException, java.lang.InterruptedException {
-//		if (Conf.dc.equals("DC1")) {
-//			String q = String.format(
-//					"INSERT INTO %s.%s (exp_id, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
-//					_meta_ks_name, _csync_table_name,
-//					Conf.dt_begin, tid, Util.Hostname(), System.currentTimeMillis());
-//			_sess.execute(q);
-//		} else if (Conf.dc.equals("DC0")) {
-//			long bt = System.currentTimeMillis();
-//			String q = String.format(
-//					"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
-//					_meta_ks_name, _csync_table_name, Conf.dt_begin, tid);
-//			while (true) {
-//				ResultSet rs = _sess.execute(q);
-//				boolean got_it = false;
-//				for (Row r: rs.all()) {
-//					String hn = r.getString("hn");
-//					//long t = r.getLong("time");
-//					if (hn.equals(Conf.hns[1])) {
-//						got_it = true;
-//						break;
-//					}
-//				}
-//				if (got_it)
-//					break;
-//
-//				if (System.currentTimeMillis() - bt > timeout_milli) {
-//					System.out.printf(" ");
-//					throw new RuntimeException("Timed out waiting getting 1 row");
-//				}
-//
-//				System.out.printf(".");
-//				System.out.flush();
-//				Thread.sleep(100);
-//			}
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//	}
-//
-//	static private void Sync1(int tid, long timeout_milli)
-//		throws java.net.UnknownHostException, java.lang.InterruptedException {
-//		if (Conf.dc.equals("DC0")) {
-//			String q = String.format(
-//					"INSERT INTO %s.%s (exp_id, tid, hn, time) VALUES ('%s', %d, '%s', %d);",
-//					_meta_ks_name, _csync_table_name,
-//					Conf.dt_begin, tid, Util.Hostname(), System.currentTimeMillis());
-//			_sess.execute(q);
-//		} else if (Conf.dc.equals("DC1")) {
-//			long bt = System.currentTimeMillis();
-//			String q = String.format(
-//					"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
-//					_meta_ks_name, _csync_table_name, Conf.dt_begin, tid);
-//			while (true) {
-//				ResultSet rs = _sess.execute(q);
-//				boolean got_it = false;
-//				for (Row r: rs.all()) {
-//					String hn = r.getString("hn");
-//					//long t = r.getLong("time");
-//					if (hn.equals(Conf.hns[0])) {
-//						got_it = true;
-//						break;
-//					}
-//				}
-//				if (got_it)
-//					break;
-//
-//				if (System.currentTimeMillis() - bt > timeout_milli) {
-//					System.out.printf(" ");
-//					throw new RuntimeException("Timed out waiting getting 1 row");
-//				}
-//
-//				System.out.printf(".");
-//				System.out.flush();
-//				Thread.sleep(100);
-//			}
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//	}
-//
 //	static public void Insert(int tid)
 //		throws java.net.UnknownHostException {
 //		System.out.printf("  Insert ...");

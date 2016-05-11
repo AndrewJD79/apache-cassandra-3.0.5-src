@@ -216,15 +216,16 @@ public class PartialRep {
 			// cannot just use current date time, since the two machines on the east
 			// and west won't have the same value.
 			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
+			String topic_uga = String.format("uga-%s", Conf.ExpID());
 
+			// Sync (like execution barrier). Wait till everyone gets here.
+			Cass.Sync();
+			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
 				Cons.P("Insert a record, %s", obj_id);
-				Cass.InsertRecord(obj_id, "jim", new TreeSet<String>(Arrays.asList("prank", "guten")));
+				Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 			}
-
-			// Not sure if you need something like Cass.Sync() here, now when the
-			// obj_id is unique consisting of current date time in milliseconds.
-			// Probably not.
 
 			// Check the topic is not replicated to west.
 			if (Cass.LocalDC().equals("us-east")) {
@@ -232,7 +233,7 @@ public class PartialRep {
 				if (rows.size() != 1)
 					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
-				// Poll for 5 secs making sure the record is not propagated.
+				// Poll for 3 secs making sure the record is not propagated.
 				Cons.Pnnl("Checking: ");
 				long bt = System.currentTimeMillis();
 				while (true) {
@@ -244,18 +245,26 @@ public class PartialRep {
 					} else {
 						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 					}
-					if (System.currentTimeMillis() - bt > 5000) {
-						System.out.printf("\n");
+					if (System.currentTimeMillis() - bt > 3000) {
+						System.out.printf(" no record found\n");
 						break;
 					}
 				}
 			}
 
-			// Make the topic "prank" popular in the west
+			Cass.Sync();
+			// Make the topic tennis popular in the west
+			if (Cass.LocalDC().equals("us-east")) {
+				Cass.KeepCheckingUntilAnyOfTopicsBecomesPopular("us-west", new TreeSet<String>(Arrays.asList(topic_tennis)));
+			} else if (Cass.LocalDC().equals("us-west")) {
+				Cass.MakeATopicsPopularWithClAll(new TreeSet<String>(Arrays.asList(topic_tennis)));
+			}
+
+			Cass.Sync();
+
+			// TODO: Insert from the east
 			//
-			// Insert from the east
-			//
-			// Check the record can be selected from both east and west
+			// TODO: Check the record can be selected from both east and west
 
 
 
