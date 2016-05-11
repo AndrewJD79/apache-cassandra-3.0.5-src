@@ -79,7 +79,8 @@ appender reference in the root level section below.
       <level>INFO</level>
     </filter>
     <encoder>
-      <pattern>%-5level %date{HH:mm:ss,SSS} %msg%n</pattern>
+        <!-- <pattern>%-5level %date{HH:mm:ss,SSS} %msg%n</pattern> -->
+      <pattern>%-5level %date{HH:mm:ss,SSS} [%-24thread] %-30F:%4L %msg%n</pattern>
     </encoder>
   </appender>
 
