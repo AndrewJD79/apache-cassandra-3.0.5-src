@@ -1955,4 +1955,8 @@ public class DatabaseDescriptor
         return conf.gc_warn_threshold_in_ms;
     }
 
+    public static AcornOptions getAcornOptions()
+    {
+        return conf.acorn_options;
+    }
 }

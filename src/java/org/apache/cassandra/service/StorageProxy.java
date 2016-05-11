@@ -583,8 +583,43 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
-        Tracing.trace("Determining replicas for mutation");
+        Tracing.trace("Determining replicas for mutation - mutate()");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
+
+        // Not sure if the mutations have a mix of acorn and the other keyspaces.
+        int cnt_acorn = 0;
+        int cnt_others = 0;
+        for (IMutation m: mutations) {
+            // We don't consider CounterMutation for now.
+            if (m.getClass().equals(Mutation.class)) {
+                Mutation m0 = (Mutation) m;
+                String ks = m0.getKeyspaceName();
+                final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
+                if (ks.startsWith(acorn_ks_prefix)
+                        && (! ks.endsWith("_attr_pop"))
+                        && (! ks.endsWith("_obj_loc"))) {
+                    cnt_acorn ++;
+                } else {
+                    cnt_others ++;
+                }
+            } else {
+                cnt_others ++;
+            }
+        }
+
+        // Is the mutation on acorn keyspace?
+        boolean acorn = false;
+        if (cnt_acorn > 0) {
+            if (cnt_others > 0) {
+                throw new RuntimeException(String.format("Unexpected: cnt_acorn=%d cnt_others=%d", cnt_acorn, cnt_others));
+            } else {
+                acorn = true;
+            }
+        }
+        if (acorn) {
+            logger.warn("Acorn: mutations={} consistency_level={} localDataCenter={}",
+                    mutations, consistency_level, localDataCenter);
+        }
 
         long startTime = System.nanoTime();
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
@@ -600,7 +635,7 @@ public class StorageProxy implements StorageProxyMBean
                 else
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    responseHandlers.add(performWrite(acorn, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
                 }
             }
 
@@ -708,7 +743,7 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutateMV(ByteBuffer dataKey, Collection<Mutation> mutations, boolean writeCommitLog, AtomicLong baseComplete)
     throws UnavailableException, OverloadedException, WriteTimeoutException
     {
-        Tracing.trace("Determining replicas for mutation");
+        Tracing.trace("Determining replicas for mutation - mutateMV()");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
 
         long startTime = System.nanoTime();
@@ -1026,7 +1061,21 @@ public class StorageProxy implements StorageProxyMBean
      * @param callback an optional callback to be run if and when the write is
      * successful.
      */
-    public static AbstractWriteResponseHandler<IMutation> performWrite(IMutation mutation,
+    public static AbstractWriteResponseHandler<IMutation> performWrite(
+                                                            IMutation mutation,
+                                                            ConsistencyLevel consistency_level,
+                                                            String localDataCenter,
+                                                            WritePerformer performer,
+                                                            Runnable callback,
+                                                            WriteType writeType)
+    throws UnavailableException, OverloadedException
+    {
+        return performWrite(false, mutation, consistency_level, localDataCenter, performer, callback, writeType);
+    }
+
+    public static AbstractWriteResponseHandler<IMutation> performWrite(
+                                                            boolean acorn,
+                                                            IMutation mutation,
                                                             ConsistencyLevel consistency_level,
                                                             String localDataCenter,
                                                             WritePerformer performer,
@@ -1040,6 +1089,21 @@ public class StorageProxy implements StorageProxyMBean
         Token tk = mutation.key().getToken();
         List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, tk);
         Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
+
+        if (acorn) {
+            // Write to only local datacenter.
+            //logger.warn("Acorn: naturalEndpoints={} pendingEndpoints={}", naturalEndpoints, pendingEndpoints);
+            //logger.warn("Acorn: DatabaseDescriptor.getEndpointSnitch().getClass()={}", DatabaseDescriptor.getEndpointSnitch().getClass().getName());
+            if (! DatabaseDescriptor.getEndpointSnitch().getClass().equals(DynamicEndpointSnitch.class))
+                throw new RuntimeException("Unexpected snitch type");
+            DynamicEndpointSnitch snitch = (DynamicEndpointSnitch) DatabaseDescriptor.getEndpointSnitch();
+            //for (InetAddress ia: naturalEndpoints)
+            //    logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));
+            naturalEndpoints.removeIf(e -> (! snitch.getDatacenter(e).equals(localDataCenter)));
+            //logger.warn("Acorn: naturalEndpoints={}", naturalEndpoints);
+
+            // TODO: figure out which DCs to propagate
+        }
 
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType);
 
