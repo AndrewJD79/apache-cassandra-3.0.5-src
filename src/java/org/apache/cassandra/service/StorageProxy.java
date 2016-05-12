@@ -44,6 +44,7 @@ import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.Schema;
+import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.DataLimits;
 import org.apache.cassandra.db.filter.TombstoneOverwhelmingException;
@@ -61,12 +62,14 @@ import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.locator.*;
 import org.apache.cassandra.metrics.*;
 import org.apache.cassandra.net.*;
+import org.apache.cassandra.net.MessagingService.Verb;
 import org.apache.cassandra.service.paxos.Commit;
 import org.apache.cassandra.service.paxos.PaxosState;
 import org.apache.cassandra.service.paxos.PrepareCallback;
 import org.apache.cassandra.service.paxos.ProposeCallback;
-import org.apache.cassandra.net.MessagingService.Verb;
+import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.triggers.TriggerExecutor;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.AbstractIterator;
@@ -1092,18 +1095,52 @@ public class StorageProxy implements StorageProxyMBean
         Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
 
         if (acorn) {
-            // Write to only local datacenter.
             //logger.warn("Acorn: naturalEndpoints={} pendingEndpoints={}", naturalEndpoints, pendingEndpoints);
-            //logger.warn("Acorn: DatabaseDescriptor.getEndpointSnitch().getClass()={}", DatabaseDescriptor.getEndpointSnitch().getClass().getName());
-            if (! DatabaseDescriptor.getEndpointSnitch().getClass().equals(DynamicEndpointSnitch.class))
-                throw new RuntimeException("Unexpected snitch type");
-            DynamicEndpointSnitch snitch = (DynamicEndpointSnitch) DatabaseDescriptor.getEndpointSnitch();
-            //for (InetAddress ia: naturalEndpoints)
-            //    logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));
-            naturalEndpoints.removeIf(e -> (! snitch.getDatacenter(e).equals(localDataCenter)));
-            //logger.warn("Acorn: naturalEndpoints={}", naturalEndpoints);
+            IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
 
-            // TODO: figure out which DCs to propagate
+            // For test: Remove all endpoints but the local one.
+            //naturalEndpoints.removeIf(ne -> (! snitch.getDatacenter(ne).equals(localDataCenter)));
+
+            // TODO: Check if any of the attributes, e.g., user or topics, is
+            // popular in remote datacenters.
+            logger.warn("Acorn: mutation={} {}"
+                    , mutation, mutation.getClass().getName());
+            // TODO: parse user and topics from mutation
+
+            // Keep the DCs where any of the attributes is popular.
+            List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
+            for (InetAddress ne: naturalEndpoints) {
+                if (snitch.getDatacenter(ne).equals(localDataCenter)) {
+                    attrPopAwareEndpoints.add(ne);
+                    continue;
+                }
+
+                // Is any of the attributes popular in this datacenter?
+                String peerDc = snitch.getDatacenter(ne);
+
+                // TODO: Do user too. Make it configurable by cassandra.yaml.
+
+                // Referenced QueryMessage.java
+                String q = String.format("select * from %s_attr_pop.%s_topic;", keyspaceName, peerDc.replace("-", "_"));
+                QueryState state = QueryState.forInternalCalls();
+                // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
+                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+
+                Message.Response response = ClientState.getCQLQueryHandler().process(q, state, options, null);
+                if (! response.getClass().equals(ResultMessage.Rows.class))
+                    throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
+                ResultMessage.Rows r = (ResultMessage.Rows) response;
+                // r.result is of type org.apache.cassandra.cql3.ResultSet
+                logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
+                // TODO: parse the result
+
+                //logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));
+            }
+
+            logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
+                    , naturalEndpoints, attrPopAwareEndpoints);
+
+            naturalEndpoints = attrPopAwareEndpoints;
         }
 
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType);
