@@ -117,8 +117,31 @@ public class QueryMessage extends Message.Request
             //   SELECT * FROM system_schema.keyspaces
             boolean acorn = query.contains(" acorn");
             if (acorn) {
-                logger.warn("Acorn: query={} state={} options={} getCustomPayload()={}"
-                        , query, state, options, getCustomPayload());
+                // state is of type org.apache.cassandra.service.QueryState
+                // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
+                // getCustomPayload()=null
+                //
+                // You can get CL from options.getConsistency(). You can set it
+                // from the constructor.
+                //
+                // This gives you whether it is an internal call or not:
+                // ClientState cs = state.getClientState();
+                //
+                logger.warn("Acorn: query={} state={} state.getClientState()={}"
+                        + " options={}"
+                        + " options.getConsistency()={}"
+                        + " options.getValues()={}"
+                        + " options.skipMetadata()={}"
+                        + " options.getProtocolVersion()={}"
+                        + " getCustomPayload()={}"
+                        , query
+                        , state, state.getClientState()
+                        , options
+                        , options.getConsistency()
+                        , options.getValues()
+                        , options.skipMetadata()
+                        , options.getProtocolVersion()
+                        , getCustomPayload());
             }
             Message.Response response = ClientState.getCQLQueryHandler().process(query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
