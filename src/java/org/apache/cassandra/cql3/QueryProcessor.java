@@ -495,64 +495,47 @@ public class QueryProcessor implements QueryHandler
     public static ParsedStatement.Prepared getStatement(String queryStr, ClientState clientState)
     throws RequestValidationException
     {
-        /*
-        // Not sure if the mutations have a mix of acorn and the other keyspaces.
-        int cnt_acorn = 0;
-        int cnt_others = 0;
-        for (IMutation m: mutations) {
-            // We don't consider CounterMutation for now.
-            if (m.getClass().equals(Mutation.class)) {
-                Mutation m0 = (Mutation) m;
-                String ks = m0.getKeyspaceName();
-                final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
-                if (ks.startsWith(acorn_ks_prefix)
-                        && (! ks.endsWith("_attr_pop"))
-                        && (! ks.endsWith("_obj_loc"))
-                        && (! ks.endsWith("_sync"))) {
-                    cnt_acorn ++;
-                } else {
-                    cnt_others ++;
-                }
-            } else {
-                cnt_others ++;
-            }
-        }
-
-        // Is the mutation on acorn keyspace?
-        boolean acorn = false;
-        if (cnt_acorn > 0) {
-            if (cnt_others > 0) {
-                throw new RuntimeException(String.format("Unexpected: cnt_acorn=%d cnt_others=%d", cnt_acorn, cnt_others));
-            } else {
-                acorn = true;
-            }
-        }
-        */
-
         Tracing.trace("Parsing {}", queryStr);
         ParsedStatement statement = parseStatement(queryStr);
 
-        boolean acorn = false;
-        if (statement.getClass().equals(SelectStatement.RawStatement.class)) {
-            final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
-            SelectStatement.RawStatement s = (SelectStatement.RawStatement) statement;
-            if (s.keyspace().startsWith(acorn_ks_prefix)
-                    // TODO:
-                    // && (! s.keyspace().endsWith("_attr_pop"))
-                    && (! s.keyspace().endsWith("_obj_loc"))
-                    && (! s.keyspace().endsWith("_sync"))) {
-                acorn = true;
-                logger.warn("Acorn: statement={} s.keyspace()={} s.columnFamily()={}"
-                        , statement, s.keyspace(), s.columnFamily());
-            }
-        }
+        //boolean acorn = false;
+        //if (statement.getClass().equals(SelectStatement.RawStatement.class)) {
+        //    final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
+        //    SelectStatement.RawStatement s = (SelectStatement.RawStatement) statement;
+        //    if (s.keyspace().startsWith(acorn_ks_prefix)
+        //            // TODO:
+        //            // && (! s.keyspace().endsWith("_attr_pop"))
+        //            && (! s.keyspace().endsWith("_obj_loc"))
+        //            && (! s.keyspace().endsWith("_sync"))) {
+        //        acorn = true;
+        //        logger.warn("Acorn: statement={} s.keyspace()={} s.columnFamily()={}"
+        //                , statement, s.keyspace(), s.columnFamily());
+        //    }
+        //}
 
-        if (acorn) {
-            logger.warn(String.format("Acorn: queryStr=[%s]", queryStr));
-            // TODO: figure out where is the most natural place to issue a query.
-            for (StackTraceElement ste : Thread.currentThread().getStackTrace())
-                logger.warn("Acorn: {}", ste);
-        }
+        //if (acorn) {
+        //    logger.warn(String.format("Acorn: queryStr=[%s]", queryStr));
+        //    // TODO: figure out where is the most natural place to issue a query.
+        //    //for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+        //    //  logger.warn("Acorn: {}", ste);
+
+        //    // Stack trace
+        //    //   Thread name: SharedPool-Worker-3
+        //    //   org.apache.cassandra.cql3.QueryProcessor.getStatement(QueryProcessor.java:553)
+        //    //   org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:229)
+        //    //   org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:223)
+        //    //   org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:115)
+        //    //   org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+        //    //   org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+        //    //   io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+        //    //   io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+        //    //   io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+        //    //   io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+        //    //   java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        //    //   org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        //    //   org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+        //    //   java.lang.Thread.run(Thread.java:745)
+        //}
 
         // Set keyspace for statement that require login
         if (statement instanceof CFStatement)

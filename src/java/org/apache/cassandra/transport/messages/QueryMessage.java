@@ -112,7 +112,26 @@ public class QueryMessage extends Message.Request
                 Tracing.instance.begin("Execute CQL3 query", state.getClientAddress(), builder.build());
             }
 
+            // Looks like all queries, including system queries like this, go
+            // through here.
+            //   SELECT * FROM system_schema.keyspaces
+            boolean acorn = query.contains(" acorn");
+            if (acorn) {
+                logger.warn("Acorn: query={} state={} options={} getCustomPayload()={}"
+                        , query, state, options, getCustomPayload());
+            }
             Message.Response response = ClientState.getCQLQueryHandler().process(query, state, options, getCustomPayload());
+            // response is of type ResultMessage$Rows
+
+            if (acorn) {
+                //logger.warn("Acorn: response={} {}", response, response.getClass().getName());
+                if (response.getClass().equals(ResultMessage.Rows.class)) {
+                    ResultMessage.Rows r = (ResultMessage.Rows) response;
+                    // r.result is of type org.apache.cassandra.cql3.ResultSet
+                    logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
+                }
+            }
+
             if (options.skipMetadata() && response instanceof ResultMessage.Rows)
                 ((ResultMessage.Rows)response).result.metadata.setSkipMetadata();
 
