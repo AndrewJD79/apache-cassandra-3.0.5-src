@@ -36,7 +36,6 @@ public class Cons
 	// MT: MeasureTime
 	public static class MT implements AutoCloseable
 	{
-		//StackTraceElement _ste;
 		long _start_time;
 
 		public MT(String fmt, Object... o) {
@@ -44,7 +43,6 @@ public class Cons
 		}
 
 		public MT(String name) {
-			//_ste = Thread.currentThread().getStackTrace()[2];
 			P(name);
 			_ind_len += 2;
 			_ind.append("  ");
@@ -57,20 +55,6 @@ public class Cons
 			P(String.format("%.0f ms", duration));
 			_ind_len -=2;
 			_ind.setLength(_ind_len);
-
-			//StringBuilder sb = new StringBuilder();
-			//sb.append(Thread.currentThread().getId());
-			//sb.append(" ");
-			//sb.append(_ste.getClassName());
-			//sb.append(".");
-			//sb.append(_ste.getMethodName());
-			//sb.append("()");
-			//sb.append(" [");
-			//sb.append(_ste.getFileName());
-			//sb.append(":");
-			//sb.append(_ste.getLineNumber());
-			//sb.append("]");
-			//System.err.printf("%s %f sec\n", sb.toString(), duration);
 		}
 	}
 }
