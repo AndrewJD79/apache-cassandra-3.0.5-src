@@ -1105,30 +1105,42 @@ public class StorageProxy implements StorageProxyMBean
             // For test: Remove all endpoints but the local one.
             //naturalEndpoints.removeIf(ne -> (! snitch.getDatacenter(ne).equals(localDataCenter)));
 
-            // TODO: Check if any of the attributes, e.g., user or topics, is
-            // popular in remote datacenters.
-            // user and topics are parsed from mutation.
+            // Check if any of the attributes, e.g., user or topics, is popular
+            // in remote datacenters.  user and topics are parsed from
+            // mutation.
             if (! mutation.getClass().equals(Mutation.class))
                 throw new RuntimeException(String.format("Unexpected: mutation.getClass()=%s", mutation.getClass().getName()));
             Mutation m = (Mutation) mutation;
             Mutation.UserTopics ut = m.getUserTopics();
-            //logger.warn("Acorn: mutation={} {}", mutation, mutation.getClass().getName());
-            logger.warn("Acorn: ut={}", ut);
+            //logger.warn("Acorn: ut={}", ut);
 
             String topicsCql = String.join(", ", ut.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
-            // Keep the DCs where any of the attributes is popular.
             List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
             for (InetAddress ne: naturalEndpoints) {
-                if (snitch.getDatacenter(ne).equals(localDataCenter)) {
+                String dc = snitch.getDatacenter(ne);
+                //logger.warn("Acorn: ne={} dc={}", ne, dc);
+
+                // Always keep the local DC
+                if (dc.equals(localDataCenter)) {
                     attrPopAwareEndpoints.add(ne);
                     continue;
                 }
 
                 // Is any of the attributes popular in this datacenter?
-                String peerDc = snitch.getDatacenter(ne);
 
-                // TODO: Do user too. Make it configurable by cassandra.yaml.
+                // Referenced QueryMessage.java
+                String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
+                        , keyspaceName, dc.replace("-", "_"), topicsCql);
+                QueryState state = QueryState.forInternalCalls();
+                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+                //logger.warn("Acorn: q={}", q);
+
+                // ClientState.getCQLQueryHandler() is of type org.apache.cassandra.cql3.QueryProcessor
+                QueryHandler qh = ClientState.getCQLQueryHandler();
+                if (! qh.getClass().equals(QueryProcessor.class))
+                    throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
+                QueryProcessor qp = (QueryProcessor) qh;
 
                 // A warning: Aggregation query used on multiple partition keys (IN restriction)
                 // A solution is splitting the query by each topic. You can
@@ -1136,20 +1148,6 @@ public class StorageProxy implements StorageProxyMBean
                 // However, I'm concerned about the number of messages
                 // (especially cross-DC ones). Leave it for now. Suppress the
                 // warning for acorn queries.
-                //
-                // Referenced QueryMessage.java
-                String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
-                        , keyspaceName, peerDc.replace("-", "_"), topicsCql);
-                QueryState state = QueryState.forInternalCalls();
-                // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
-                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
-                logger.warn("Acorn: q={}", q);
-
-                // ClientState.getCQLQueryHandler() is of type org.apache.cassandra.cql3.QueryProcessor
-                QueryHandler qh = ClientState.getCQLQueryHandler();
-                if (! qh.getClass().equals(QueryProcessor.class))
-                    throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
-                QueryProcessor qp = (QueryProcessor) qh;
                 Message.Response response = qp.process(acorn, q, state, options);
 
                 if (! response.getClass().equals(ResultMessage.Rows.class))
@@ -1159,12 +1157,11 @@ public class StorageProxy implements StorageProxyMBean
                 if (! rmr.result.getClass().equals(ResultSet.class))
                     throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
                 ResultSet rs1 = (ResultSet) rmr.result;
-                int attrCnt = rs1.GetAttrCount();
-                logger.warn("Acorn: attrCnt={}", attrCnt);
+                //logger.warn("Acorn: attrCnt={}", rs1.GetAttrCount());
+                if (rs1.GetAttrCount() > 0)
+                    attrPopAwareEndpoints.add(ne);
 
-                // TODO: check the result
-
-                //logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));
+                // TODO: Do the same with user too. Make it configurable by cassandra.yaml.
             }
 
             logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
