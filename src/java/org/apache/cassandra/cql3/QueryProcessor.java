@@ -199,12 +199,24 @@ public class QueryProcessor implements QueryHandler
     public ResultMessage processStatement(CQLStatement statement, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
+        return processStatement(false, statement, queryState, options);
+    }
+    public ResultMessage processStatement(boolean acorn, CQLStatement statement, QueryState queryState, QueryOptions options)
+    throws RequestExecutionException, RequestValidationException
+    {
         logger.trace("Process {} @CL.{}", statement, options.getConsistency());
         ClientState clientState = queryState.getClientState();
         statement.checkAccess(clientState);
         statement.validate(clientState);
 
-        ResultMessage result = statement.execute(queryState, options);
+        ResultMessage result = null;
+        if (acorn && statement.getClass().equals(SelectStatement.class)) {
+            SelectStatement ss = (SelectStatement) statement;
+            result = ss.execute(acorn, queryState, options);
+        } else {
+            result = statement.execute(queryState, options);
+        }
+
         return result == null ? new ResultMessage.Void() : result;
     }
 
@@ -226,6 +238,11 @@ public class QueryProcessor implements QueryHandler
     public ResultMessage process(String queryString, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
+        return process(false, queryString, queryState, options);
+    }
+    public ResultMessage process(boolean acorn, String queryString, QueryState queryState, QueryOptions options)
+    throws RequestExecutionException, RequestValidationException
+    {
         ParsedStatement.Prepared p = getStatement(queryString, queryState.getClientState());
         options.prepare(p.boundNames);
         CQLStatement prepared = p.statement;
@@ -235,7 +252,7 @@ public class QueryProcessor implements QueryHandler
         if (!queryState.getClientState().isInternal)
             metrics.regularStatementsExecuted.inc();
 
-        return processStatement(prepared, queryState, options);
+        return processStatement(acorn, prepared, queryState, options);
     }
 
     public static ParsedStatement.Prepared parseStatement(String queryStr, QueryState queryState) throws RequestValidationException

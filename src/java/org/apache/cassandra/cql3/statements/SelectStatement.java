@@ -191,6 +191,10 @@ public class SelectStatement implements CQLStatement
 
     public ResultMessage.Rows execute(QueryState state, QueryOptions options) throws RequestExecutionException, RequestValidationException
     {
+        return execute(false, state, options);
+    }
+    public ResultMessage.Rows execute(boolean acorn, QueryState state, QueryOptions options) throws RequestExecutionException, RequestValidationException
+    {
         ConsistencyLevel cl = options.getConsistency();
         checkNotNull(cl, "Invalid empty consistency level");
 
@@ -206,7 +210,7 @@ public class SelectStatement implements CQLStatement
             return execute(query, options, state, nowInSec, userLimit);
 
         QueryPager pager = query.getPager(options.getPagingState(), options.getProtocolVersion());
-        return execute(Pager.forDistributedQuery(pager, cl, state.getClientState()), options, pageSize, nowInSec, userLimit);
+        return execute(acorn, Pager.forDistributedQuery(pager, cl, state.getClientState()), options, pageSize, nowInSec, userLimit);
     }
 
     private int getPageSize(QueryOptions options)
@@ -321,8 +325,17 @@ public class SelectStatement implements CQLStatement
                                        int nowInSec,
                                        int userLimit) throws RequestValidationException, RequestExecutionException
     {
+        return execute(false, pager, options, pageSize, nowInSec, userLimit);
+    }
+    private ResultMessage.Rows execute(boolean acorn,
+                                       Pager pager,
+                                       QueryOptions options,
+                                       int pageSize,
+                                       int nowInSec,
+                                       int userLimit) throws RequestValidationException, RequestExecutionException
+    {
         if (selection.isAggregate())
-            return pageAggregateQuery(pager, options, pageSize, nowInSec);
+            return pageAggregateQuery(acorn, pager, options, pageSize, nowInSec);
 
         // We can't properly do post-query ordering if we page (see #6722)
         checkFalse(needsPostQueryOrdering(),
@@ -343,7 +356,7 @@ public class SelectStatement implements CQLStatement
         return msg;
     }
 
-    private ResultMessage.Rows pageAggregateQuery(Pager pager, QueryOptions options, int pageSize, int nowInSec)
+    private ResultMessage.Rows pageAggregateQuery(boolean acorn, Pager pager, QueryOptions options, int pageSize, int nowInSec)
     throws RequestValidationException, RequestExecutionException
     {
         if (!restrictions.hasPartitionKeyRestrictions())
@@ -353,8 +366,20 @@ public class SelectStatement implements CQLStatement
         }
         else if (restrictions.keyIsInRelation())
         {
-            logger.warn("Aggregation query used on multiple partition keys (IN restriction)");
-            ClientWarn.instance.warn("Aggregation query used on multiple partition keys (IN restriction)");
+            // for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+            //     logger.warn("Acorn: {}", ste);
+            // org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:358)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:325)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:209)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:76)
+            // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:207)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:238)
+
+            // Suppress warning for Acorn queries
+            if (! acorn) {
+                logger.warn("Aggregation query used on multiple partition keys (IN restriction)");
+                ClientWarn.instance.warn("Aggregation query used on multiple partition keys (IN restriction)");
+            }
         }
 
         Selection.ResultSetBuilder result = selection.resultSetBuilder(parameters.isJson);

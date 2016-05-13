@@ -45,7 +45,10 @@ import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.Schema;
+import org.apache.cassandra.cql3.QueryHandler;
 import org.apache.cassandra.cql3.QueryOptions;
+import org.apache.cassandra.cql3.QueryProcessor;
+import org.apache.cassandra.cql3.ResultSet;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.DataLimits;
 import org.apache.cassandra.db.filter.TombstoneOverwhelmingException;
@@ -1127,10 +1130,12 @@ public class StorageProxy implements StorageProxyMBean
 
                 // TODO: Do user too. Make it configurable by cassandra.yaml.
 
-                // TODO: Do the query one by one. When you get a hit on the
-                // first topic, you can early-stop. The DC is included in the
-                // target DC. In other words, the ep is included in
-                // attrPopAwareEndpoints.
+                // A warning: Aggregation query used on multiple partition keys (IN restriction)
+                // A solution is splitting the query by each topic. You can
+                // early-terminate when you get a hit.
+                // However, I'm concerned about the number of messages
+                // (especially cross-DC ones). Leave it for now. Suppress the
+                // warning for acorn queries.
                 //
                 // Referenced QueryMessage.java
                 String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
@@ -1138,13 +1143,25 @@ public class StorageProxy implements StorageProxyMBean
                 QueryState state = QueryState.forInternalCalls();
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
                 QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+                logger.warn("Acorn: q={}", q);
 
-                Message.Response response = ClientState.getCQLQueryHandler().process(q, state, options, null);
+                // ClientState.getCQLQueryHandler() is of type org.apache.cassandra.cql3.QueryProcessor
+                QueryHandler qh = ClientState.getCQLQueryHandler();
+                if (! qh.getClass().equals(QueryProcessor.class))
+                    throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
+                QueryProcessor qp = (QueryProcessor) qh;
+                Message.Response response = qp.process(acorn, q, state, options);
+
                 if (! response.getClass().equals(ResultMessage.Rows.class))
                     throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
-                ResultMessage.Rows r = (ResultMessage.Rows) response;
-                // r.result is of type org.apache.cassandra.cql3.ResultSet
-                logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
+                ResultMessage.Rows rmr = (ResultMessage.Rows) response;
+
+                if (! rmr.result.getClass().equals(ResultSet.class))
+                    throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
+                ResultSet rs1 = (ResultSet) rmr.result;
+                int attrCnt = rs1.GetAttrCount();
+                logger.warn("Acorn: attrCnt={}", attrCnt);
+
                 // TODO: check the result
 
                 //logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));

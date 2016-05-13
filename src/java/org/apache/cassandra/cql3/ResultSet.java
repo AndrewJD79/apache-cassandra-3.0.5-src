@@ -169,6 +169,21 @@ public class ResultSet
         }
     }
 
+    // Acorn
+    public int GetAttrCount() {
+        if (rows.size() != 1)
+            throw new RuntimeException(String.format("Unexpected: rows.size()=%s", rows.size()));
+        List<ByteBuffer> row = rows.get(0);
+        if (row.size() != 1)
+            throw new RuntimeException(String.format("Unexpected: row.size()=%s", row.size()));
+        ByteBuffer v = row.get(0);
+        if (v == null)
+            throw new RuntimeException("Unexpected");
+        if (metadata.flags.contains(Flag.NO_METADATA))
+            throw new RuntimeException("Unexpected");
+        return Integer.parseInt(metadata.names.get(0).type.getString(v));
+    }
+
     public static class Codec implements CBCodec<ResultSet>
     {
         /*
