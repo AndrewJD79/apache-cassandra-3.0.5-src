@@ -238,21 +238,23 @@ public class PartialRep {
 				if (rows.size() != 1)
 					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
-				// Poll for 2 secs making sure the record is not propagated.
-				Cons.Pnnl("Checking to see no record is replicated here: ");
-				long bt = System.currentTimeMillis();
-				while (true) {
-					List<Row> rows = Cass.SelectRecordLocal(obj_id);
-					if (rows.size() == 0) {
-						System.out.printf(".");
-						System.out.flush();
-						Thread.sleep(100);
-					} else {
-						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
-					}
-					if (System.currentTimeMillis() - bt > 2000) {
-						System.out.printf(" no record found\n");
-						break;
+				try (Cons.MT _1 = new Cons.MT("Checking to see no record is replicated here ...")) {
+					// Poll for 2 secs making sure the record is not propagated.
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(obj_id);
+						if (rows.size() == 0) {
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else {
+							throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+						}
+						if (System.currentTimeMillis() - bt > 2000) {
+							System.out.printf(" no record found\n");
+							break;
+						}
 					}
 				}
 			}
@@ -279,28 +281,30 @@ public class PartialRep {
 				if (rows.size() != 1)
 					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 			} else {
-				Cons.Pnnl("Checking to see a record replicated here:");
-				long bt = System.currentTimeMillis();
-				boolean first = true;
-				while (true) {
-					List<Row> rows = Cass.SelectRecordLocal(obj_id);
-					if (rows.size() == 0) {
-						if (first) {
-							System.out.printf(" ");
-							first = false;
-						}
-						System.out.printf(".");
-						System.out.flush();
-						Thread.sleep(100);
-					} else if (rows.size() == 1) {
-						System.out.printf(" got it!");
-						break;
-					} else
-						throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+				try (Cons.MT _1 = new Cons.MT("Checking to see a record replicated here ...")) {
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					boolean first = true;
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(obj_id);
+						if (rows.size() == 0) {
+							if (first) {
+								System.out.printf(" ");
+								first = false;
+							}
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else if (rows.size() == 1) {
+							System.out.printf(" got it!\n");
+							break;
+						} else
+							throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
 
-					if (System.currentTimeMillis() - bt > 2000) {
-						System.out.printf("\n");
-						throw new RuntimeException("Time out :(");
+						if (System.currentTimeMillis() - bt > 2000) {
+							System.out.printf("\n");
+							throw new RuntimeException("Time out :(");
+						}
 					}
 				}
 			}
