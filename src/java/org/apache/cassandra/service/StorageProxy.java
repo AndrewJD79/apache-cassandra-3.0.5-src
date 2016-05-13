@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
@@ -1103,9 +1104,15 @@ public class StorageProxy implements StorageProxyMBean
 
             // TODO: Check if any of the attributes, e.g., user or topics, is
             // popular in remote datacenters.
-            logger.warn("Acorn: mutation={} {}"
-                    , mutation, mutation.getClass().getName());
-            // TODO: parse user and topics from mutation
+            // user and topics are parsed from mutation.
+            if (! mutation.getClass().equals(Mutation.class))
+                throw new RuntimeException(String.format("Unexpected: mutation.getClass()=%s", mutation.getClass().getName()));
+            Mutation m = (Mutation) mutation;
+            Mutation.UserTopics ut = m.getUserTopics();
+            //logger.warn("Acorn: mutation={} {}", mutation, mutation.getClass().getName());
+            logger.warn("Acorn: ut={}", ut);
+
+            String topicsCql = String.join(", ", ut.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
             // Keep the DCs where any of the attributes is popular.
             List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
@@ -1120,8 +1127,14 @@ public class StorageProxy implements StorageProxyMBean
 
                 // TODO: Do user too. Make it configurable by cassandra.yaml.
 
+                // TODO: Do the query one by one. When you get a hit on the
+                // first topic, you can early-stop. The DC is included in the
+                // target DC. In other words, the ep is included in
+                // attrPopAwareEndpoints.
+                //
                 // Referenced QueryMessage.java
-                String q = String.format("select * from %s_attr_pop.%s_topic;", keyspaceName, peerDc.replace("-", "_"));
+                String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
+                        , keyspaceName, peerDc.replace("-", "_"), topicsCql);
                 QueryState state = QueryState.forInternalCalls();
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
                 QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
@@ -1132,7 +1145,7 @@ public class StorageProxy implements StorageProxyMBean
                 ResultMessage.Rows r = (ResultMessage.Rows) response;
                 // r.result is of type org.apache.cassandra.cql3.ResultSet
                 logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
-                // TODO: parse the result
+                // TODO: check the result
 
                 //logger.warn("Acorn: ia={} dc={}", ia, snitch.getDatacenter(ia));
             }
