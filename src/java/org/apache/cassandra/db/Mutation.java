@@ -20,6 +20,7 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,9 +29,14 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.cassandra.config.CFMetaData;
+import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.Schema;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.CollectionType;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
+import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.SerializationHelper;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -40,6 +46,7 @@ import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 // TODO convert this to a Builder pattern instead of encouraging M.add directly,
 // which is less-efficient since we have to keep a mutable HashMap around
@@ -285,6 +292,67 @@ public class Mutation implements IMutation
             buff.append("\n  ").append(StringUtils.join(modifications.values(), "\n  ")).append("\n");
         }
         return buff.append("])").toString();
+    }
+
+    public class UserTopics {
+        public String user;
+        public List<String> topics;
+
+        public UserTopics(
+                String user,
+                List<String> topics)
+        {
+            this.user = user;
+            this.topics = topics;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("user=%s topics=[%s]", user, String.join(", ", topics));
+        }
+    }
+
+    // Called only by Acorn code
+    public UserTopics getUserTopics()
+    {
+        //logger.warn("Acorn: modifications.values()=[{}]", StringUtils.join(modifications.values(), ", "));
+        String user = null;
+        List<String> topics = new ArrayList<String>();
+
+        for (PartitionUpdate pu: modifications.values()) {
+            //logger.warn("Acorn: pu={} {}", pu, pu.getClass().getName());
+            // pu.iterator() is of type org.apache.cassandra.utils.btree.BTreeSearchIterator
+            //logger.warn("Acorn: pu.iterator()={} {}", pu.iterator(true), pu.iterator().getClass().getName());
+
+
+            Iterator<Row> iter = pu.iterator();
+            while (iter.hasNext()) {
+                Row r = iter.next();
+                //logger.warn("Acorn: r={} {}", r, r.getClass().getName());
+
+                //public Iterable<Cell> cells();
+                Iterator<Cell> i1 = r.cells().iterator();
+                while(i1.hasNext()) {
+                    // c is of type org.apache.cassandra.db.rows.BufferCell
+                    Cell c = i1.next();
+                    //logger.warn("Acorn: c={} {}", c, c.getClass().getName());
+
+                    // c.column().name is of type ColumnIdentifier
+                    String colName = c.column().name.toString();
+                    AbstractType<?> type = c.column().type;
+                    if (colName.equals("user")) {
+                        user = type.getString(c.value());
+                    } else if (colName.equals("topics")) {
+                        if (! (type instanceof CollectionType && type.isMultiCell()))
+                            throw new RuntimeException(String.format("Unexpected: type.getClass()=%s", type.getClass().getName()));
+                        CollectionType ct = (CollectionType)type;
+                        topics.add(ct.nameComparator().getString(c.path().get(0)));
+                    }
+                }
+            }
+        }
+
+        return new UserTopics(user, topics);
     }
 
     public static class MutationSerializer implements IVersionedSerializer<Mutation>
