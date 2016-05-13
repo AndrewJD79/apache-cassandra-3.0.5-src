@@ -146,14 +146,14 @@ public class QueryMessage extends Message.Request
             Message.Response response = ClientState.getCQLQueryHandler().process(query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
 
-            if (acorn) {
-                //logger.warn("Acorn: response={} {}", response, response.getClass().getName());
-                if (response.getClass().equals(ResultMessage.Rows.class)) {
-                    ResultMessage.Rows r = (ResultMessage.Rows) response;
-                    // r.result is of type org.apache.cassandra.cql3.ResultSet
-                    logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
-                }
-            }
+            //if (acorn) {
+            //    //logger.warn("Acorn: response={} {}", response, response.getClass().getName());
+            //    if (response.getClass().equals(ResultMessage.Rows.class)) {
+            //        ResultMessage.Rows r = (ResultMessage.Rows) response;
+            //        // r.result is of type org.apache.cassandra.cql3.ResultSet
+            //        logger.warn("Acorn: response.result={} {}", r.result, r.result.getClass().getName());
+            //    }
+            //}
 
             if (options.skipMetadata() && response instanceof ResultMessage.Rows)
                 ((ResultMessage.Rows)response).result.metadata.setSkipMetadata();

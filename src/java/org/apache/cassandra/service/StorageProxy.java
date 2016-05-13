@@ -624,10 +624,10 @@ public class StorageProxy implements StorageProxyMBean
                 acorn = true;
             }
         }
-        if (acorn) {
-            logger.warn("Acorn: mutations={} consistency_level={} localDataCenter={}",
-                    mutations, consistency_level, localDataCenter);
-        }
+        //if (acorn) {
+        //    logger.warn("Acorn: mutations={} consistency_level={} localDataCenter={}",
+        //            mutations, consistency_level, localDataCenter);
+        //}
 
         long startTime = System.nanoTime();
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
