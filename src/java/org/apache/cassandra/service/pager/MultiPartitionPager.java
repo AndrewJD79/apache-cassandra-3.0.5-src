@@ -121,6 +121,14 @@ public class MultiPartitionPager implements QueryPager
     @SuppressWarnings("resource") // iter closed via countingIter
     public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
+        return fetchPage(false, pageSize, consistency, clientState);
+    }
+    @SuppressWarnings("resource") // iter closed via countingIter
+    public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+    {
+        // TODO: I think the same filtering on target DCs needs to be made here.
+        // Look into the other side of the code.
+
         int toQuery = Math.min(remaining, pageSize);
         PagersIterator iter = new PagersIterator(toQuery, consistency, clientState, null);
         DataLimits.Counter counter = limit.forPaging(toQuery).newCounter(nowInSec, true);

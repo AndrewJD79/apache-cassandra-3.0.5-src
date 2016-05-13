@@ -51,6 +51,7 @@ import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.ClientWarn;
 import org.apache.cassandra.service.QueryState;
+import org.apache.cassandra.service.pager.AbstractQueryPager;
 import org.apache.cassandra.service.pager.PagingState;
 import org.apache.cassandra.service.pager.QueryPager;
 import org.apache.cassandra.thrift.ThriftValidation;
@@ -298,7 +299,41 @@ public class SelectStatement implements CQLStatement
 
             public PartitionIterator fetchPage(int pageSize)
             {
-                return pager.fetchPage(pageSize, consistency, clientState);
+                return fetchPage(false, pageSize);
+            }
+            public PartitionIterator fetchPage(boolean acorn, int pageSize)
+            {
+                // pager can be of type org.apache.cassandra.service.pager.MultiPartitionPager
+                logger.warn("Acorn: pager={} {}", pager.getClass().getName());
+
+                // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:310)
+                // org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:409)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:355)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:214)
+                // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:215)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+                // org.apache.cassandra.service.StorageProxy.performWrite(StorageProxy.java:1149)
+                // org.apache.cassandra.service.StorageProxy.mutate(StorageProxy.java:646)
+                // org.apache.cassandra.service.StorageProxy.mutateWithTriggers(StorageProxy.java:872)
+                // org.apache.cassandra.cql3.statements.ModificationStatement.executeWithoutCondition(ModificationStatement.java:415)
+                // org.apache.cassandra.cql3.statements.ModificationStatement.execute(ModificationStatement.java:401)
+                // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:217)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+                // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:146)
+                // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+                // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+                // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+                // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+                // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+                // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+                // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+                // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+                // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+                // java.lang.Thread.run(Thread.java:745)
+
+                return pager.fetchPage(acorn, pageSize, consistency, clientState);
             }
         }
 
@@ -385,13 +420,29 @@ public class SelectStatement implements CQLStatement
         Selection.ResultSetBuilder result = selection.resultSetBuilder(parameters.isJson);
         while (!pager.isExhausted())
         {
-            try (PartitionIterator iter = pager.fetchPage(pageSize))
-            {
-                while (iter.hasNext())
+            if (acorn) {
+                if (! pager.getClass().equals(SelectStatement.Pager.NormalPager.class))
+                    throw new RuntimeException(String.format("Unexpected: pager.getClass()=%s", pager.getClass().getName()));
+                SelectStatement.Pager.NormalPager spn = (SelectStatement.Pager.NormalPager) pager;
+                try (PartitionIterator iter = spn.fetchPage(acorn, pageSize))
                 {
-                    try (RowIterator partition = iter.next())
+                    while (iter.hasNext())
                     {
-                        processPartition(partition, options, result, nowInSec);
+                        try (RowIterator partition = iter.next())
+                        {
+                            processPartition(partition, options, result, nowInSec);
+                        }
+                    }
+                }
+            } else {
+                try (PartitionIterator iter = pager.fetchPage(pageSize))
+                {
+                    while (iter.hasNext())
+                    {
+                        try (RowIterator partition = iter.next())
+                        {
+                            processPartition(partition, options, result, nowInSec);
+                        }
                     }
                 }
             }

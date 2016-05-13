@@ -377,9 +377,11 @@ public class DataResolver extends ResponseResolver
             {
                 DataResolver resolver = new DataResolver(keyspace, retryCommand, ConsistencyLevel.ONE, 1);
                 ReadCallback handler = new ReadCallback(resolver, ConsistencyLevel.ONE, retryCommand, Collections.singletonList(source));
-                if (StorageProxy.canDoLocalRequest(source))
+                if (StorageProxy.canDoLocalRequest(source)) {
+                    for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+                        logger.warn("Acorn: {}", ste);
                       StageManager.getStage(Stage.READ).maybeExecuteImmediately(new StorageProxy.LocalReadRunnable(retryCommand, handler));
-                else
+                } else
                     MessagingService.instance().sendRRWithFailure(retryCommand.createMessage(MessagingService.current_version), source, handler);
 
                 // We don't call handler.get() because we want to preserve tombstones since we're still in the middle of merging node results.

@@ -53,7 +53,7 @@ public interface QueryPager
             return ReadOrderGroup.emptyGroup();
         }
 
-        public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+        public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
         {
             return EmptyIterators.partition();
         }
@@ -88,7 +88,7 @@ public interface QueryPager
      * {@code consistency} is a serial consistency.
      * @return the page of result.
      */
-    public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException;
+    public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Starts a new read operation.

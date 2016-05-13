@@ -1102,9 +1102,6 @@ public class StorageProxy implements StorageProxyMBean
             //logger.warn("Acorn: naturalEndpoints={} pendingEndpoints={}", naturalEndpoints, pendingEndpoints);
             IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
 
-            // For test: Remove all endpoints but the local one.
-            //naturalEndpoints.removeIf(ne -> (! snitch.getDatacenter(ne).equals(localDataCenter)));
-
             // Check if any of the attributes, e.g., user or topics, is popular
             // in remote datacenters.  user and topics are parsed from
             // mutation.
@@ -1129,18 +1126,19 @@ public class StorageProxy implements StorageProxyMBean
 
                 // Is any of the attributes popular in this datacenter?
 
-                // Referenced QueryMessage.java
-                String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
-                        , keyspaceName, dc.replace("-", "_"), topicsCql);
-                QueryState state = QueryState.forInternalCalls();
-                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
-                //logger.warn("Acorn: q={}", q);
 
                 // ClientState.getCQLQueryHandler() is of type org.apache.cassandra.cql3.QueryProcessor
                 QueryHandler qh = ClientState.getCQLQueryHandler();
                 if (! qh.getClass().equals(QueryProcessor.class))
                     throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
                 QueryProcessor qp = (QueryProcessor) qh;
+
+                // Referenced QueryMessage.java
+                String q = String.format("select count(topic) from %s_attr_pop.%s_topic where topic in (%s);"
+                        , keyspaceName, dc.replace("-", "_"), topicsCql);
+                QueryState state = QueryState.forInternalCalls();
+                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+                //logger.warn("Acorn: q={}", q);
 
                 // A warning: Aggregation query used on multiple partition keys (IN restriction)
                 // A solution is splitting the query by each topic. You can
@@ -1638,6 +1636,11 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator read(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
+        return read(false, group, consistencyLevel, state);
+    }
+    public static PartitionIterator read(boolean acorn, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
+    throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
+    {
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.commands))
         {
             readMetrics.unavailables.mark();
@@ -1646,7 +1649,7 @@ public class StorageProxy implements StorageProxyMBean
 
         return consistencyLevel.isSerialConsistency()
              ? readWithPaxos(group, consistencyLevel, state)
-             : readRegular(group, consistencyLevel);
+             : readRegular(acorn, group, consistencyLevel);
     }
 
     private static PartitionIterator readWithPaxos(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
@@ -1721,13 +1724,13 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     @SuppressWarnings("resource")
-    private static PartitionIterator readRegular(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
+    private static PartitionIterator readRegular(boolean acorn, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         long start = System.nanoTime();
         try
         {
-            PartitionIterator result = fetchRows(group.commands, consistencyLevel);
+            PartitionIterator result = fetchRows(acorn, group.commands, consistencyLevel);
             // If we have more than one command, then despite each read command honoring the limit, the total result
             // might not honor it and so we should enforce it
             if (group.commands.size() > 1)
@@ -1773,17 +1776,28 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        return fetchRows(false, commands, consistencyLevel);
+    }
+    private static PartitionIterator fetchRows(boolean acorn, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
         int cmdCount = commands.size();
+        //logger.warn("Acorn: cmdCount={}", cmdCount);
+        //for (int i = 0; i < cmdCount; i++) {
+        //    logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
+        //            , i, commands.get(i), commands.get(i).getClass().getName()
+        //            , consistencyLevel);
+        //}
 
         SinglePartitionReadLifecycle[] reads = new SinglePartitionReadLifecycle[cmdCount];
         for (int i = 0; i < cmdCount; i++)
-            reads[i] = new SinglePartitionReadLifecycle(commands.get(i), consistencyLevel);
+            reads[i] = new SinglePartitionReadLifecycle(acorn, commands.get(i), consistencyLevel);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].doInitialQueries();
 
         for (int i = 0; i < cmdCount; i++)
-            reads[i].maybeTryAdditionalReplicas();
+            reads[i].maybeTryAdditionalReplicas(acorn);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].awaitResultsAndRetryOnDigestMismatch();
@@ -1811,10 +1825,10 @@ public class StorageProxy implements StorageProxyMBean
         private PartitionIterator result;
         private ReadCallback repairHandler;
 
-        SinglePartitionReadLifecycle(SinglePartitionReadCommand command, ConsistencyLevel consistency)
+        SinglePartitionReadLifecycle(boolean acorn, SinglePartitionReadCommand command, ConsistencyLevel consistency)
         {
             this.command = command;
-            this.executor = AbstractReadExecutor.getReadExecutor(command, consistency);
+            this.executor = AbstractReadExecutor.getReadExecutor(acorn, command, consistency);
             this.consistency = consistency;
         }
 
@@ -1828,9 +1842,9 @@ public class StorageProxy implements StorageProxyMBean
             executor.executeAsync();
         }
 
-        void maybeTryAdditionalReplicas()
+        void maybeTryAdditionalReplicas(boolean acorn)
         {
-            executor.maybeTryAdditionalReplicas();
+            executor.maybeTryAdditionalReplicas(acorn);
         }
 
         void awaitResultsAndRetryOnDigestMismatch() throws ReadFailureException, ReadTimeoutException
@@ -2198,12 +2212,44 @@ public class StorageProxy implements StorageProxyMBean
             int blockFor = consistency.blockFor(keyspace);
             int minResponses = Math.min(toQuery.filteredEndpoints.size(), blockFor);
             List<InetAddress> minimalEndpoints = toQuery.filteredEndpoints.subList(0, minResponses);
+            //logger.warn("Acorn: toQuery={} {} minimalEndpoints={} toQuery.filteredEndpoints={}"
+            //        , toQuery, toQuery.getClass().getName()
+            //        , minimalEndpoints
+            //        , toQuery.filteredEndpoints);
             ReadCallback handler = new ReadCallback(resolver, consistency, rangeCommand, minimalEndpoints);
 
             handler.assureSufficientLiveNodes();
 
             if (toQuery.filteredEndpoints.size() == 1 && canDoLocalRequest(toQuery.filteredEndpoints.get(0)))
             {
+                // org.apache.cassandra.service.StorageProxy$RangeCommandIterator.query(StorageProxy.java:2207)
+                // org.apache.cassandra.service.StorageProxy$RangeCommandIterator.sendNextRequests(StorageProxy.java:2229)
+                // org.apache.cassandra.service.StorageProxy$RangeCommandIterator.computeNext(StorageProxy.java:2168)
+                // org.apache.cassandra.service.StorageProxy$RangeCommandIterator.computeNext(StorageProxy.java:2121)
+                // org.apache.cassandra.utils.AbstractIterator.hasNext(AbstractIterator.java:47)
+                // org.apache.cassandra.db.transform.BasePartitions.hasNext(BasePartitions.java:72)
+                // org.apache.cassandra.cql3.statements.SelectStatement.process(SelectStatement.java:680)
+                // org.apache.cassandra.cql3.statements.SelectStatement.processResults(SelectStatement.java:407)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:251)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:210)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:194)
+                // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:76)
+                // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:217)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+                // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+                // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:146)
+                // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+                // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+                // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+                // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+                // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+                // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+                // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+                // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+                // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+                // java.lang.Thread.run(Thread.java:745)
+
                 StageManager.getStage(Stage.READ).execute(new LocalReadRunnable(rangeCommand, handler));
             }
             else

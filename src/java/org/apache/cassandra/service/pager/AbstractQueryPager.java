@@ -26,7 +26,7 @@ import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.service.ClientState;
 
-abstract class AbstractQueryPager implements QueryPager
+public abstract class AbstractQueryPager implements QueryPager
 {
     protected final ReadCommand command;
     protected final DataLimits limits;
@@ -59,12 +59,25 @@ abstract class AbstractQueryPager implements QueryPager
 
     public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
+        return fetchPage(false, pageSize, consistency, clientState);
+    }
+    public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+    {
         if (isExhausted())
             return EmptyIterators.partition();
 
         pageSize = Math.min(pageSize, remaining);
         Pager pager = new Pager(limits.forPaging(pageSize), command.nowInSec());
-        return Transformation.apply(nextPageReadCommand(pageSize).execute(consistency, clientState), pager);
+
+        ReadCommand rc = nextPageReadCommand(pageSize);
+        if (acorn) {
+            if (! rc.getClass().equals(SinglePartitionReadCommand.class))
+                throw new RuntimeException(String.format("Unexpected: rc.getClass()=%s", rc.getClass().getName()));
+            SinglePartitionReadCommand sprc = (SinglePartitionReadCommand) rc;
+            return Transformation.apply(sprc.execute(acorn, consistency, clientState), pager);
+        } else {
+            return Transformation.apply(rc.execute(consistency, clientState), pager);
+        }
     }
 
     public PartitionIterator fetchPageInternal(int pageSize, ReadOrderGroup orderGroup) throws RequestValidationException, RequestExecutionException

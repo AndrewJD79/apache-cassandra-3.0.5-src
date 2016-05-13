@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.ReadRepairDecision;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.ConsistencyLevel;
@@ -38,6 +39,7 @@ import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
 import org.apache.cassandra.exceptions.UnavailableException;
+import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
@@ -45,6 +47,7 @@ import org.apache.cassandra.schema.SpeculativeRetryParam;
 import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.utils.FBUtilities;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -114,6 +117,38 @@ public abstract class AbstractReadExecutor
         if (hasLocalEndpoint)
         {
             logger.trace("reading {} locally", readCommand.isDigestQuery() ? "digest" : "data");
+
+            // org.apache.cassandra.service.AbstractReadExecutor.makeRequests(AbstractReadExecutor.java:118)
+            // org.apache.cassandra.service.AbstractReadExecutor.makeDataRequests(AbstractReadExecutor.java:85)
+            // org.apache.cassandra.service.AbstractReadExecutor$NeverSpeculatingReadExecutor.executeAsync(AbstractReadExecutor.java:217)
+            // org.apache.cassandra.service.StorageProxy$SinglePartitionReadLifecycle.doInitialQueries(StorageProxy.java:1828)
+            // org.apache.cassandra.service.StorageProxy.fetchRows(StorageProxy.java:1783)
+            // org.apache.cassandra.service.StorageProxy.readRegular(StorageProxy.java:1730)
+            // org.apache.cassandra.service.StorageProxy.read(StorageProxy.java:1649)
+            // org.apache.cassandra.db.SinglePartitionReadCommand.execute(SinglePartitionReadCommand.java:302)
+            // org.apache.cassandra.service.pager.AbstractQueryPager.fetchPage(AbstractQueryPager.java:67)
+            // org.apache.cassandra.service.pager.SinglePartitionPager.fetchPage(SinglePartitionPager.java:34)
+            // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:301)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:346)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:213)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:194)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:76)
+            // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:217)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+            // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:146)
+            // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+            // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+            // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+            // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+            // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+            // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+            // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+            // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+            // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+            // java.lang.Thread.run(Thread.java:745)
+
             StageManager.getStage(Stage.READ).maybeExecuteImmediately(new LocalReadRunnable(command, handler));
         }
     }
@@ -122,7 +157,7 @@ public abstract class AbstractReadExecutor
      * Perform additional requests if it looks like the original will time out.  May block while it waits
      * to see if the original requests are answered first.
      */
-    public abstract void maybeTryAdditionalReplicas();
+    public abstract void maybeTryAdditionalReplicas(boolean acorn);
 
     /**
      * Get the replicas involved in the [finished] request.
@@ -148,12 +183,56 @@ public abstract class AbstractReadExecutor
     /**
      * @return an executor appropriate for the configured speculative read policy
      */
-    public static AbstractReadExecutor getReadExecutor(SinglePartitionReadCommand command, ConsistencyLevel consistencyLevel) throws UnavailableException
+    public static AbstractReadExecutor getReadExecutor(boolean acorn, SinglePartitionReadCommand command, ConsistencyLevel consistencyLevel) throws UnavailableException
     {
         Keyspace keyspace = Keyspace.open(command.metadata().ksName);
         List<InetAddress> allReplicas = StorageProxy.getLiveSortedEndpoints(keyspace, command.partitionKey());
         ReadRepairDecision repairDecision = command.metadata().newReadRepairDecision();
         List<InetAddress> targetReplicas = consistencyLevel.filterForQuery(keyspace, allReplicas, repairDecision);
+        if (acorn) {
+            // This is probably where you need to restrict DCs for read (select) operations
+            logger.warn("Acorn: before allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
+            String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
+            IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
+            allReplicas.removeIf(ia -> (! snitch.getDatacenter(ia).equals(localDataCenter)));
+            targetReplicas = allReplicas;
+            logger.warn("Acorn: after allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
+        }
+
+        // org.apache.cassandra.service.AbstractReadExecutor.getReadExecutor(AbstractReadExecutor.java:191)
+        // org.apache.cassandra.service.StorageProxy$SinglePartitionReadLifecycle.<init>(StorageProxy.java:1824)
+        // org.apache.cassandra.service.StorageProxy.fetchRows(StorageProxy.java:1787)
+        // org.apache.cassandra.service.StorageProxy.readRegular(StorageProxy.java:1731)
+        // org.apache.cassandra.service.StorageProxy.read(StorageProxy.java:1650)
+        // org.apache.cassandra.db.SinglePartitionReadCommand.execute(SinglePartitionReadCommand.java:302)
+        // org.apache.cassandra.service.pager.AbstractQueryPager.fetchPage(AbstractQueryPager.java:67)
+        // org.apache.cassandra.service.pager.SinglePartitionPager.fetchPage(SinglePartitionPager.java:34)
+        // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:301)
+        // org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:388)
+        // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:338)
+        // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:213)
+        // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:215)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+        // org.apache.cassandra.service.StorageProxy.performWrite(StorageProxy.java:1152)
+        // org.apache.cassandra.service.StorageProxy.mutate(StorageProxy.java:646)
+        // org.apache.cassandra.service.StorageProxy.mutateWithTriggers(StorageProxy.java:872)
+        // org.apache.cassandra.cql3.statements.ModificationStatement.executeWithoutCondition(ModificationStatement.java:415)
+        // org.apache.cassandra.cql3.statements.ModificationStatement.execute(ModificationStatement.java:401)
+        // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:217)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+        // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:146)
+        // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+        // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+        // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+        // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+        // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+        // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+        // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+        // java.lang.Thread.run(Thread.java:745)
 
         // Throw UAE early if we don't have enough replicas.
         consistencyLevel.assureSufficientLiveNodes(keyspace, targetReplicas);
@@ -216,7 +295,7 @@ public abstract class AbstractReadExecutor
                 makeDigestRequests(targetReplicas.subList(1, targetReplicas.size()));
         }
 
-        public void maybeTryAdditionalReplicas()
+        public void maybeTryAdditionalReplicas(boolean acorn)
         {
             // no-op
         }
@@ -267,8 +346,11 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        public void maybeTryAdditionalReplicas()
+        public void maybeTryAdditionalReplicas(boolean acorn)
         {
+            // Non-acorn requsts with all DCs are coming here. I don't think it matters.
+            //logger.warn("Acorn: acorn={} targetReplicas={}", acorn, targetReplicas);
+
             // no latency information, or we're overloaded
             if (cfs.sampleLatencyNanos > TimeUnit.MILLISECONDS.toNanos(command.getTimeout()))
                 return;
@@ -314,7 +396,7 @@ public abstract class AbstractReadExecutor
             this.cfs = cfs;
         }
 
-        public void maybeTryAdditionalReplicas()
+        public void maybeTryAdditionalReplicas(boolean acorn)
         {
             // no-op
         }
