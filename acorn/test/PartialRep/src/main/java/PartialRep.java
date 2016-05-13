@@ -166,6 +166,10 @@ public class PartialRep {
 
 			Cass.Init();
 
+			if ((! Cass.LocalDC().equals("us-east"))
+					&& (! Cass.LocalDC().equals("us-west")))
+				throw new RuntimeException(String.format("Unexpected: local_dc=%s", Cass.LocalDC()));
+
 			CreateSchema();
 
 			// Note: do you need to wait until everyone's ready? some nodes can be
@@ -175,6 +179,9 @@ public class PartialRep {
 			// "partial_rep_" and not ends with ("_attr_pop" or "_obj_loc").
 
 			// TODO: implement
+			ReadAndMonitorTraffic();
+			System.exit(0);
+
 			TestPartialRep();
 			TestFetchOnDemand();
 
@@ -208,12 +215,16 @@ public class PartialRep {
 
 	private static int _test_id = 0;
 
+	private static void ReadAndMonitorTraffic() throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
+			// Insert a big record to the acorn keyspace and keep reading it while
+			// monitoring the inter-DC traffic.
+		}
+	}
+
+
 	private static void TestPartialRep() throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
-			if ((! Cass.LocalDC().equals("us-east"))
-					&& (! Cass.LocalDC().equals("us-west")))
-				throw new RuntimeException(String.format("Unexpected: local_dc=%s", Cass.LocalDC()));
-
 			// Insert a record
 			//
 			// Object id is constructed from the experiment id and _test_id.  You
