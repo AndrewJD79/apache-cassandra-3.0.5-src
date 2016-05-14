@@ -1,3 +1,6 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.NetworkInterface;
 import java.net.InetAddress;
 import java.text.SimpleDateFormat;
@@ -51,5 +54,52 @@ class Util {
 		sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
 		Date now = new Date();
 		return sdf.format(now);
+	}
+
+	static class RxTx {
+		int rx;
+		int tx;
+
+		RxTx(int rx, int tx) {
+			this.rx = rx;
+			this.tx = tx;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("rx=%d tx=%d", rx, tx);
+		}
+	}
+
+	static RxTx GetEth0RxTx() throws IOException, InterruptedException {
+		// http://stackoverflow.com/questions/792024/how-to-execute-system-commands-linux-bsd-using-java
+		Runtime r = Runtime.getRuntime();
+		Process p = r.exec("ifconfig eth0");
+		p.waitFor();
+		BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
+		String line = "";
+		int rx = -1;
+		int tx = -1;
+		while ((line = b.readLine()) != null) {
+			// RX bytes:80098259 (80.0 MB)  TX bytes:62102148 (62.1 MB)
+			{
+				String[] t = line.split("RX bytes:");
+				if (t.length == 2) {
+					String[] t1 = t[1].split(" ");
+					rx = Integer.parseInt(t1[0]);
+				}
+			}
+			{
+				String[] t = line.split("TX bytes:");
+				if (t.length == 2) {
+					String[] t1 = t[1].split(" ");
+					tx = Integer.parseInt(t1[0]);
+				}
+			}
+		}
+		b.close();
+		if (rx == -1 || tx == -1)
+			throw new RuntimeException("Unable to get RX and TX bytes");
+		return new RxTx(rx, tx);
 	}
 }
