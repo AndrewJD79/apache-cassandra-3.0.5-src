@@ -179,8 +179,8 @@ public class PartialRep {
 			// "partial_rep_" and not ends with ("_attr_pop" or "_obj_loc").
 
 			// TODO: implement
-			ReadAndMonitorTraffic();
-			System.exit(0);
+			//ReadAndMonitorTraffic();
+			//System.exit(0);
 
 			TestPartialRep();
 			TestFetchOnDemand();
@@ -238,8 +238,9 @@ public class PartialRep {
 
 			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
-				Cons.P("Insert a record, %s", obj_id);
-				Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				try (Cons.MT _1 = new Cons.MT("Inserting a record, %s ...", obj_id)) {
+					Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				}
 			}
 			Cass.Sync();
 

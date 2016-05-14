@@ -23,13 +23,17 @@ class Cass {
 	private static List<String> _remote_dcs = null;
 	private static List<String> _all_dcs = null;
 
-	private static String _ks_name = null;
-	private static String _table_name = "t0";
+	// Partial replication
+	private static String _ks_pr = null;
+
 	// Attribute popularity keyspace. A table per attribute.
-	private static String _ks_name_attr_pop = null;
+	private static String _ks_attr_pop = null;
 	// Object location keyspace.
-	private static String _ks_name_obj_loc  = null;
-	private static String _ks_name_sync = null;
+	private static String _ks_obj_loc  = null;
+	private static String _ks_sync = null;
+
+	// For comparison
+	private static String _ks_regular = null;
 
 	public static void Init() {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
@@ -63,10 +67,12 @@ class Cass {
 
 			_WaitUntilYouSee2DCs();
 
-			_ks_name = "acorn_test";
-			_ks_name_attr_pop = _ks_name + "_attr_pop";
-			_ks_name_obj_loc  = _ks_name + "_obj_loc";
-			_ks_name_sync = _ks_name + "_sync";
+			String ks_prefix = "acorn";
+			_ks_pr = ks_prefix + "_pr";
+			_ks_attr_pop = ks_prefix + "_attr_pop";
+			_ks_obj_loc  = ks_prefix + "_obj_loc";
+			_ks_sync = ks_prefix + "_sync";
+			_ks_regular = ks_prefix + "_regular";
 		} catch (Exception e) {
 			System.err.println("Exception: " + e.getMessage());
 			e.printStackTrace();
@@ -129,7 +135,7 @@ class Cass {
 
 	public static boolean SchemaExist() {
 		// Check if the created table, that is created last, exists
-		String q = String.format("select sync_id from %s.s0 limit 1", _ks_name_sync);
+		String q = String.format("select c0 from %s.t0 limit 1", _ks_regular);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			_sess.execute(s);
@@ -173,18 +179,18 @@ class Cass {
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
-							, _ks_name, q_dcs);
+							, _ks_pr, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 					// It shouldn't already exist. The keyspace name is supposed to be
 					// unique for each run. No need to catch AlreadyExistsException.
 
-					q = String.format("CREATE TABLE %s.%s"
+					q = String.format("CREATE TABLE %s.t0"
 							+ " (obj_id text"
 							+ ", user text, topics set<text>"	// attributes
 							+ ", PRIMARY KEY (obj_id)"				// Primary key is mandatory
 							+ ");",
-							_ks_name, _table_name);
+							_ks_pr);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 				}
@@ -193,19 +199,19 @@ class Cass {
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
-							, _ks_name_attr_pop, q_dcs);
+							, _ks_attr_pop, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 
 					// These are periodically updated (broadcasted). Cassandra doesn't like "-".
 					for (String dc: _all_dcs) {
 						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
-								, _ks_name_attr_pop, dc.replace("-", "_"));
+								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
 						_sess.execute(s);
 
 						q = String.format("CREATE TABLE %s.%s_topic (topic text, PRIMARY KEY (topic));"
-								, _ks_name_attr_pop, dc.replace("-", "_"));
+								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
 						_sess.execute(s);
 					}
@@ -215,14 +221,14 @@ class Cass {
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
-							, _ks_name_obj_loc, q_dcs);
+							, _ks_obj_loc, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
 					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
-							, _ks_name_obj_loc);
+							, _ks_obj_loc);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 				}
@@ -231,14 +237,30 @@ class Cass {
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
-							, _ks_name_sync, q_dcs);
+							, _ks_sync, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
-					q = String.format("CREATE TABLE %s.s0 (sync_id text, PRIMARY KEY (sync_id));"
-							, _ks_name_sync);
+					q = String.format("CREATE TABLE %s.t0 (sync_id text, PRIMARY KEY (sync_id));"
+							, _ks_sync);
+					s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+				}
+
+				// A regular keyspace for comparison
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_regular, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_sess.execute(s);
+
+					// The CLs of the operations on this table determines the consistency
+					// model of the applications.
+					q = String.format("CREATE TABLE %s.t0 (c0 blob, PRIMARY KEY (c0));"
+							, _ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
 				}
@@ -260,9 +282,9 @@ class Cass {
 	public static void WaitForSchemaCreation()
 		throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Waiting for the schema creation ...")) {
-			// Select data from the last created table with a CL local_ONE until
+			// Select data from the last created table with a CL LOCAL_ONE until
 			// there is no exception.
-			String q = String.format("select sync_id from %s.s0", _ks_name_sync);
+			String q = String.format("select c0 from %s.t0 limit 1", _ks_regular);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking:");
 			boolean first = true;
@@ -303,26 +325,25 @@ class Cass {
 	}
 
 	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) {
-		StringBuilder qs_topics = new StringBuilder();
-		for (String t: topics) {
-			if (qs_topics.length() > 0)
-				qs_topics.append(", ");
-			qs_topics.append(String.format("'%s'", t));
+		String q = null;
+		try {
+			q = String.format(
+					"INSERT INTO %s.t0 (obj_id, user, topics) VALUES ('%s', '%s', {%s});"
+					, _ks_pr, obj_id, user
+					, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
+			_sess.execute(q);
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
 		}
-
-		String q = String.format(
-				"INSERT INTO %s.%s (obj_id, user, topics) VALUES ('%s', '%s', {%s});"
-				, _ks_name, _table_name,
-				obj_id, user, qs_topics);
-		_sess.execute(q);
 	}
 
 	static public void SelectRecordLocalUntilSucceed(String obj_id) throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Select record %s ", obj_id)) {
 			// Select data from the last created table with a CL local_ONE until
 			// succeed.
-			String q = String.format("select obj_id from %s.%s where obj_id='%s'"
-					, _ks_name, _table_name, obj_id);
+			String q = String.format("select obj_id from %s.t0 where obj_id='%s'"
+					, _ks_pr, obj_id);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking: ");
 			while (true) {
@@ -348,8 +369,8 @@ class Cass {
 	}
 
 	static public List<Row> SelectRecordLocal(String obj_id) {
-		String q = String.format("select obj_id from %s.%s where obj_id='%s'"
-				, _ks_name, _table_name, obj_id);
+		String q = String.format("select obj_id from %s.t0 where obj_id='%s'"
+				, _ks_pr, obj_id);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			ResultSet rs = _sess.execute(s);
@@ -366,7 +387,7 @@ class Cass {
 		throws InterruptedException {
 		try (Cons.MT _ = new Cons.MT("Wait for the topics %s become popular ...", String.join(", ", topics))) {
 			String q = String.format("select topic from %s.%s_topic where topic in (%s);"
-					, _ks_name_attr_pop, pop_table_region.replace("-", "_")
+					, _ks_attr_pop, pop_table_region.replace("-", "_")
 					, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking: ");
@@ -408,7 +429,7 @@ class Cass {
 					q.append(
 							String.format(
 								" INSERT INTO %s.%s_topic (topic) VALUES ('%s');"
-								, _ks_name_attr_pop, _local_dc.replace("-", "_"), t));
+								, _ks_attr_pop, _local_dc.replace("-", "_"), t));
 				}
 				q.append("APPLY BATCH");
 				Statement s = new SimpleStatement(q.toString()).setConsistencyLevel(ConsistencyLevel.ALL);
@@ -434,8 +455,8 @@ class Cass {
 
 			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
 			// will propagate eventually.
-			q = String.format("Insert into %s.s0 (sync_id) values ('%s-%s-%d');" ,
-					_ks_name_sync, LocalDC(), Conf.ExpID(), _sync_id);
+			q = String.format("Insert into %s.t0 (sync_id) values ('%s-%s-%d');" ,
+					_ks_sync, LocalDC(), Conf.ExpID(), _sync_id);
 			Statement s = new SimpleStatement(q);
 			_sess.execute(s);
 
@@ -447,8 +468,8 @@ class Cass {
 			} else {
 				peer_dc = "us-east";
 			}
-			q = String.format("select sync_id from %s.s0 where sync_id='%s-%s-%d';" ,
-					_ks_name_sync, peer_dc, Conf.ExpID(), _sync_id);
+			q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
+					_ks_sync, peer_dc, Conf.ExpID(), _sync_id);
 			s = new SimpleStatement(q);
 			boolean first = true;
 			while (true) {
@@ -481,6 +502,7 @@ class Cass {
 	}
 
 
+	// TODO: clean up
 //	static public void Insert(int tid)
 //		throws java.net.UnknownHostException {
 //		System.out.printf("  Insert ...");
@@ -489,7 +511,7 @@ class Cass {
 //		String q0 = String.format(
 //				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
 //				+ "VALUES ('%s', %d, {'%s', '%s'});",
-//				_ks_name, _table_name, Conf.dt_begin, tid,
+//				_ks_pr, _table_name_pr, Conf.dt_begin, tid,
 //				Conf.hns[0], Conf.hns[1]);
 //		_sess.execute(q0);
 //		long et = System.currentTimeMillis();
@@ -508,7 +530,7 @@ class Cass {
 //		String q0 = String.format(
 //				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
 //				+ "VALUES ('%s', %d, {'%s'});",
-//				_ks_name, _table_name, Conf.dt_begin, tid,
+//				_ks_pr, _table_name_pr, Conf.dt_begin, tid,
 //				Conf.hns[0]);
 //		_sess.execute(q0);
 //		long et = System.currentTimeMillis();
@@ -519,7 +541,7 @@ class Cass {
 //		String q0;
 //		q0 = String.format(
 //				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
-//				_ks_name, _table_name, Conf.dt_begin, tid);
+//				_ks_pr, _table_name_pr, Conf.dt_begin, tid);
 //		ResultSet rs = _sess.execute(q0);
 //		List<Row> rows = rs.all();
 //		return rows.size();
@@ -528,7 +550,7 @@ class Cass {
 //	static public int SelectFetchOnDemand(int tid, String s_dc, boolean sync) {
 //		ResultSet rs = _sess.execute(String.format(
 //				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d AND pr_sdc='%s' AND pr_sync=%s;",
-//				_ks_name, _table_name, Conf.dt_begin, tid, s_dc, sync ? "true" : "false"));
+//				_ks_pr, _table_name_pr, Conf.dt_begin, tid, s_dc, sync ? "true" : "false"));
 //		List<Row> rows = rs.all();
 //
 //		return rows.size();
