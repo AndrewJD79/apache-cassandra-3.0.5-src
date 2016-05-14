@@ -1,0 +1,5 @@
+cqlsh -e "drop keyspace acorn_regular;"
+cqlsh -e "drop keyspace acorn_sync;"
+cqlsh -e "drop keyspace acorn_attr_pop;"
+cqlsh -e "drop keyspace acorn_pr;"
+cqlsh -e "drop keyspace acorn_obj_loc;"
