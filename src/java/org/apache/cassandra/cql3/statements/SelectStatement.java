@@ -303,8 +303,12 @@ public class SelectStatement implements CQLStatement
             }
             public PartitionIterator fetchPage(boolean acorn, int pageSize)
             {
-                // pager can be of type org.apache.cassandra.service.pager.MultiPartitionPager
-                logger.warn("Acorn: pager={} {}", pager.getClass().getName());
+                if (acorn)
+                    logger.warn("Acorn: pager={} {}", pager.getClass().getName());
+
+                // pager can be of type RangeNamesQueryPager,
+                // SinglePartitionPager, or MultiPartitionPager.
+                // TODO: check if all cases are covered.
 
                 // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:310)
                 // org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:409)
