@@ -116,8 +116,8 @@ public class QueryMessage extends Message.Request
             // Looks like all queries, including system queries like this, go
             // through here.
             //   SELECT * FROM system_schema.keyspaces
-            final String acorn_ks_pr_substr = String.format(" %s_pr", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-            boolean acorn = query.contains(acorn_ks_pr_substr);
+            final String acorn_ks_regex = String.format(".* %s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            boolean acorn = query.matches(acorn_ks_regex);
             if (acorn) {
                 // state is of type org.apache.cassandra.service.QueryState
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions

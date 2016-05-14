@@ -596,13 +596,13 @@ public class StorageProxy implements StorageProxyMBean
         // Not sure if the mutations have a mix of acorn and the other keyspaces.
         int cnt_acorn = 0;
         int cnt_others = 0;
+        final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
         for (IMutation m: mutations) {
             // We don't consider CounterMutation for now.
             if (m.getClass().equals(Mutation.class)) {
-                final String acorn_ks_pr = DatabaseDescriptor.getAcornOptions().keyspace_prefix + "_pr";
                 Mutation m0 = (Mutation) m;
                 String ks = m0.getKeyspaceName();
-                if (ks.equals(acorn_ks_pr)) {
+                if (ks.matches(acorn_ks_regex)) {
                     cnt_acorn ++;
                 } else {
                     cnt_others ++;
@@ -1096,10 +1096,10 @@ public class StorageProxy implements StorageProxyMBean
         Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
 
         if (acorn) {
-            final String acorn_ks_pr = String.format("%s_pr", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-            if (! keyspaceName.startsWith(acorn_ks_pr))
+            final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            if (! keyspaceName.matches(acorn_ks_regex))
                 throw new RuntimeException(String.format("Unexpected: keyspaceName=%s", keyspaceName));
-            String ks_attr_pop = keyspaceName.replace("_pr", "_attr_pop");
+            String ks_attr_pop = keyspaceName.substring(0, keyspaceName.length() - 2) + "_attr_pop";
 
             //logger.warn("Acorn: naturalEndpoints={} pendingEndpoints={}", naturalEndpoints, pendingEndpoints);
             IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
