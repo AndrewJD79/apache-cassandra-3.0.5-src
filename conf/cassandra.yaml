@@ -941,4 +941,4 @@ enable_scripted_user_defined_functions: false
 windows_timer_interval: 1
 
 acorn_options:
-  keyspace_prefix: acorn
+  keyspace_prefix: acorn_pr
