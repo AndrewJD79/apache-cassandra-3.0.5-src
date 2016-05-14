@@ -1099,7 +1099,7 @@ public class StorageProxy implements StorageProxyMBean
             final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
             if (! keyspaceName.matches(acorn_ks_regex))
                 throw new RuntimeException(String.format("Unexpected: keyspaceName=%s", keyspaceName));
-            String ks_attr_pop = keyspaceName.substring(0, keyspaceName.length() - 2) + "_attr_pop";
+            String ks_attr_pop = keyspaceName.substring(0, keyspaceName.length() - 2) + "attr_pop";
 
             //logger.warn("Acorn: naturalEndpoints={} pendingEndpoints={}", naturalEndpoints, pendingEndpoints);
             IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
