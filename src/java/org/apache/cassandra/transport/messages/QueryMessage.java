@@ -22,6 +22,7 @@ import java.util.UUID;
 import com.google.common.collect.ImmutableMap;
 
 import io.netty.buffer.ByteBuf;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.exceptions.RequestValidationException;
@@ -115,7 +116,8 @@ public class QueryMessage extends Message.Request
             // Looks like all queries, including system queries like this, go
             // through here.
             //   SELECT * FROM system_schema.keyspaces
-            boolean acorn = query.contains(" acorn");
+            final String acorn_ks_pr_substr = String.format(" %s_pr", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            boolean acorn = query.contains(acorn_ks_pr_substr);
             if (acorn) {
                 // state is of type org.apache.cassandra.service.QueryState
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions

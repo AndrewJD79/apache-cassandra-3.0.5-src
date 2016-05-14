@@ -941,4 +941,5 @@ enable_scripted_user_defined_functions: false
 windows_timer_interval: 1
 
 acorn_options:
-  keyspace_prefix: acorn_pr
+    # Partial replications work on the keyspace, keyspace_prefix + "_pr".
+    keyspace_prefix: acorn
