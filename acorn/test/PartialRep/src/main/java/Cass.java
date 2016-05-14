@@ -522,11 +522,11 @@ class Cass {
 		}
 	}
 
-	static public List<Row> SelectFromRegular(String obj_id) {
+	static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) {
 		String q = String.format("select * from %s.t0 where c0='%s'"
 				, _ks_regular, obj_id);
 		try {
-			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 			// TODO: play with CL
 			ResultSet rs = _sess.execute(s);
 			List<Row> rows = rs.all();
