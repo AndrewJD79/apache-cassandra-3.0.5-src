@@ -1,7 +1,9 @@
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
+import javax.xml.bind.DatatypeConverter;
 
 import com.datastax.driver.core.*;
 
@@ -172,15 +174,8 @@ public class PartialRep {
 
 			CreateSchema();
 
-			// Note: do you need to wait until everyone's ready? some nodes can be
-			// slower than others due to build or anything. I'm not sure yet.
-
-			// TODO: implement partial replication when the keyspace starts with
-			// "partial_rep_" and not ends with ("_attr_pop" or "_obj_loc").
-
-			// TODO: implement
-			//ReadAndMonitorTraffic();
-			//System.exit(0);
+			ReadAndMonitorTraffic();
+			System.exit(0);
 
 			TestPartialRep();
 			TestFetchOnDemand();
@@ -219,6 +214,53 @@ public class PartialRep {
 		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
 			// Insert a big record to the acorn keyspace and keep reading it while
 			// monitoring the inter-DC traffic.
+			int objSize = 1000;
+			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record, %s ...", obj_id)) {
+					// TODO: increase the size
+					Cass.InsertRandomToRegular(obj_id, objSize);
+				}
+			}
+			Cass.Sync();
+
+			if (Cass.LocalDC().equals("us-east")) {
+				int cnt = 1000;
+				try (Cons.MT _1 = new Cons.MT("Selecting the record %s %d times ...", obj_id, cnt)) {
+					boolean first = true;
+					for (int i = 0; i < cnt; i ++) {
+						List<Row> rows = Cass.SelectFromRegular(obj_id);
+
+						for (Row r : rows) {
+							String c0 = r.getString("c0");
+							ByteBuffer c1 = r.getBytes("c1");
+							// http://stackoverflow.com/questions/679298/gets-byte-array-from-a-bytebuffer-in-java
+							byte[] b = new byte[c1.remaining()];
+							c1.get(b);
+							// http://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java
+							//Cons.P("%s %s", c0, javax.xml.bind.DatatypeConverter.printHexBinary(b));
+						}
+
+						if (i % 20 != 19)
+							continue;
+						if (first) {
+							Cons.Pnnl(".");
+							first = false;
+						} else {
+							System.out.printf(".");
+							System.out.flush();
+						}
+					}
+					System.out.printf("\n");
+				}
+			}
+			Cass.Sync();
+
+			// TODO: play with different consistency levels
+
+			// TODO: Want to verify that reads with LOCAL_ONE doesn't make any
+			// inter-DC communication. With or without partial replication.
+
 		}
 	}
 

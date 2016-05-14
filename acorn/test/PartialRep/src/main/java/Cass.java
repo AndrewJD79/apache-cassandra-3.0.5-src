@@ -2,9 +2,11 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.lang.InterruptedException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -259,7 +261,7 @@ class Cass {
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
-					q = String.format("CREATE TABLE %s.t0 (c0 blob, PRIMARY KEY (c0));"
+					q = String.format("CREATE TABLE %s.t0 (c0 text, c1 blob, PRIMARY KEY (c0));"
 							, _ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_sess.execute(s);
@@ -495,6 +497,42 @@ class Cass {
 			_sync_id ++;
 
 			System.out.printf(" took %d ms\n", System.currentTimeMillis() - bt);
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
+
+	static public void InsertRandomToRegular(String obj_id, int recSize) throws InterruptedException {
+		try {
+			// http://ac31004.blogspot.com/2014/03/saving-image-in-cassandra-blob-field.html
+
+			// http://stackoverflow.com/questions/5683206/how-to-create-an-array-of-20-random-bytes
+			byte[] b = new byte[recSize];
+			new Random().nextBytes(b);
+			ByteBuffer bb = ByteBuffer.wrap(b);
+
+			PreparedStatement ps = _sess.prepare(
+					String.format("insert into %s.t0 (c0, c1) values (?,?)", _ks_regular));
+			BoundStatement bs = new BoundStatement(ps);
+			_sess.execute(bs.bind(obj_id, bb));
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s]", e);
+			throw e;
+		}
+	}
+
+	static public List<Row> SelectFromRegular(String obj_id) {
+		String q = String.format("select * from %s.t0 where c0='%s'"
+				, _ks_regular, obj_id);
+		try {
+			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			// TODO: play with CL
+			ResultSet rs = _sess.execute(s);
+			List<Row> rows = rs.all();
+			if (rows.size() != 1)
+				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+			return rows;
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
