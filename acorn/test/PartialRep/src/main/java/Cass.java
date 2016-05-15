@@ -19,6 +19,9 @@ import com.google.common.base.Joiner;
 
 class Cass {
 	private static Cluster _cluster;
+
+	// Session instances are thread-safe and usually a single instance is enough per application.
+	// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Session.html
 	private static Session _sess;
 
 	private static String _local_dc = null;
@@ -384,64 +387,82 @@ class Cass {
 		}
 	}
 
-	static public void KeepCheckingUntilAnyOfTopicsBecomesPopular(
-			String pop_table_region, Set<String> topics)
-		throws InterruptedException {
-		try (Cons.MT _ = new Cons.MT("Wait for the topics %s become popular ...", String.join(", ", topics))) {
-			String q = String.format("select topic from %s.%s_topic where topic in (%s);"
-					, _ks_attr_pop, pop_table_region.replace("-", "_")
-					, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
-			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-			Cons.Pnnl("Checking: ");
-			long bt = System.currentTimeMillis();
-			while (true) {
-				try {
-					ResultSet rs = _sess.execute(s);
-					List<Row> rows = rs.all();
-					//Cons.P("[%s] %d", q, rows.size());
-					if (rows.size() < topics.size()) {
-						System.out.printf(".");
-						System.out.flush();
-						Thread.sleep(10);
-					} else if (rows.size() == topics.size()) {
-						System.out.printf(" got %d\n", topics.size());
-						break;
-					} else {
-						throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-					}
-				} catch (com.datastax.driver.core.exceptions.DriverException e) {
-					Cons.P("Exception=[%s] query=[%s]", e, q);
-					throw e;
-				}
+	//static public void KeepCheckingUntilAnyOfTopicsBecomesPopular(
+	//		String pop_table_region, Set<String> topics)
+	//	throws InterruptedException {
+	//	try (Cons.MT _ = new Cons.MT("Wait for the topics %s become popular ...", String.join(", ", topics))) {
+	//		String q = String.format("select topic from %s.%s_topic where topic in (%s);"
+	//				, _ks_attr_pop, pop_table_region.replace("-", "_")
+	//				, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
+	//		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+	//		Cons.Pnnl("Checking: ");
+	//		long bt = System.currentTimeMillis();
+	//		while (true) {
+	//			try {
+	//				ResultSet rs = _sess.execute(s);
+	//				List<Row> rows = rs.all();
+	//				//Cons.P("[%s] %d", q, rows.size());
+	//				if (rows.size() < topics.size()) {
+	//					System.out.printf(".");
+	//					System.out.flush();
+	//					Thread.sleep(10);
+	//				} else if (rows.size() == topics.size()) {
+	//					System.out.printf(" got %d\n", topics.size());
+	//					break;
+	//				} else {
+	//					throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+	//				}
+	//			} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//				Cons.P("Exception=[%s] query=[%s]", e, q);
+	//				throw e;
+	//			}
 
-				if (System.currentTimeMillis() - bt > 5000) {
-					System.out.printf("\n");
-					throw new RuntimeException("Time out");
-				}
-			}
-		}
-	}
+	//			if (System.currentTimeMillis() - bt > 5000) {
+	//				System.out.printf("\n");
+	//				throw new RuntimeException("Time out");
+	//			}
+	//		}
+	//	}
+	//}
 
-	static public void MakeATopicsPopularWithClAll(Set<String> topics) {
-		try (Cons.MT _ = new Cons.MT("Making topics %s popular ...", String.join(", ", topics))) {
-			StringBuilder q = new StringBuilder();
-			try {
-				q.append("BEGIN BATCH");
-				for (String t: topics) {
-					q.append(
-							String.format(
-								" INSERT INTO %s.%s_topic (topic) VALUES ('%s');"
-								, _ks_attr_pop, _local_dc.replace("-", "_"), t));
-				}
-				q.append("APPLY BATCH");
-				Statement s = new SimpleStatement(q.toString()).setConsistencyLevel(ConsistencyLevel.ALL);
-				_sess.execute(s);
-			} catch (com.datastax.driver.core.exceptions.DriverException e) {
-				Cons.P("Exception=[%s] query=[%s]", e, q.toString());
-				throw e;
-			}
-		}
-	}
+	// TODO: clean up
+	//static public void MakeATopicsPopularWithWrite(Set<String> topics) {
+	//	try (Cons.MT _ = new Cons.MT("Making topics %s popular by reading (selecting) ...", String.join(", ", topics))) {
+	//		StringBuilder q = new StringBuilder();
+	//		try {
+	//			// Select in the main thread, insert popularity in a "detached" thread
+	//			// so that it doesn't affect the performance of the select.  The thread
+	//			// is not really detached. It will be reaped later.
+	//			//
+	//			// Select in the main thread. You need to have an object with the
+	//			// specified topics and select the object.
+	//			//
+	//			// For now, it is implemented in the client side to save time. You can
+	//			// skip the select as well.  Well, you better do the full
+	//			// implementation here. It will save your time eventually.
+
+	//			Thread _monThread = new Thread(new MonThread());
+	//
+	//			_monThread.start();
+	//			_monThread.join();
+
+	//			//q.append("BEGIN BATCH");
+	//			//for (String t: topics) {
+	//			//	q.append(
+	//			//			String.format(
+	//			//				" INSERT INTO %s.%s_topic (topic) VALUES ('%s');"
+	//			//				, _ks_attr_pop, _local_dc.replace("-", "_"), t));
+	//			//}
+	//			//q.append("APPLY BATCH");
+	//			// TODO: Reading doesn't use CL ALL.
+	//			Statement s = new SimpleStatement(q.toString()).setConsistencyLevel(ConsistencyLevel.ALL);
+	//			_sess.execute(s);
+	//		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//			Cons.P("Exception=[%s] query=[%s]", e, q.toString());
+	//			throw e;
+	//		}
+	//	}
+	//}
 
 	static private int _sync_id = 0;
 

@@ -181,7 +181,9 @@ public class PartialRep {
 			//XDcTrafficOnReadCount();
 
 			TestPartialRep();
-			TestFetchOnDemand();
+
+			// TODO TestFetchOnDemand();
+			// It should probably be asynchronous
 
 			// TODO: clean up
 			//TestSyncFetchOnDemand();
@@ -211,14 +213,19 @@ public class PartialRep {
 		Cass.WaitForSchemaCreation();
 	}
 
-	private static int _test_id = 0;
+	static class ObjIDFactory() {
+		private static int _test_id = 0;
+		static String Gen() {
+			return String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+		}
+	}
 
 	private static void XDcTrafficOnRead() throws InterruptedException, IOException {
 		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
 			// Insert a big record to the acorn keyspace and keep reading it while
 			// monitoring the inter-DC traffic.
 			int objSize = 10000;
-			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String obj_id = ObjIDFactory.Gen();
 			if (Cass.LocalDC().equals("us-east")) {
 				try (Cons.MT _1 = new Cons.MT("Inserting a record obj_id=%s size=%d ...", obj_id, objSize)) {
 					Cass.InsertRandomToRegular(obj_id, objSize);
@@ -252,8 +259,8 @@ public class PartialRep {
 			// Insert a big record to the acorn keyspace and keep reading it while
 			// monitoring the inter-DC traffic.
 			int objSize = 10000;
-			String objId0 = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
-			String objId1 = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String objId0 = ObjIDFactory.Gen();
+			String objId1 = ObjIDFactory.Gen();
 			if (Cass.LocalDC().equals("us-east")) {
 				try (Cons.MT _1 = new Cons.MT("Inserting a record objId0=%s objId1=%s size=%d ...", objId0, objId1, objSize)) {
 					Cass.InsertRandomToRegular(objId0, objSize);
@@ -355,38 +362,39 @@ public class PartialRep {
 			// Object id is constructed from the experiment id and _test_id.  You
 			// cannot just use current date time, since the two machines on the east
 			// and west won't have the same value.
-			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String objId0 = ObjIDFactory.Gen();
 			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
 			String topic_uga = String.format("uga-%s", Conf.ExpID());
+			String topic_dirty_sock = String.format("dirtysock-%s", Conf.ExpID());
 			// Sync (like execution barrier). Wait till everyone gets here.
 			Cass.Sync();
 
 			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
-				try (Cons.MT _1 = new Cons.MT("Inserting a record, %s ...", obj_id)) {
-					Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				try (Cons.MT _1 = new Cons.MT("Inserting a record, %s ...", objId0)) {
+					Cass.InsertRecordPartial(objId0, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 				}
 			}
 			Cass.Sync();
 
 			// Check the topic is not replicated to west.
 			if (Cass.LocalDC().equals("us-east")) {
-				List<Row> rows = Cass.SelectRecordLocal(obj_id);
+				List<Row> rows = Cass.SelectRecordLocal(objId0);
 				if (rows.size() != 1)
-					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+					throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 			} else if (Cass.LocalDC().equals("us-west")) {
 				try (Cons.MT _1 = new Cons.MT("Checking to see no record is replicated here ...")) {
 					// Poll for 2 secs making sure the record is not propagated.
 					Cons.Pnnl("Checking: ");
 					long bt = System.currentTimeMillis();
 					while (true) {
-						List<Row> rows = Cass.SelectRecordLocal(obj_id);
+						List<Row> rows = Cass.SelectRecordLocal(objId0);
 						if (rows.size() == 0) {
 							System.out.printf(".");
 							System.out.flush();
 							Thread.sleep(100);
 						} else {
-							throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+							throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 						}
 						if (System.currentTimeMillis() - bt > 2000) {
 							System.out.printf(" no record found\n");
@@ -397,34 +405,31 @@ public class PartialRep {
 			}
 			Cass.Sync();
 
-			// Make the topic tennis popular in the west
-			// TODO: By making a read request with the topics in the west.
-			if (Cass.LocalDC().equals("us-east")) {
-				// This is redundant when you have a Sync() below.
-				Cass.KeepCheckingUntilAnyOfTopicsBecomesPopular("us-west", new TreeSet<String>(Arrays.asList(topic_tennis)));
-			} else if (Cass.LocalDC().equals("us-west")) {
-				Cass.MakeATopicsPopularWithClAll(new TreeSet<String>(Arrays.asList(topic_tennis)));
-			}
+			// Make the topic tennis popular in the West with a write request. Write
+			// is easier here. A read would have done the same.
+			String objId1 = ObjIDFactory.Gen();
+			if (Cass.LocalDC().equals("us-west"))
+				Cass.InsertRecordPartial(objId1, "jack", new TreeSet<String>(Arrays.asList(topic_tennis, topic_dirty_sock)));
 			Cass.Sync();
 
 			// Insert another record from the east. Expect it immediately visible in
 			// the east and eventually visible in the west.
-			obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String objId2 = ObjIDFactory.Gen();
 			if (Cass.LocalDC().equals("us-east"))
-				Cass.InsertRecordPartial(obj_id, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				Cass.InsertRecordPartial(objId2, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 			Cass.Sync();
 
 			if (Cass.LocalDC().equals("us-east")) {
-				List<Row> rows = Cass.SelectRecordLocal(obj_id);
+				List<Row> rows = Cass.SelectRecordLocal(objId2);
 				if (rows.size() != 1)
-					throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+					throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
 			} else {
 				try (Cons.MT _1 = new Cons.MT("Checking to see a record replicated here ...")) {
 					Cons.Pnnl("Checking: ");
 					long bt = System.currentTimeMillis();
 					boolean first = true;
 					while (true) {
-						List<Row> rows = Cass.SelectRecordLocal(obj_id);
+						List<Row> rows = Cass.SelectRecordLocal(objId2);
 						if (rows.size() == 0) {
 							if (first) {
 								System.out.printf(" ");
@@ -437,7 +442,7 @@ public class PartialRep {
 							System.out.printf(" got it!\n");
 							break;
 						} else
-							throw new RuntimeException(String.format("Unexpected: obj_id=%s rows.size()=%d", obj_id, rows.size()));
+							throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
 
 						if (System.currentTimeMillis() - bt > 2000) {
 							System.out.printf("\n");
