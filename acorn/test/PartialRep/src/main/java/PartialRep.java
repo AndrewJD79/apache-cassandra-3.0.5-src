@@ -407,7 +407,8 @@ public class PartialRep {
 			Cass.ExecutionBarrier();
 
 			// Make the topic tennis popular in the West with a write request. Write
-			// is easier here. A read would have done the same.
+			// is easier here. A read would have done the same. Give some time for
+			// the attr popularity to propagate.
 			String objId1 = ObjIDFactory.Gen();
 			Set<String> topics = new TreeSet<String>(Arrays.asList(topic_tennis, topic_dirty_sock));
 			try (Cons.MT _1 = new Cons.MT("Making topics %s popular by inserting a record %s in the west ..."
@@ -415,6 +416,7 @@ public class PartialRep {
 			{
 				if (Cass.LocalDC().equals("us-west"))
 					Cass.InsertRecordPartial(objId1, "jack", topics);
+				Thread.sleep(500);
 				Cass.ExecutionBarrier();
 			}
 
