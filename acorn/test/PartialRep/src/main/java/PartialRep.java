@@ -3,6 +3,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import javax.xml.bind.DatatypeConverter;
 
@@ -13,7 +14,7 @@ public class PartialRep {
 
 //	private static void TestReadAfterWrite()
 //		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.Sync(_tid);
+//		Cass.ExecutionBarrier(_tid);
 //		System.out.printf("TestReadAfterWrite ");
 //		System.out.flush();
 //		int b_tid = _tid;
@@ -75,7 +76,7 @@ public class PartialRep {
 //
 //	private static void TestRegularInsertSelect()
 //		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.Sync(_tid);
+//		Cass.ExecutionBarrier(_tid);
 //		System.out.printf("TestRegularInsertSelect\n");
 //		if (Conf.dc.equals("DC0")) {
 //			Cass.Insert(_tid);
@@ -107,7 +108,7 @@ public class PartialRep {
 //
 //	private static void TestAsyncFetchOnDemand()
 //		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.Sync(_tid);
+//		Cass.ExecutionBarrier(_tid);
 //		System.out.printf("TestAsyncFetchOnDemand\n");
 //		if (Conf.dc.equals("DC0")) {
 //			Cass.InsertToDC0(_tid);
@@ -144,7 +145,7 @@ public class PartialRep {
 //
 //	private static void TestSyncFetchOnDemand()
 //		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.Sync(_tid);
+//		Cass.ExecutionBarrier(_tid);
 //		System.out.printf("TestSyncFetchOnDemand\n");
 //		if (Conf.dc.equals("DC0")) {
 //			Cass.InsertToDC0(_tid);
@@ -231,7 +232,7 @@ public class PartialRep {
 					Cass.InsertRandomToRegular(obj_id, objSize);
 				}
 			}
-			Cass.Sync();
+			Cass.ExecutionBarrier();
 
 			// Only ALL seems to have xDC communication.
 			//   ONE         93 ms RX=  236 TX=  406
@@ -267,7 +268,7 @@ public class PartialRep {
 					Cass.InsertRandomToRegular(objId1, objSize);
 				}
 			}
-			Cass.Sync();
+			Cass.ExecutionBarrier();
 
 			// Again, only ALL seems to have xDC communication.
 			//   ONE         71 ms RX= 2184 TX=12539
@@ -315,7 +316,7 @@ public class PartialRep {
 				System.out.printf("\n");
 			}
 		}
-		Cass.Sync();
+		Cass.ExecutionBarrier();
 
 		if (Cass.LocalDC().equals("us-east")) {
 			Util.RxTx rxtx1 = Util.GetEth0RxTx();
@@ -347,7 +348,7 @@ public class PartialRep {
 				System.out.printf("\n");
 			}
 		}
-		Cass.Sync();
+		Cass.ExecutionBarrier();
 
 		if (Cass.LocalDC().equals("us-east")) {
 			Util.RxTx rxtx1 = Util.GetEth0RxTx();
@@ -366,8 +367,6 @@ public class PartialRep {
 			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
 			String topic_uga = String.format("uga-%s", Conf.ExpID());
 			String topic_dirty_sock = String.format("dirtysock-%s", Conf.ExpID());
-			// Sync (like execution barrier). Wait till everyone gets here.
-			Cass.Sync();
 
 			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
@@ -375,13 +374,15 @@ public class PartialRep {
 					Cass.InsertRecordPartial(objId0, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 				}
 			}
-			Cass.Sync();
+			Cass.ExecutionBarrier();
 
 			// Check the topic is not replicated to west.
 			if (Cass.LocalDC().equals("us-east")) {
-				List<Row> rows = Cass.SelectRecordLocal(objId0);
-				if (rows.size() != 1)
-					throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+				try (Cons.MT _1 = new Cons.MT("Expect to see the record immediately here ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId0);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+				}
 			} else if (Cass.LocalDC().equals("us-west")) {
 				try (Cons.MT _1 = new Cons.MT("Checking to see no record is replicated here ...")) {
 					// Poll for 2 secs making sure the record is not propagated.
@@ -403,26 +404,35 @@ public class PartialRep {
 					}
 				}
 			}
-			Cass.Sync();
+			Cass.ExecutionBarrier();
 
 			// Make the topic tennis popular in the West with a write request. Write
 			// is easier here. A read would have done the same.
 			String objId1 = ObjIDFactory.Gen();
-			if (Cass.LocalDC().equals("us-west"))
-				Cass.InsertRecordPartial(objId1, "jack", new TreeSet<String>(Arrays.asList(topic_tennis, topic_dirty_sock)));
-			Cass.Sync();
+			Set<String> topics = new TreeSet<String>(Arrays.asList(topic_tennis, topic_dirty_sock));
+			try (Cons.MT _1 = new Cons.MT("Making topics %s popular by inserting a record %s in the west ..."
+						, String.join(", ", topics), objId1))
+			{
+				if (Cass.LocalDC().equals("us-west"))
+					Cass.InsertRecordPartial(objId1, "jack", topics);
+				Cass.ExecutionBarrier();
+			}
 
 			// Insert another record from the east. Expect it immediately visible in
 			// the east and eventually visible in the west.
 			String objId2 = ObjIDFactory.Gen();
-			if (Cass.LocalDC().equals("us-east"))
-				Cass.InsertRecordPartial(objId2, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
-			Cass.Sync();
+			try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId2)) {
+				if (Cass.LocalDC().equals("us-east"))
+					Cass.InsertRecordPartial(objId2, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				Cass.ExecutionBarrier();
+			}
 
 			if (Cass.LocalDC().equals("us-east")) {
-				List<Row> rows = Cass.SelectRecordLocal(objId2);
-				if (rows.size() != 1)
-					throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
+				try (Cons.MT _1 = new Cons.MT("Expecting to see the record immediately here ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId2);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
+				}
 			} else {
 				try (Cons.MT _1 = new Cons.MT("Checking to see a record replicated here ...")) {
 					Cons.Pnnl("Checking: ");
@@ -451,6 +461,7 @@ public class PartialRep {
 					}
 				}
 			}
+			Cass.ExecutionBarrier();
 
 			// TODO: After 2 seconds (set the popularity detection sliding window
 			// length to 2 sec in simulation time), insert another record in the east
