@@ -426,46 +426,7 @@ class Cass {
 	//	}
 	//}
 
-	// TODO: clean up
-	//static public void MakeATopicsPopularWithWrite(Set<String> topics) {
-	//	try (Cons.MT _ = new Cons.MT("Making topics %s popular by reading (selecting) ...", String.join(", ", topics))) {
-	//		StringBuilder q = new StringBuilder();
-	//		try {
-	//			// Select in the main thread, insert popularity in a "detached" thread
-	//			// so that it doesn't affect the performance of the select.  The thread
-	//			// is not really detached. It will be reaped later.
-	//			//
-	//			// Select in the main thread. You need to have an object with the
-	//			// specified topics and select the object.
-	//			//
-	//			// For now, it is implemented in the client side to save time. You can
-	//			// skip the select as well.  Well, you better do the full
-	//			// implementation here. It will save your time eventually.
-
-	//			Thread _monThread = new Thread(new MonThread());
-	//
-	//			_monThread.start();
-	//			_monThread.join();
-
-	//			//q.append("BEGIN BATCH");
-	//			//for (String t: topics) {
-	//			//	q.append(
-	//			//			String.format(
-	//			//				" INSERT INTO %s.%s_topic (topic) VALUES ('%s');"
-	//			//				, _ks_attr_pop, _local_dc.replace("-", "_"), t));
-	//			//}
-	//			//q.append("APPLY BATCH");
-	//			// TODO: Reading doesn't use CL ALL.
-	//			Statement s = new SimpleStatement(q.toString()).setConsistencyLevel(ConsistencyLevel.ALL);
-	//			_sess.execute(s);
-	//		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-	//			Cons.P("Exception=[%s] query=[%s]", e, q.toString());
-	//			throw e;
-	//		}
-	//	}
-	//}
-
-	static private int _sync_id = 0;
+	static private int _barrier_id = 0;
 
 	// Wait until east and west gets here
 	static public void ExecutionBarrier() throws InterruptedException {
@@ -477,7 +438,7 @@ class Cass {
 			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
 			// will propagate eventually.
 			q = String.format("Insert into %s.t0 (sync_id) values ('%s-%s-%d');" ,
-					_ks_sync, LocalDC(), Conf.ExpID(), _sync_id);
+					_ks_sync, LocalDC(), Conf.ExpID(), _barrier_id);
 			Statement s = new SimpleStatement(q);
 			_sess.execute(s);
 
@@ -490,7 +451,7 @@ class Cass {
 				peer_dc = "us-east";
 			}
 			q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
-					_ks_sync, peer_dc, Conf.ExpID(), _sync_id);
+					_ks_sync, peer_dc, Conf.ExpID(), _barrier_id);
 			s = new SimpleStatement(q);
 			boolean first = true;
 			while (true) {
@@ -513,7 +474,7 @@ class Cass {
 					throw new RuntimeException("Execution barrier wait timed out :(");
 			}
 
-			_sync_id ++;
+			_barrier_id ++;
 
 			System.out.printf(" took %d ms\n", System.currentTimeMillis() - bt);
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
