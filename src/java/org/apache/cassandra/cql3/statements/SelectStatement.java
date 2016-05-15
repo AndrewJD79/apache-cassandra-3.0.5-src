@@ -405,16 +405,41 @@ public class SelectStatement implements CQLStatement
         }
         else if (restrictions.keyIsInRelation())
         {
-            // for (StackTraceElement ste : Thread.currentThread().getStackTrace())
-            //     logger.warn("Acorn: {}", ste);
-            // org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:358)
-            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:325)
-            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:209)
-            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:76)
-            // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:207)
-            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:238)
-
-            // Suppress warning for Acorn queries
+            //for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+            //    logger.warn("Acorn: {}", ste);
+            //
+            // Internal queries
+            //  org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:358)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:325)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:209)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:76)
+            //  org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:207)
+            //  org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:238)
+            //
+            // External (client initiated) queries
+            //  org.apache.cassandra.cql3.statements.SelectStatement.pageAggregateQuery(SelectStatement.java:408)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:377)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:214)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:195)
+            //  org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:77)
+            //  org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:217)
+            //  org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:255)
+            //  org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+            //  org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+            //  org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:148)
+            //  org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+            //  org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+            //  io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+            //  io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+            //  io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+            //  io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+            //  java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+            //  org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+            //  org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+            //  java.lang.Thread.run(Thread.java:745)
+            //
+            // Suppress warnings for Acorn queries. Doesn't suppress warns from
+            // "acorn.*_regular" tables, which happens only when testing.
             if (! acorn) {
                 logger.warn("Aggregation query used on multiple partition keys (IN restriction)");
                 ClientWarn.instance.warn("Aggregation query used on multiple partition keys (IN restriction)");
