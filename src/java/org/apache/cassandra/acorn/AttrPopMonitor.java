@@ -4,8 +4,13 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.TreeMap;
 
 import org.apache.cassandra.cql3.QueryHandler;
 import org.apache.cassandra.cql3.QueryOptions;
@@ -35,25 +40,36 @@ public class AttrPopMonitor implements Runnable {
     private static String acornKsPrefix;
     private static String localDataCenter;
 
-	// Attr popularity in the local DC.
-    private Set<String> popTopicsCur;
-	private Set<String> popTopicsPrev = null;
+	// Popularity count per attribute item
+	private Map<String, Integer> pcUser;
+	private Map<String, Integer> pcTopic;
 
-    // Note: When you do the parameter sensitivity analysis of the popularity
-    // detection threshould, the data structures of these and the PopExpireQ
-    // need to be redesigned.
-	private Set<String> popUsersCur;
+    // Popular attribute items in previous broadcast epoch
+    private Set<String> popTopicsPrev = null;
 	private Set<String> popUsersPrev = null;
 
-    // TODO:
-	//private PopExpireQ<String> peqTopics;
-	//private PopExpireQ<String> peqUsers;
+    // TODO: make it configurable from cassandra.yaml
+    // In milliseconds
+    static final long popMonSlidingWindowSize = 2000;
+
+    class SlidingWindowItem<T> {
+        T attrItem;
+        long expirationTime;
+
+        SlidingWindowItem(T attrItem, long reqTime) {
+            this.attrItem = attrItem;
+            expirationTime = reqTime + popMonSlidingWindowSize;
+        }
+    }
+    Queue<SlidingWindowItem> swUser;
+    Queue<SlidingWindowItem> swTopic;
+    // Items are add()ed to the tail and remove()d from head.
 
 	private int prevBcEpoch = -1;
 
     AttrPopMonitor() {
-        popTopicsCur = new TreeSet<String>();
-        popUsersCur = new TreeSet<String>();
+        swUser = new LinkedList<SlidingWindowItem>();
+        swTopic = new LinkedList<SlidingWindowItem>();
     }
 
     public void run() {
@@ -64,18 +80,14 @@ public class AttrPopMonitor implements Runnable {
 
                 // Note: May want to monitor user or topic popularity based on the
                 // configuration. Monitor both for now.
-                //
-                // TODO:
-                //peqUsers.Push(r.reqTime, r.ut.user);
-                popUsersCur.add(r.ut.user);
+                swUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
+                pcUser.put(r.ut.user, pcUser.getOrDefault(r.ut.user, 0) + 1);
 
                 for (String t: r.ut.topics) {
                     if (TopicFilter.IsBlackListed(t))
                         continue;
-
-                    // TODO:
-                    //peqTopics.Push(r.reqTime, t);
-                    popTopicsCur.add(t);
+                    swTopic.add(new SlidingWindowItem(t, r.reqTime));
+                    pcTopic.put(t, pcTopic.getOrDefault(t, 0) + 1);
                 }
 
                 //_ExpirePopularities(r.reqTime);
@@ -120,7 +132,7 @@ public class AttrPopMonitor implements Runnable {
 //            PopExpireQ.Entry e = peqUsers.Head();
 //            if (e == null)
 //                break;
-//            if (reqTime <= e.expTime)
+//            if (reqTime <= e.expirationTime)
 //                break;
 //
 //            String id = e.id;
@@ -133,7 +145,7 @@ public class AttrPopMonitor implements Runnable {
 //            PopExpireQ.Entry e = peqTopics.Head();
 //            if (e == null)
 //                break;
-//            if (reqTime <= e.expTime)
+//            if (reqTime <= e.expirationTime)
 //                break;
 //
 //            String id = e.id;
@@ -147,6 +159,30 @@ public class AttrPopMonitor implements Runnable {
     private void _PropagateToRemoteDCs() {
         // TODO: Testing to see if it works
 
+        // TODO: Do it every broadcast epoc.
+
+        // TODO: Apply diffs. Insert new attributes and delete expired attributes.
+
+        // This is a quick proof of concept implementation.
+
+        // Build popUsersCur and popTopicsCur. Attribute items will be added in
+        // the natural (sorted) order
+        List<String> popUsersCur = new ArrayList<String>();
+        for (Map.Entry<String, Integer> e : pcUser.entrySet()) {
+            String user = e.getKey();
+            int cnt = e.getValue();
+            // Note: The sensitivity analysis of popularity threshould can be done here.
+            if (cnt > 0)
+                popUsersCur.add(user);
+        }
+        List<String> popTopicsCur = new ArrayList<String>();
+        for (Map.Entry<String, Integer> e : pcTopic.entrySet()) {
+            String t = e.getKey();
+            int cnt = e.getValue();
+            // Note: The sensitivity analysis of popularity threshould can be done here.
+            if (cnt > 0)
+                popTopicsCur.add(t);
+        }
         if (popUsersCur.size() == 0 && popTopicsCur.size() == 0)
             return;
 
@@ -200,32 +236,30 @@ public class AttrPopMonitor implements Runnable {
 }
 
 
+
+
+
+
 // TODO: not sure if I will need this
 //friend class Mons;
 
-//// Popularity expiration queue. Not thread safe by design.
+// Popularity expiration queue. Not thread safe by design.
 //class PopExpireQ<T> {
 //    class Entry {
-//        // it can be either obj id, user id, topic, or anything.
-//        T id;
-//        // Expiration time
-//        long expTime;
-//        // TODO: I wonder if I can use a standard Java container
-//        // TODO: Wait... Java doesn't have pointers.
-//        Entry* prev;
-//        Entry* next;
+//        T attrItem;
+//        long expirationTime;
 //
-//        Entry(T id, long curTime) {
-//            this.id = id;
-//            expTime = curTime + Conf::pop_ws;
+//        Entry(T attrItem, long curTime) {
+//            this.attrItem = attrItem;
+//            expirationTime = curTime + windowSize;
 //        }
 //
 //        void UpdateExpTime(long curTime) {
-//            expTime = curTime + Conf::pop_ws;
+//            expirationTime = curTime + windowSize;
 //        }
 //    }
 //
-//    // Queue implemented by linked list. ordered by expTime. _head is the
+//    // Queue implemented by linked list. ordered by expirationTime. _head is the
 //    // oldest, _tail is the youngest. Items are inserted to _tail and popped
 //    // from _head.
 //    Entry* _head;
@@ -291,11 +325,11 @@ public class AttrPopMonitor implements Runnable {
 //            _QRemoveDeleteHead();
 //    }
 //
-//    void Push(long curTime, T& id) {
-//        auto it = _by_ids.find(id);
+//    void Push(long curTime, T& attrItem) {
+//        auto it = _by_ids.find(attrItem);
 //        if (it == _by_ids.end()) {
-//            Entry* e = new Entry(id, curTime);
-//            _by_ids[id] = e;
+//            Entry* e = new Entry(attrItem, curTime);
+//            _by_ids[attrItem] = e;
 //            _QInsertToTail(e);
 //        } else {
 //            Entry e = it.second;
@@ -313,8 +347,8 @@ public class AttrPopMonitor implements Runnable {
 //    void Pop() {
 //        if (_head == NULL)
 //            return;
-//        if (_by_ids.erase(_head.id) != 1)
-//            throw std::runtime_error(str(boost::format("Unable to erase(find) id %1%") % _head.id));
+//        if (_by_ids.erase(_head.attrItem) != 1)
+//            throw std::runtime_error(str(boost::format("Unable to erase(find) attrItem %1%") % _head.attrItem));
 //        _QRemoveDeleteHead();
 //    }
 //}
