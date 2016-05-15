@@ -1,4 +1,7 @@
+package org.apache.cassandra.acorn;
 
+import java.util.Set;
+import java.util.TreeSet;
 
 
 public class TopicFilter {
@@ -7,36 +10,34 @@ public class TopicFilter {
     static {
         topics = new TreeSet<String>();
 
-        const string& fn = Conf::fn_topic_filter;
-        cout << boost::format("Loading topic filter from file %s ...\n") % fn;
+        // TODO: Load topic filters.
 
-        ifstream ifs(fn);
-        if (! ifs.is_open())
-            throw runtime_error(str(boost::format("Unable to open file %s") % fn));
+        //const string& fn = Conf::fn_topic_filter;
+        //cout << boost::format("Loading topic filter from file %s ...\n") % fn;
 
-        auto sep = boost::is_any_of(" ");
+        //ifstream ifs(fn);
+        //if (! ifs.is_open())
+        //    throw runtime_error(str(boost::format("Unable to open file %s") % fn));
 
-        string line;
-        while (getline(ifs, line)) {
-            if (line.length() == 0)
-                continue;
-            if (line[0] == '#')
-                continue;
-            vector<string> t;
-            boost::split(t, line, sep);
-            if (t.size() != 2)
-                throw runtime_error(str(boost::format("Unexpected format [%s]") % line));
-            topics.insert(t[0]);
-        }
+        //auto sep = boost::is_any_of(" ");
 
-        cout << "  loaded " << topics.size() << " topics\n";
+        //string line;
+        //while (getline(ifs, line)) {
+        //    if (line.length() == 0)
+        //        continue;
+        //    if (line[0] == '#')
+        //        continue;
+        //    vector<string> t;
+        //    boost::split(t, line, sep);
+        //    if (t.size() != 2)
+        //        throw runtime_error(str(boost::format("Unexpected format [%s]") % line));
+        //    topics.insert(t[0]);
+        //}
+
+        //cout << "  loaded " << topics.size() << " topics\n";
     }
 
     public static boolean IsBlackListed(String t) {
-        if (topics.find(t) == topics.end()) {
-            return false;
-        } else {
-            return true;
-        }
+        return topics.contains(t);
     }
 }
