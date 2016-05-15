@@ -175,8 +175,10 @@ public class PartialRep {
 
 			CreateSchema();
 
-			XDcTrafficOnRead();
-			System.exit(0);
+			// Check x-DC traffic while reading. CL LOCAL_ONE doesn't make inter-DC
+			// traffic.
+			//XDcTrafficOnRead();
+			//XDcTrafficOnReadCount();
 
 			TestPartialRep();
 			TestFetchOnDemand();
@@ -219,7 +221,6 @@ public class PartialRep {
 			String obj_id = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
 			if (Cass.LocalDC().equals("us-east")) {
 				try (Cons.MT _1 = new Cons.MT("Inserting a record obj_id=%s size=%d ...", obj_id, objSize)) {
-					// TODO: increase the size
 					Cass.InsertRandomToRegular(obj_id, objSize);
 				}
 			}
@@ -229,17 +230,47 @@ public class PartialRep {
 			//   ONE         93 ms RX=  236 TX=  406
 			//   LOCAL_ONE   74 ms RX=  567 TX=  517
 			//   ALL       7816 ms RX=23482 TX=32326
+			//
 			// Another observation is that they don't seem to exchange the full
 			// object. 1MB of traffic was expected, but was only like 2%.
+			//
+			// Total execution time is not important here. ONE and LOCAL_ONE don't
+			// wait for inter-DC messages, if they ever existed.
+			//
 			// Query: select * from %s.t0 where c0='%s'
 			_XDcTrafficOnRead(ConsistencyLevel.ONE,       obj_id);
 			_XDcTrafficOnRead(ConsistencyLevel.LOCAL_ONE, obj_id);
 			_XDcTrafficOnRead(ConsistencyLevel.ALL,       obj_id);
 
-			// TODO: How about with a count(*) query? I expect the same.
-
 			// This means with LOCAL_ONE, read (select) is always DC-local. I though
-			// I've seen something different. Never mind.
+			// I've seen something different. Oh well.
+		}
+	}
+
+	private static void XDcTrafficOnReadCount() throws InterruptedException, IOException {
+		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
+			// Insert a big record to the acorn keyspace and keep reading it while
+			// monitoring the inter-DC traffic.
+			int objSize = 10000;
+			String objId0 = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			String objId1 = String.format("%s-%03d", Conf.ExpID(), _test_id ++);
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record objId0=%s objId1=%s size=%d ...", objId0, objId1, objSize)) {
+					Cass.InsertRandomToRegular(objId0, objSize);
+					Cass.InsertRandomToRegular(objId1, objSize);
+				}
+			}
+			Cass.Sync();
+
+			// Again, only ALL seems to have xDC communication.
+			//   ONE         71 ms RX= 2184 TX=12539
+			//   LOCAL_ONE   57 ms RX= 3411 TX=12948
+			//   ALL       7843 ms RX=24928 TX=43292
+			//
+			// Query: select count(*) from %s.t0 where c0 in ('%s', '%s')
+			_XDcTrafficOnReadCount(ConsistencyLevel.ONE,       objId0, objId1);
+			_XDcTrafficOnReadCount(ConsistencyLevel.LOCAL_ONE, objId0, objId1);
+			_XDcTrafficOnReadCount(ConsistencyLevel.ALL,       objId0, objId1);
 		}
 	}
 
@@ -263,6 +294,38 @@ public class PartialRep {
 						// http://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java
 						//Cons.P("%s %s", c0, javax.xml.bind.DatatypeConverter.printHexBinary(b));
 					}
+
+					if (i % 20 != 19)
+						continue;
+					if (first) {
+						Cons.Pnnl(".");
+						first = false;
+					} else {
+						System.out.printf(".");
+						System.out.flush();
+					}
+				}
+				System.out.printf("\n");
+			}
+		}
+		Cass.Sync();
+
+		if (Cass.LocalDC().equals("us-east")) {
+			Util.RxTx rxtx1 = Util.GetEth0RxTx();
+			Cons.P("RX=%d TX=%d", rxtx1.rx - rxtx0.rx, rxtx1.tx - rxtx0.tx);
+		}
+	}
+
+	private static void _XDcTrafficOnReadCount(ConsistencyLevel cl, String objId0, String objId1) throws InterruptedException, IOException {
+		Util.RxTx rxtx0 = null;
+		if (Cass.LocalDC().equals("us-east")) {
+			rxtx0 = Util.GetEth0RxTx();
+
+			int cnt = 50;
+			try (Cons.MT _1 = new Cons.MT("Selecting (count) the records %s and %s %d times with CL %s ...", objId0, objId1, cnt, cl)) {
+				boolean first = true;
+				for (int i = 0; i < cnt; i ++) {
+					Cass.SelectCountFromRegular(cl, objId0, objId1);
 
 					if (i % 20 != 19)
 						continue;
@@ -335,6 +398,7 @@ public class PartialRep {
 			Cass.Sync();
 
 			// Make the topic tennis popular in the west
+			// TODO: By making a read request with the topics in the west.
 			if (Cass.LocalDC().equals("us-east")) {
 				// This is redundant when you have a Sync() below.
 				Cass.KeepCheckingUntilAnyOfTopicsBecomesPopular("us-west", new TreeSet<String>(Arrays.asList(topic_tennis)));
@@ -382,34 +446,7 @@ public class PartialRep {
 					}
 				}
 			}
-
-			//
-			// TODO: Check the record can be selected from both east and west
-
-
-
-
-			// Make sure the record is propagated to all datacenters.
-			//Cass.SelectRecordLocalUntilSucceed(obj_id);
 		}
-
-//		Cass.Sync(_tid);
-//		System.out.printf("TestSyncFetchOnDemand\n");
-//		if (Conf.dc.equals("DC0")) {
-//			Cass.InsertToDC0(_tid);
-//			_SelectLocalUntil(_tid, 1);
-//		} else if (Conf.dc.equals("DC1")) {
-//			_SelectLocal(_tid, 0);
-//
-//			// wait 1 sec to see if DC0 propagate the insert by mistake
-//			Thread.sleep(1000);
-//			_SelectLocal(_tid, 0);
-//
-//			_SelectSyncFetchOnDemand(_tid, 1);
-//			_SelectLocal(_tid, 1);
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//		_tid ++;
 	}
 
 	private static void TestFetchOnDemand() {

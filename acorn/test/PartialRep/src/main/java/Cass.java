@@ -527,7 +527,6 @@ class Cass {
 				, _ks_regular, obj_id);
 		try {
 			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-			// TODO: play with CL
 			ResultSet rs = _sess.execute(s);
 			List<Row> rows = rs.all();
 			if (rows.size() != 1)
@@ -539,109 +538,20 @@ class Cass {
 		}
 	}
 
-
-	// TODO: clean up
-//	static public void Insert(int tid)
-//		throws java.net.UnknownHostException {
-//		System.out.printf("  Insert ...");
-//		System.out.flush();
-//		long bt = System.currentTimeMillis();
-//		String q0 = String.format(
-//				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
-//				+ "VALUES ('%s', %d, {'%s', '%s'});",
-//				_ks_pr, _table_name_pr, Conf.dt_begin, tid,
-//				Conf.hns[0], Conf.hns[1]);
-//		_sess.execute(q0);
-//		long et = System.currentTimeMillis();
-//		System.out.printf(" %d ms\n", et - bt);
-//	}
-//
-//	static public ResultSet Execute(String q) {
-//		return _sess.execute(q);
-//	}
-//
-//	static public void InsertToDC0(int tid)
-//		throws java.net.UnknownHostException {
-//		System.out.printf("  InsertToDC0 ...");
-//		System.out.flush();
-//		long bt = System.currentTimeMillis();
-//		String q0 = String.format(
-//				"INSERT INTO %s.%s (exp_id, tid, pr_tdcs) "
-//				+ "VALUES ('%s', %d, {'%s'});",
-//				_ks_pr, _table_name_pr, Conf.dt_begin, tid,
-//				Conf.hns[0]);
-//		_sess.execute(q0);
-//		long et = System.currentTimeMillis();
-//		System.out.printf(" %d ms\n", et - bt);
-//	}
-//
-//	static public int SelectLocal(int tid) {
-//		String q0;
-//		q0 = String.format(
-//				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d;",
-//				_ks_pr, _table_name_pr, Conf.dt_begin, tid);
-//		ResultSet rs = _sess.execute(q0);
-//		List<Row> rows = rs.all();
-//		return rows.size();
-//	}
-//
-//	static public int SelectFetchOnDemand(int tid, String s_dc, boolean sync) {
-//		ResultSet rs = _sess.execute(String.format(
-//				"SELECT * FROM %s.%s WHERE exp_id='%s' AND tid=%d AND pr_sdc='%s' AND pr_sync=%s;",
-//				_ks_pr, _table_name_pr, Conf.dt_begin, tid, s_dc, sync ? "true" : "false"));
-//		List<Row> rows = rs.all();
-//
-//		return rows.size();
-//	}
-//
-//	private static String _IPtoDC(String ip)
-//		throws java.io.FileNotFoundException, java.io.IOException {
-//		String fn = Conf.CassandraSrcDn() + "/conf/cassandra-topology.properties";
-//		BufferedReader br = new BufferedReader(new FileReader(fn));
-//		while (true) {
-//			String line = br.readLine();
-//			if (line == null)
-//				break;
-//			if (line.length() == 0)
-//				continue;
-//			if (line.charAt(0) == '#')
-//				continue;
-//			String[] t = line.split("=|:");
-//			if (t.length == 3) {
-//				//System.out.printf("%s %s %s\n", t[0], t[1], t[2]);
-//				if (ip.equals(t[0]))
-//					return t[1];
-//			}
-//		}
-//		if (true) throw new RuntimeException("Unknown ip " + ip);
-//		return "";
-//	}
-//
-//	private static ResultSet _RunQuery(String q)
-//		throws InterruptedException {
-//		while (true) {
-//			try {
-//				return _sess.execute(q);
-//			} catch (DriverException e) {
-//				System.err.println("Error during query: " + e.getMessage());
-//				e.printStackTrace();
-//				System.out.printf("Retrying in 5 sec...\n");
-//				Thread.sleep(5000);
-//			}
-//		}
-//	}
-//
-//	private static ResultSet _RunQuery(Query q)
-//		throws InterruptedException {
-//		while (true) {
-//			try {
-//				return _sess.execute(q);
-//			} catch (DriverException e) {
-//				System.err.println("Error during query: " + e.getMessage());
-//				e.printStackTrace();
-//				System.out.printf("Retrying in 5 sec...\n");
-//				Thread.sleep(5000);
-//			}
-//		}
-//	}
+	static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) {
+		String q = String.format("select count(*) from %s.t0 where c0 in ('%s', '%s')"
+				, _ks_regular, objId0, objId1);
+		try {
+			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+			ResultSet rs = _sess.execute(s);
+			List<Row> rows = rs.all();
+			if (rows.size() != 1)
+				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+			Row r = rows.get(0);
+			return r.getLong(0);
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
 }
