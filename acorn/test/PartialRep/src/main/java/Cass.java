@@ -326,6 +326,7 @@ class Cass {
 				}
 			}
 			System.out.printf(" exists\n");
+			ExecutionBarrier();
 		}
 	}
 
@@ -466,15 +467,12 @@ class Cass {
 
 	static private int _sync_id = 0;
 
-	// Sync (wait) until east and west gets here
-	static public void Sync() throws InterruptedException {
+	// Wait until east and west gets here
+	static public void ExecutionBarrier() throws InterruptedException {
 		String q = null;
 		try {
-			Cons.Pnnl("Syncing");
+			Cons.Pnnl("Execution barrier ");
 			long bt = System.currentTimeMillis();
-
-			if ((! LocalDC().equals("us-east")) && (! LocalDC().equals("us-west")))
-				throw new RuntimeException(String.format("Unexpected: %s", LocalDC()));
 
 			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
 			// will propagate eventually.
@@ -512,7 +510,7 @@ class Cass {
 					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 
 				if (System.currentTimeMillis() - bt > 10000)
-					throw new RuntimeException("Sync timed out :(");
+					throw new RuntimeException("Execution barrier wait timed out :(");
 			}
 
 			_sync_id ++;
