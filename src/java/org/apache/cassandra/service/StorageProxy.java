@@ -597,6 +597,7 @@ public class StorageProxy implements StorageProxyMBean
         int cnt_acorn = 0;
         int cnt_others = 0;
         final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+        String acorn_ks_prefix = null;
         for (IMutation m: mutations) {
             // We don't consider CounterMutation for now.
             if (m.getClass().equals(Mutation.class)) {
@@ -604,6 +605,8 @@ public class StorageProxy implements StorageProxyMBean
                 String ks = m0.getKeyspaceName();
                 if (ks.matches(acorn_ks_regex)) {
                     cnt_acorn ++;
+                    if (acorn_ks_prefix == null)
+                        acorn_ks_prefix = ks.substring(0, ks.length() - 3);
                 } else {
                     cnt_others ++;
                 }
@@ -640,7 +643,41 @@ public class StorageProxy implements StorageProxyMBean
                 else
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(acorn, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+
+                    Mutation.UserTopics ut = null;
+                    if (acorn) {
+                        Mutation m = (Mutation) mutation;
+                        ut = m.getUserTopics();
+                        //logger.warn("Acorn: ut={}", ut);
+                    }
+
+                    responseHandlers.add(performWrite(acorn, ut, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+
+                    if (acorn) {
+                        // TODO: Asynchronously make attributes popular in the
+                        // local datacenter in a separate thread
+
+                        StringBuilder q = new StringBuilder();
+                        q.append("BEGIN BATCH");
+                        for (String t: ut.topics) {
+                            q.append(
+                                    String.format(
+                                        " INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
+                                        , acorn_ks_prefix, localDataCenter.replace("-", "_"), t));
+                        }
+                        q.append("APPLY BATCH");
+                        logger.warn("Acorn: q={}", q.toString());
+
+                        QueryState state = QueryState.forInternalCalls();
+                        // Use CL LOCAL_ONE. It will eventually be propagated.
+                        QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+
+                        QueryHandler qh = ClientState.getCQLQueryHandler();
+                        if (! qh.getClass().equals(QueryProcessor.class))
+                            throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
+                        QueryProcessor qp = (QueryProcessor) qh;
+                        qp.process(acorn, q.toString(), state, options);
+                    }
                 }
             }
 
@@ -1075,11 +1112,12 @@ public class StorageProxy implements StorageProxyMBean
                                                             WriteType writeType)
     throws UnavailableException, OverloadedException
     {
-        return performWrite(false, mutation, consistency_level, localDataCenter, performer, callback, writeType);
+        return performWrite(false, null, mutation, consistency_level, localDataCenter, performer, callback, writeType);
     }
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
                                                             boolean acorn,
+                                                            Mutation.UserTopics ut,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
                                                             String localDataCenter,
@@ -1109,9 +1147,6 @@ public class StorageProxy implements StorageProxyMBean
             // mutation.
             if (! mutation.getClass().equals(Mutation.class))
                 throw new RuntimeException(String.format("Unexpected: mutation.getClass()=%s", mutation.getClass().getName()));
-            Mutation m = (Mutation) mutation;
-            Mutation.UserTopics ut = m.getUserTopics();
-            //logger.warn("Acorn: ut={}", ut);
 
             String topicsCql = String.join(", ", ut.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
@@ -1165,7 +1200,6 @@ public class StorageProxy implements StorageProxyMBean
 
             logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
                     , naturalEndpoints, attrPopAwareEndpoints);
-
             naturalEndpoints = attrPopAwareEndpoints;
         }
 
