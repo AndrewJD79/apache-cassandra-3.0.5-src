@@ -446,6 +446,11 @@ public class PartialRep {
 					}
 				}
 			}
+
+			// TODO: After 2 seconds (set the popularity detection sliding window
+			// length to 2 sec in simulation time), insert another record in the east
+			// with the same topic, which is not expected to be replicated to the
+			// west.
 		}
 	}
 
