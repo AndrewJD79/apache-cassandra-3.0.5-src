@@ -147,10 +147,13 @@ public class AttrPopMonitor implements Runnable {
     private void _PropagateToRemoteDCs() {
         // TODO: Testing to see if it works
 
+        if (popUsersCur.size() == 0 && popTopicsCur.size() == 0)
+            return;
+
         StringBuilder q = new StringBuilder();
         q.append("BEGIN BATCH");
         for (String u: popUsersCur)
-            q.append(String.format(" INSERT INTO %s_attr_pop.%s_user (user) VALUES ('%s');"
+            q.append(String.format(" INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s');"
                         , acornKsPrefix, localDataCenter.replace("-", "_"), u));
         for (String t: popTopicsCur)
             q.append(String.format(" INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
