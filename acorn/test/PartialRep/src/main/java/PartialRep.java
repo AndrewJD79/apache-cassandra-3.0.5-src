@@ -213,7 +213,7 @@ public class PartialRep {
 		Cass.WaitForSchemaCreation();
 	}
 
-	static class ObjIDFactory() {
+	static class ObjIDFactory {
 		private static int _test_id = 0;
 		static String Gen() {
 			return String.format("%s-%03d", Conf.ExpID(), _test_id ++);
