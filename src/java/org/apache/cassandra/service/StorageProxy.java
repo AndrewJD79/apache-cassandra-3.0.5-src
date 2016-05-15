@@ -597,7 +597,7 @@ public class StorageProxy implements StorageProxyMBean
         int cnt_acorn = 0;
         int cnt_others = 0;
         final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-        String acorn_ks_prefix = null;
+        String acornKsPrefix = null;
         for (IMutation m: mutations) {
             // We don't consider CounterMutation for now.
             if (m.getClass().equals(Mutation.class)) {
@@ -605,8 +605,8 @@ public class StorageProxy implements StorageProxyMBean
                 String ks = m0.getKeyspaceName();
                 if (ks.matches(acorn_ks_regex)) {
                     cnt_acorn ++;
-                    if (acorn_ks_prefix == null)
-                        acorn_ks_prefix = ks.substring(0, ks.length() - 3);
+                    if (acornKsPrefix == null)
+                        acornKsPrefix = ks.substring(0, ks.length() - 3);
                 } else {
                     cnt_others ++;
                 }
@@ -654,29 +654,16 @@ public class StorageProxy implements StorageProxyMBean
                     responseHandlers.add(performWrite(acorn, ut, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
 
                     if (acorn) {
-                        // TODO: Asynchronously make attributes popular in the
-                        // local datacenter in a separate thread
-
-                        StringBuilder q = new StringBuilder();
-                        q.append("BEGIN BATCH");
-                        for (String t: ut.topics) {
-                            q.append(
-                                    String.format(
-                                        " INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
-                                        , acorn_ks_prefix, localDataCenter.replace("-", "_"), t));
-                        }
-                        q.append("APPLY BATCH");
-                        logger.warn("Acorn: q={}", q.toString());
-
-                        QueryState state = QueryState.forInternalCalls();
-                        // Use CL LOCAL_ONE. It will eventually be propagated.
-                        QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
-
-                        QueryHandler qh = ClientState.getCQLQueryHandler();
-                        if (! qh.getClass().equals(QueryProcessor.class))
-                            throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
-                        QueryProcessor qp = (QueryProcessor) qh;
-                        qp.process(acorn, q.toString(), state, options);
+                        // Asynchronously make attributes popular in the local
+                        // datacenter in a separate thread
+                        //
+                        // I don't see detach in Java thread. I'm guessing they
+                        // are automatically detached when you don't join.
+                        //
+                        // May want to use a dedicated thread for this to avoid
+                        // dynamic thread creations.
+                        Thread t = new Thread(new MakeAttrPopularThread(ut, acornKsPrefix, localDataCenter));
+                        t.start();
                     }
                 }
             }
@@ -726,6 +713,47 @@ public class StorageProxy implements StorageProxyMBean
         finally
         {
             writeMetrics.addNano(System.nanoTime() - startTime);
+        }
+    }
+
+    private static class MakeAttrPopularThread implements Runnable
+    {
+        Mutation.UserTopics ut;
+        String acornKsPrefix;
+        String localDataCenter;
+
+        MakeAttrPopularThread(Mutation.UserTopics ut, String acornKsPrefix, String localDataCenter) {
+            this.ut = ut;
+            this.acornKsPrefix = acornKsPrefix;
+            this.localDataCenter = localDataCenter;
+        }
+
+        public void run() {
+            try {
+                StringBuilder q = new StringBuilder();
+                q.append("BEGIN BATCH");
+                for (String t: ut.topics) {
+                    q.append(
+                            String.format(
+                                " INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
+                                , acornKsPrefix, localDataCenter.replace("-", "_"), t));
+                }
+                q.append("APPLY BATCH");
+                logger.warn("Acorn: q={}", q.toString());
+
+                QueryState state = QueryState.forInternalCalls();
+                // Use CL LOCAL_ONE. It will eventually be propagated.
+                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+
+                QueryHandler qh = ClientState.getCQLQueryHandler();
+                if (! qh.getClass().equals(QueryProcessor.class))
+                    throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
+                QueryProcessor qp = (QueryProcessor) qh;
+                final boolean acorn = true;
+                qp.process(acorn, q.toString(), state, options);
+            } catch (Exception e) {
+                logger.warn("Acorn: {}", e);
+			}
         }
     }
 
