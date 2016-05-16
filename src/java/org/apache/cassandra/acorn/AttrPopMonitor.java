@@ -3,9 +3,9 @@ package org.apache.cassandra.acorn;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -30,15 +30,15 @@ public class AttrPopMonitor implements Runnable {
     private static Thread _thread = null;
 
     static {
-        // TODO: Let the dedicated thread do the work for all requests.
-        // TODO: Then you only need to synchronize on the request queue.
-        // TODO: A lot of the variables can be made non-static.
+        // Let a dedicated thread do the work for all requests.  Then, you only
+        // need to synchronize on the request queue.
         _thread = new Thread(new AttrPopMonitor());
         _thread.start();
     }
 
     private static String acornKsPrefix;
     private static String localDataCenter;
+    private static String localDataCenterCql;
 
 	// Popularity count per attribute item
 	private Map<String, Integer> pcUser;
@@ -63,9 +63,6 @@ public class AttrPopMonitor implements Runnable {
     }
     Queue<SlidingWindowItem> swUser;
     Queue<SlidingWindowItem> swTopic;
-    // Items are add()ed to the tail and remove()d from head.
-
-	private int prevBcEpoch = -1;
 
     AttrPopMonitor() {
         swUser = new LinkedList<SlidingWindowItem>();
@@ -75,24 +72,30 @@ public class AttrPopMonitor implements Runnable {
     public void run() {
         try {
             while (true) {
-                // Wait and take a request
-                Req r = reqQ.take();
+                // Fetch a request
+                // TODO: make it configurable
+                Req r = reqQ.poll(2000, TimeUnit.MILLISECONDS);
+                long reqTime;
+                if (r != null) {
+                    // Note: May want to monitor user or topic popularity based on the
+                    // configuration. Monitor both for now.
+                    swUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
+                    pcUser.put(r.ut.user, pcUser.getOrDefault(r.ut.user, 0) + 1);
 
-                // Note: May want to monitor user or topic popularity based on the
-                // configuration. Monitor both for now.
-                swUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
-                pcUser.put(r.ut.user, pcUser.getOrDefault(r.ut.user, 0) + 1);
+                    for (String t: r.ut.topics) {
+                        if (TopicFilter.IsBlackListed(t))
+                            continue;
+                        swTopic.add(new SlidingWindowItem(t, r.reqTime));
+                        pcTopic.put(t, pcTopic.getOrDefault(t, 0) + 1);
+                    }
 
-                for (String t: r.ut.topics) {
-                    if (TopicFilter.IsBlackListed(t))
-                        continue;
-                    swTopic.add(new SlidingWindowItem(t, r.reqTime));
-                    pcTopic.put(t, pcTopic.getOrDefault(t, 0) + 1);
+                    reqTime = r.reqTime;
+                } else {
+                    reqTime = System.currentTimeMillis();
                 }
 
-                //_ExpirePopularities(r.reqTime);
-                //_PropagateToRemoteDCs(r.reqTime);
-                _PropagateToRemoteDCs();
+                _ExpirePopularities(reqTime);
+                _PropagateToRemoteDCs(reqTime);
             }
         } catch (Exception e) {
             logger.warn("Acorn: Exception {}", e);
@@ -110,14 +113,17 @@ public class AttrPopMonitor implements Runnable {
     }
 
     // Note: Play with popularity detection threshould. Hope I have some time
-    // to do this.
+    // for this.
     public static void SetPopular(Mutation.UserTopics ut, String acornKsPrefix_, String localDataCenter_) {
         try {
-            // acornKsPrefix and localDataCenter are believed to be the same.
+            // The parameters acornKsPrefix and localDataCenter are supposed to
+            // be the same every time.
             if (acornKsPrefix == null)
                 acornKsPrefix = acornKsPrefix_;
-            if (localDataCenter == null)
+            if (localDataCenter == null) {
                 localDataCenter = localDataCenter_;
+                localDataCenterCql = localDataCenter.replace("-", "_");
+            }
 
             // Enqueue the request
             reqQ.put(new Req(ut));
@@ -126,48 +132,48 @@ public class AttrPopMonitor implements Runnable {
         }
     }
 
-// Drop attributes that are expired
-//    private void _ExpirePopularities(long reqTime) {
-//        while (true) {
-//            PopExpireQ.Entry e = peqUsers.Head();
-//            if (e == null)
-//                break;
-//            if (reqTime <= e.expirationTime)
-//                break;
-//
-//            String id = e.id;
-//            if (popUsersCur.remove(id) == false)
-//                throw new RuntimeException(String.format("Unable to remove(find) id %s from popUsersCur", id));
-//            peqUsers.Pop();
-//        }
-//
-//        while (true) {
-//            PopExpireQ.Entry e = peqTopics.Head();
-//            if (e == null)
-//                break;
-//            if (reqTime <= e.expirationTime)
-//                break;
-//
-//            String id = e.id;
-//            if (popTopicsCur.remove(id) == false)
-//                throw new RuntimeException(String.format("Unable to remove(find) id %s from popTopicsCur", id));
-//            peqTopics.Pop();
-//        }
-//    }
+    private void _ExpirePopularities(long reqTime) {
+        while (true) {
+            SlidingWindowItem<String> swi = swUser.peek();
+            if (swi == null)
+                break;
+            if (swi.expirationTime <= reqTime)
+                break;
+            String attrItem = swi.attrItem;
+            swUser.remove();
+            pcUser.put(attrItem, pcUser.get(attrItem) - 1);
+        }
 
-    //private void _PropagateToRemoteDCs(long reqTime) {
-    private void _PropagateToRemoteDCs() {
-        // TODO: Testing to see if it works
+        while (true) {
+            SlidingWindowItem<String> swi = swTopic.peek();
+            if (swi == null)
+                break;
+            if (swi.expirationTime <= reqTime)
+                break;
+            String attrItem = swi.attrItem;
+            swTopic.remove();
+            pcTopic.put(attrItem, pcTopic.get(attrItem) - 1);
+        }
+    }
 
-        // TODO: Do it every broadcast epoc.
+    private long firstBcReqTime;
+    private long prevBcEpoch = -1;
 
-        // TODO: Apply diffs. Insert new attributes and delete expired attributes.
+    private void _PropagateToRemoteDCs(long reqTime) {
+        if (prevBcEpoch == -1) {
+            firstBcReqTime = System.currentTimeMillis();
+            prevBcEpoch = 0;
+            return;
+        }
 
-        // This is a quick proof of concept implementation.
+        // TODO: make it configurable
+        long curBcEpoch = (reqTime - firstBcReqTime) / 2000;
+        if (curBcEpoch == prevBcEpoch)
+            return;
 
         // Build popUsersCur and popTopicsCur. Attribute items will be added in
         // the natural (sorted) order
-        List<String> popUsersCur = new ArrayList<String>();
+        Set<String> popUsersCur = new TreeSet<String>();
         for (Map.Entry<String, Integer> e : pcUser.entrySet()) {
             String user = e.getKey();
             int cnt = e.getValue();
@@ -175,7 +181,7 @@ public class AttrPopMonitor implements Runnable {
             if (cnt > 0)
                 popUsersCur.add(user);
         }
-        List<String> popTopicsCur = new ArrayList<String>();
+        Set<String> popTopicsCur = new TreeSet<String>();
         for (Map.Entry<String, Integer> e : pcTopic.entrySet()) {
             String t = e.getKey();
             int cnt = e.getValue();
@@ -183,18 +189,66 @@ public class AttrPopMonitor implements Runnable {
             if (cnt > 0)
                 popTopicsCur.add(t);
         }
-        if (popUsersCur.size() == 0 && popTopicsCur.size() == 0)
+        if (popUsersCur.size() == 0 && popTopicsCur.size() == 0) {
+            // This early return and the one below don't change prevBcEpoch and
+            // makes the next broadcast in popularity change more responsive
+            // without paying any extra broadcast cost. Good.
+            return;
+        }
+
+        // Calc diffs: what attributes to add and delete.
+        Set<String> popUsersAdded;
+        Set<String> popUsersDeleted;
+        if (popUsersPrev == null) {
+            popUsersAdded = popUsersCur;
+            popUsersDeleted = new TreeSet<String>();
+        } else {
+            popUsersAdded = new TreeSet<String>();
+            popUsersDeleted = new TreeSet<String>();
+            for (String e: popUsersCur)
+                if (! popUsersPrev.contains(e))
+                    popUsersAdded.add(e);
+            for (String e: popUsersPrev)
+                if (! popUsersCur.contains(e))
+                    popUsersDeleted.add(e);
+        }
+
+        Set<String> popTopicsAdded;
+        Set<String> popTopicsDeleted;
+        if (popTopicsPrev == null) {
+            popTopicsAdded = popTopicsCur;
+            popTopicsDeleted = new TreeSet<String>();
+        } else {
+            popTopicsAdded = new TreeSet<String>();
+            popTopicsDeleted = new TreeSet<String>();
+            for (String e: popTopicsCur)
+                if (! popTopicsPrev.contains(e))
+                    popTopicsAdded.add(e);
+            for (String e: popTopicsPrev)
+                if (! popTopicsCur.contains(e))
+                    popTopicsDeleted.add(e);
+        }
+
+        if (popUsersAdded.size() == 0 && popUsersDeleted.size() == 0
+                && popTopicsAdded.size() == 0 && popTopicsDeleted.size() == 0)
             return;
 
         StringBuilder q = new StringBuilder();
         q.append("BEGIN BATCH");
-        for (String u: popUsersCur)
+        for (String u: popUsersAdded)
             q.append(String.format(" INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s');"
-                        , acornKsPrefix, localDataCenter.replace("-", "_"), u));
-        for (String t: popTopicsCur)
+                        , acornKsPrefix, localDataCenterCql, u));
+        for (String u: popUsersDeleted)
+            q.append(String.format(" DELETE FROM %s_attr_pop.%s_user where user_id = '%s';"
+                        , acornKsPrefix, localDataCenterCql, u));
+        for (String t: popTopicsAdded)
             q.append(String.format(" INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
-                        , acornKsPrefix, localDataCenter.replace("-", "_"), t));
+                        , acornKsPrefix, localDataCenterCql, t));
+        for (String t: popTopicsDeleted)
+            q.append(String.format(" DELETE FROM %s_attr_pop.%s_user where user_id = '%s';"
+                        , acornKsPrefix, localDataCenterCql, t));
         q.append("APPLY BATCH");
+        // TODO: make more test cases and verify this
         logger.warn("Acorn: q={}", q.toString());
 
         QueryState state = QueryState.forInternalCalls();
@@ -207,180 +261,9 @@ public class AttrPopMonitor implements Runnable {
         QueryProcessor qp = (QueryProcessor) qh;
         final boolean acorn = true;
         qp.process(acorn, q.toString(), state, options);
+
+        popUsersPrev = popUsersCur;
+        popTopicsPrev = popTopicsCur;
+        prevBcEpoch = curBcEpoch;
     }
-
-//        // Propagate user popularity in the local DC to other DCs.  Sending only the
-//        // difference from the previous epoch is what should be done in the real
-//        // environment.
-//
-//        // TODO: need a start reference time. When a record is first inserted
-//        // to the partial acorn space.
-//        // TODO: rename to AcornMetadata.fistLocalInsertTime
-//        // In milliseconds.
-//        long dur = reqTime - YoutubeData::oldest_created_at;
-//
-//        // TODO: get from the configuration
-//        long bcEpoch = dur / Conf::pop_bcint;
-//        if (prevBcEpoch == bcEpoch)
-//            return;
-//
-//        popUsersPrev = popUsersCur;
-//        // TODO: Write popUsersPrev to the attr popularity keyspace
-//        // TODO: reference MakeAttrPopularThread
-//
-//        popTopicsPrev = popTopicsCur;
-//        // TODO: Write popTopicsPrev to the attr popularity keyspace
-//
-//        prevBcEpoch = bcEpoch;
-//    }
 }
-
-
-
-
-
-
-// TODO: not sure if I will need this
-//friend class Mons;
-
-// Popularity expiration queue. Not thread safe by design.
-//class PopExpireQ<T> {
-//    class Entry {
-//        T attrItem;
-//        long expirationTime;
-//
-//        Entry(T attrItem, long curTime) {
-//            this.attrItem = attrItem;
-//            expirationTime = curTime + windowSize;
-//        }
-//
-//        void UpdateExpTime(long curTime) {
-//            expirationTime = curTime + windowSize;
-//        }
-//    }
-//
-//    // Queue implemented by linked list. ordered by expirationTime. _head is the
-//    // oldest, _tail is the youngest. Items are inserted to _tail and popped
-//    // from _head.
-//    Entry* _head;
-//    Entry* _tail;
-//    //int _q_size = 0;
-//    std::map<T, Entry*> _by_ids;
-//
-//    void _QInsertToTail(Entry e) {
-//        if (_head == NULL) {
-//            // insert to the empty list
-//            _head = _tail = e;
-//            e.prev = NULL;
-//            e.next = NULL;
-//        } else {
-//            // insert to the tail
-//            e.prev = _tail;
-//            e.next = NULL;
-//            _tail.next = e;
-//            _tail = e;
-//        }
-//
-//        //_q_size ++;
-//    }
-//
-//    void _QRemove(Entry e) {
-//        // e is not NULL
-//
-//        if (_head == e) {
-//            _head = e.next;
-//        } else {
-//            Entry* p = e.prev;
-//            if (p)
-//                p.next = e.next;
-//        }
-//
-//        if (_tail == e) {
-//            _tail = e.prev;
-//        } else {
-//            Entry* n = e.next;
-//            if (n)
-//                n.prev = e.prev;
-//        }
-//
-//        //_q_size --;
-//    }
-//
-//    void _QRemoveDeleteHead() {
-//        Entry* n = _head.next;
-//        delete _head;
-//        _head = n;
-//
-//        //_q_size --;
-//    }
-//
-//public:
-//    PopExpireQ()
-//        : _head(NULL), _tail(NULL)
-//    {}
-//
-//    ~PopExpireQ() {
-//        // delete any expire popularity items left
-//        while (_head)
-//            _QRemoveDeleteHead();
-//    }
-//
-//    void Push(long curTime, T& attrItem) {
-//        auto it = _by_ids.find(attrItem);
-//        if (it == _by_ids.end()) {
-//            Entry* e = new Entry(attrItem, curTime);
-//            _by_ids[attrItem] = e;
-//            _QInsertToTail(e);
-//        } else {
-//            Entry e = it.second;
-//            e.UpdateExpTime(curTime);
-//            _QRemove(e);
-//            _QInsertToTail(e);
-//        }
-//        // cout << _q_size << " " << flush;
-//    }
-//
-//    Entry* Head() {
-//        return _head;
-//    }
-//
-//    void Pop() {
-//        if (_head == NULL)
-//            return;
-//        if (_by_ids.erase(_head.attrItem) != 1)
-//            throw std::runtime_error(str(boost::format("Unable to erase(find) attrItem %1%") % _head.attrItem));
-//        _QRemoveDeleteHead();
-//    }
-//}
-
-
-//private static class MakeAttrPopularThread implements Runnable
-//{
-//    public void run() {
-//        try {
-//            StringBuilder q = new StringBuilder();
-//            q.append("BEGIN BATCH");
-//            for (String t: ut.topics) {
-//                q.append(
-//                        String.format(
-//                            " INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
-//                            , acornKsPrefix, localDataCenter.replace("-", "_"), t));
-//            }
-//            q.append("APPLY BATCH");
-//            logger.warn("Acorn: q={}", q.toString());
-//
-//            QueryState state = QueryState.forInternalCalls();
-//            // Use CL LOCAL_ONE. It will eventually be propagated.
-//            QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
-//
-//            QueryHandler qh = ClientState.getCQLQueryHandler();
-//            if (! qh.getClass().equals(QueryProcessor.class))
-//                throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
-//            QueryProcessor qp = (QueryProcessor) qh;
-//            final boolean acorn = true;
-//            qp.process(acorn, q.toString(), state, options);
-//        } catch (Exception e) {
-//            logger.warn("Acorn: {}", e);
-//        }
-//    }
-//}
