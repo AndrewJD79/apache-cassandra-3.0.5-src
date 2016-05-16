@@ -452,7 +452,7 @@ class Cass {
 			}
 			q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
 					_ks_sync, peer_dc, Conf.ExpID(), _barrier_id);
-			s = new SimpleStatement(q);
+			s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			boolean first = true;
 			while (true) {
 				ResultSet rs = _sess.execute(s);
