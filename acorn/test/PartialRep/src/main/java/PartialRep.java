@@ -476,7 +476,7 @@ public class PartialRep {
 			// TODO: After (popularity monitor sliding window length + popularity
 			// broadcast interval) time, insert another record in the east with the
 			// same topic, which is not expected to be replicated to the west.
-			try (Cons.MT _1 = new Cons.MT("Wait until popularity items expires ...")) {
+			try (Cons.MT _1 = new Cons.MT("Wait until popularity items expire ...")) {
 				// TODO:
 				Thread.sleep(6000 + 2000 + 500);
 			}
