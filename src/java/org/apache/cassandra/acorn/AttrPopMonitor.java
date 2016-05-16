@@ -81,12 +81,14 @@ public class AttrPopMonitor implements Runnable {
                     // configuration. Monitor both for now.
                     swUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
                     pcUser.put(r.ut.user, pcUser.getOrDefault(r.ut.user, 0) + 1);
+                    logger.warn("Acorn: popular user + {}", r.ut.user);
 
                     for (String t: r.ut.topics) {
                         if (TopicFilter.IsBlackListed(t))
                             continue;
                         swTopic.add(new SlidingWindowItem(t, r.reqTime));
                         pcTopic.put(t, pcTopic.getOrDefault(t, 0) + 1);
+                        logger.warn("Acorn: popular topic + {}", t);
                     }
 
                     reqTime = r.reqTime;
@@ -137,22 +139,26 @@ public class AttrPopMonitor implements Runnable {
             SlidingWindowItem<String> swi = swUser.peek();
             if (swi == null)
                 break;
-            if (swi.expirationTime <= reqTime)
+            logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
+            if (swi.expirationTime > reqTime)
                 break;
             String attrItem = swi.attrItem;
             swUser.remove();
             pcUser.put(attrItem, pcUser.get(attrItem) - 1);
+            logger.warn("Acorn: popular user - {}", attrItem);
         }
 
         while (true) {
             SlidingWindowItem<String> swi = swTopic.peek();
             if (swi == null)
                 break;
-            if (swi.expirationTime <= reqTime)
+            logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
+            if (swi.expirationTime > reqTime)
                 break;
             String attrItem = swi.attrItem;
             swTopic.remove();
             pcTopic.put(attrItem, pcTopic.get(attrItem) - 1);
+            logger.warn("Acorn: popular topic - {}", attrItem);
         }
     }
 
@@ -161,7 +167,7 @@ public class AttrPopMonitor implements Runnable {
 
     private void _PropagateToRemoteDCs(long reqTime) {
         if (prevBcEpoch == -1) {
-            firstBcReqTime = System.currentTimeMillis();
+            firstBcReqTime = reqTime;
             prevBcEpoch = 0;
             return;
         }
@@ -195,6 +201,9 @@ public class AttrPopMonitor implements Runnable {
             // without paying any extra broadcast cost. Good.
             return;
         }
+        logger.warn("Acorn: popUsersCur={} popTopicsCur={}"
+                , String.join(",", popUsersCur)
+                , String.join(",", popTopicsCur));
 
         // Calc diffs: what attributes to add and delete.
         Set<String> popUsersAdded;
@@ -247,7 +256,7 @@ public class AttrPopMonitor implements Runnable {
         for (String t: popTopicsDeleted)
             q.append(String.format(" DELETE FROM %s_attr_pop.%s_user where user_id = '%s';"
                         , acornKsPrefix, localDataCenterCql, t));
-        q.append("APPLY BATCH");
+        q.append(" APPLY BATCH");
         // TODO: make more test cases and verify this
         logger.warn("Acorn: q={}", q.toString());
 
