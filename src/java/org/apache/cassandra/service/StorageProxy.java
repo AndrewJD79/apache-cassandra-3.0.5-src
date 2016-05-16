@@ -1654,7 +1654,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         return read(false, group, consistencyLevel, state);
     }
-    public static PartitionIterator read(boolean acorn, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
+    public static PartitionIterator read(boolean acorn_pr, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.commands))
@@ -1665,7 +1665,7 @@ public class StorageProxy implements StorageProxyMBean
 
         return consistencyLevel.isSerialConsistency()
              ? readWithPaxos(group, consistencyLevel, state)
-             : readRegular(acorn, group, consistencyLevel);
+             : readRegular(acorn_pr, group, consistencyLevel);
     }
 
     private static PartitionIterator readWithPaxos(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
@@ -1740,13 +1740,13 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     @SuppressWarnings("resource")
-    private static PartitionIterator readRegular(boolean acorn, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
+    private static PartitionIterator readRegular(boolean acorn_pr, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         long start = System.nanoTime();
         try
         {
-            PartitionIterator result = fetchRows(acorn, group.commands, consistencyLevel);
+            PartitionIterator result = fetchRows(acorn_pr, group.commands, consistencyLevel);
             // If we have more than one command, then despite each read command honoring the limit, the total result
             // might not honor it and so we should enforce it
             if (group.commands.size() > 1)
@@ -1794,26 +1794,30 @@ public class StorageProxy implements StorageProxyMBean
     {
         return fetchRows(false, commands, consistencyLevel);
     }
-    private static PartitionIterator fetchRows(boolean acorn, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
+    private static PartitionIterator fetchRows(boolean acorn_pr, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
-        //logger.warn("Acorn: cmdCount={}", cmdCount);
-        //for (int i = 0; i < cmdCount; i++) {
-        //    logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
-        //            , i, commands.get(i), commands.get(i).getClass().getName()
-        //            , consistencyLevel);
-        //}
+        if (acorn_pr) {
+            logger.warn("acorn_pr: cmdCount={}", cmdCount);
+            for (int i = 0; i < cmdCount; i++) {
+                logger.warn("acorn_pr: commands.get({})={} {} consistencyLevel={}"
+                        , i, commands.get(i), commands.get(i).getClass().getName()
+                        , consistencyLevel);
+            }
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+                logger.warn("Acorn: {}", ste);
+        }
 
         SinglePartitionReadLifecycle[] reads = new SinglePartitionReadLifecycle[cmdCount];
         for (int i = 0; i < cmdCount; i++)
-            reads[i] = new SinglePartitionReadLifecycle(acorn, commands.get(i), consistencyLevel);
+            reads[i] = new SinglePartitionReadLifecycle(acorn_pr, commands.get(i), consistencyLevel);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].doInitialQueries();
 
         for (int i = 0; i < cmdCount; i++)
-            reads[i].maybeTryAdditionalReplicas(acorn);
+            reads[i].maybeTryAdditionalReplicas(acorn_pr);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].awaitResultsAndRetryOnDigestMismatch();

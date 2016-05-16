@@ -284,6 +284,7 @@ public class SelectStatement implements CQLStatement
         }
 
         public abstract PartitionIterator fetchPage(int pageSize);
+        public abstract PartitionIterator fetchPage(boolean acorn_pr, int pageSize);
 
         public static class NormalPager extends Pager
         {
@@ -301,10 +302,10 @@ public class SelectStatement implements CQLStatement
             {
                 return fetchPage(false, pageSize);
             }
-            public PartitionIterator fetchPage(boolean acorn, int pageSize)
+            public PartitionIterator fetchPage(boolean acorn_pr, int pageSize)
             {
-                if (acorn)
-                    logger.warn("Acorn: pager={} {}", pager.getClass().getName());
+                if (acorn_pr)
+                    logger.warn("acorn_pr: pager={} {}", pager.getClass().getName());
 
                 // pager can be of type RangeNamesQueryPager,
                 // SinglePartitionPager, or MultiPartitionPager.
@@ -337,7 +338,7 @@ public class SelectStatement implements CQLStatement
                 // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
                 // java.lang.Thread.run(Thread.java:745)
 
-                return pager.fetchPage(acorn, pageSize, consistency, clientState);
+                return pager.fetchPage(acorn_pr, pageSize, consistency, clientState);
             }
         }
 
@@ -352,6 +353,10 @@ public class SelectStatement implements CQLStatement
             }
 
             public PartitionIterator fetchPage(int pageSize)
+            {
+                return fetchPage(false, pageSize);
+            }
+            public PartitionIterator fetchPage(boolean acorn_pr, int pageSize)
             {
                 return pager.fetchPageInternal(pageSize, orderGroup);
             }
@@ -399,7 +404,7 @@ public class SelectStatement implements CQLStatement
                   + " you must either remove the ORDER BY or the IN and sort client side, or disable paging for this query");
 
         ResultMessage.Rows msg;
-        try (PartitionIterator page = pager.fetchPage(pageSize))
+        try (PartitionIterator page = pager.fetchPage(acorn_pr, pageSize))
         {
             msg = processResults(page, options, nowInSec, userLimit);
         }

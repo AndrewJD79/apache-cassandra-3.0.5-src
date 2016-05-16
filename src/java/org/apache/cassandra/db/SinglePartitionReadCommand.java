@@ -301,9 +301,9 @@ public class SinglePartitionReadCommand extends ReadCommand
     {
         return execute(false, consistency, clientState);
     }
-    public PartitionIterator execute(boolean acorn, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+    public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return StorageProxy.read(acorn, Group.one(this), consistency, clientState);
+        return StorageProxy.read(acorn_pr, Group.one(this), consistency, clientState);
     }
 
     public SinglePartitionPager getPager(PagingState pagingState, int protocolVersion)
