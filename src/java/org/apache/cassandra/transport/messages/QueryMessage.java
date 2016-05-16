@@ -116,9 +116,9 @@ public class QueryMessage extends Message.Request
             // Looks like all queries, including system queries like this, go
             // through here.
             //   SELECT * FROM system_schema.keyspaces
-            final String acorn_ks_regex = String.format(".* %s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-            boolean acorn = query.matches(acorn_ks_regex);
-            if (acorn) {
+            final String acorn_ks_regex = String.format(".* %s.*_pr\\..*", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            boolean acorn_pr = query.matches(acorn_ks_regex);
+            if (acorn_pr) {
                 // state is of type org.apache.cassandra.service.QueryState
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
                 // getCustomPayload()=null
@@ -145,10 +145,10 @@ public class QueryMessage extends Message.Request
                         , options.getProtocolVersion()
                         , getCustomPayload());
             }
-            Message.Response response = ClientState.getCQLQueryHandler().process(query, state, options, getCustomPayload());
+            Message.Response response = ClientState.getCQLQueryHandler().process(acorn_pr, query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
 
-            //if (acorn) {
+            //if (acorn_pr) {
             //    //logger.warn("Acorn: response={} {}", response, response.getClass().getName());
             //    if (response.getClass().equals(ResultMessage.Rows.class)) {
             //        ResultMessage.Rows r = (ResultMessage.Rows) response;
