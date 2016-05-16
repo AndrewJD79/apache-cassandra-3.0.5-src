@@ -401,8 +401,7 @@ public class PartialRep {
 						} else {
 							throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 						}
-						// TODO:
-						if (System.currentTimeMillis() - bt > 2000 + 500) {
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
 							System.out.printf(" no record found\n");
 							break;
 						}
@@ -423,8 +422,7 @@ public class PartialRep {
 				Cass.ExecutionBarrier();
 			}
 
-			// TODO: read the configuration from cassandra.yaml
-			long waitTime = 2000 + 500;
+			long waitTime = Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500;
 			try (Cons.MT _1 = new Cons.MT("Wait for a bit longer than the attribute popularity broadcast interval %s ms for the popularity change to propagate ...", waitTime)) {
 				Thread.sleep(waitTime);
 			}
@@ -464,7 +462,7 @@ public class PartialRep {
 						} else
 							throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
 
-						if (System.currentTimeMillis() - bt > 2000) {
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
 							System.out.printf("\n");
 							throw new RuntimeException("Time out :(");
 						}
@@ -473,12 +471,12 @@ public class PartialRep {
 			}
 			Cass.ExecutionBarrier();
 
-			// TODO: After (popularity monitor sliding window length + popularity
-			// broadcast interval) time, insert another record in the east with the
-			// same topic, which is not expected to be replicated to the west.
+			// After (popularity monitor sliding window length + popularity broadcast
+			// interval) time, insert another record in the east with the same topic,
+			// which is not expected to be replicated to the west.
 			try (Cons.MT _1 = new Cons.MT("Wait until popularity items expire ...")) {
-				// TODO:
-				Thread.sleep(6000 + 2000 + 500);
+				Thread.sleep(Conf.acornOptions.attr_pop_monitor_window_size_in_ms
+						+ Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500);
 			}
 			String objId3 = ObjIDFactory.Gen();
 			try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId3)) {
@@ -507,8 +505,7 @@ public class PartialRep {
 						} else {
 							throw new RuntimeException(String.format("Unexpected: objId3=%s rows.size()=%d", objId3, rows.size()));
 						}
-						// TODO:
-						if (System.currentTimeMillis() - bt > 2000 + 500) {
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
 							System.out.printf(" no record found\n");
 							break;
 						}

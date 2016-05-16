@@ -1,9 +1,17 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.List;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
+import org.yaml.snakeyaml.Yaml;
 
 
 class Conf {
@@ -56,9 +64,66 @@ class Conf {
 		//Cons.P("hostname: %s", Util.Hostname());
 
 		_dt_begin = (String) nonop_args.get(0);
+
+		_LoadYaml();
 	}
 
 	public static String ExpID() {
 		return _dt_begin;
 	}
+
+	private static void _LoadYaml() throws IOException {
+		Map root = (Map) ((new Yaml()).load(new FileInputStream(new File("/home/ubuntu/work/acorn/conf/cassandra.yaml"))));
+
+		acornOptions = new AcornOptions(root.get("acorn_options"));
+		//acornLoadgenOptions = new AcornLoadgenOptions(root.get("acorn_loadgen_options"));
+	}
+
+	public static class AcornOptions {
+		// Keep underscore notations for the future when parsing is automated
+		String keyspace_prefix;
+		long attr_pop_broadcast_interval_in_ms;
+		long attr_pop_monitor_window_size_in_ms;
+
+		AcornOptions(Object obj) {
+			Map o = (Map) obj;
+			attr_pop_broadcast_interval_in_ms  = Long.parseLong(o.get("attr_pop_broadcast_interval_in_ms").toString());
+			attr_pop_monitor_window_size_in_ms = Long.parseLong(o.get("attr_pop_monitor_window_size_in_ms").toString());
+		}
+
+		@Override
+		public String toString() {
+			return ReflectionToStringBuilder.toString(this);
+		}
+	}
+
+	//public static class AcornLoadgenOptions {
+	//	public final Db db;
+
+	//	AcornLoadgenOptions(Object obj) {
+	//		Map o = (Map) obj;
+	//		db = new Db((Map) o.get("db"));
+	//	}
+
+	//	@Override
+	//	public String toString() {
+	//		return ReflectionToStringBuilder.toString(this);
+	//	}
+
+	//	public class Db {
+	//		boolean requests;
+
+	//		Db(Map m) {
+	//			requests = Boolean.parseBoolean(m.get("requests").toString());
+	//		}
+
+	//		@Override
+	//			public String toString() {
+	//				return ReflectionToStringBuilder.toString(this);
+	//			}
+	//	}
+	//}
+
+	public static AcornOptions acornOptions = null;
+	//public static AcornLoadgenOptions acornLoadgenOptions = null;
 }
