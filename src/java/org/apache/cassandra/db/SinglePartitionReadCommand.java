@@ -459,6 +459,40 @@ public class SinglePartitionReadCommand extends ReadCommand
     {
         Tracing.trace("Executing single-partition query on {}", cfs.name);
 
+        //final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+        //if (cfs.keyspace.getName().matches(acorn_ks_regex)) {
+        //    for (StackTraceElement ste : Thread.currentThread().getStackTrace())
+        //        logger.warn("Acorn: {}", ste);
+        //}
+        //
+        // So, this is probably not the thread you want to trace. These run in a thread.
+        //
+        // 17:29:27 SharedPool-Worker-2      java.lang.Thread.getStackTrace(Thread.java:1552)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.db.SinglePartitionReadCommand.queryMemtableAndDisk(SinglePartitionReadCommand.java:464)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.db.SinglePartitionReadCommand.queryStorage(SinglePartitionReadCommand.java:329)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.db.ReadCommand.executeLocally(ReadCommand.java:363)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.service.StorageProxy$LocalReadRunnable.runMayThrow(StorageProxy.java:1949)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.service.StorageProxy$DroppableRunnable.run(StorageProxy.java:2636)
+        // 17:29:27 SharedPool-Worker-2      java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$LocalSessionFutureTask.run(AbstractLocalAwareExecutorService.java:136)
+        // 17:29:27 SharedPool-Worker-2      org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+        // 17:29:27 SharedPool-Worker-2      java.lang.Thread.run(Thread.java:745)
+        //
+        // 17:29:27 HANDSHAKE-/10.232.166.25 OutboundTcpConnection.java    : 514 Handshaking version with /10.232.166.25
+        //
+        // 17:29:27 SharedPool-Worker-1      java.lang.Thread.getStackTrace(Thread.java:1552)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.db.SinglePartitionReadCommand.queryMemtableAndDisk(SinglePartitionReadCommand.java:464)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.db.SinglePartitionReadCommand.queryStorage(SinglePartitionReadCommand.java:329)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.db.ReadCommand.executeLocally(ReadCommand.java:363)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.db.ReadCommandVerbHandler.doVerb(ReadCommandVerbHandler.java:45)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.net.MessageDeliveryTask.run(MessageDeliveryTask.java:67)
+        // 17:29:27 SharedPool-Worker-1      java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$LocalSessionFutureTask.run(AbstractLocalAwareExecutorService.java:136)
+        // 17:29:27 SharedPool-Worker-1      org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+        // 17:29:27 SharedPool-Worker-1      java.lang.Thread.run(Thread.java:745)
+
         boolean copyOnHeap = Memtable.MEMORY_POOL.needToCopyOnHeap();
         return queryMemtableAndDiskInternal(cfs, copyOnHeap);
     }

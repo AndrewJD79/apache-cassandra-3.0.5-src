@@ -515,44 +515,34 @@ public class QueryProcessor implements QueryHandler
         Tracing.trace("Parsing {}", queryStr);
         ParsedStatement statement = parseStatement(queryStr);
 
-        //boolean acorn = false;
-        //if (statement.getClass().equals(SelectStatement.RawStatement.class)) {
-        //    final String acorn_ks_prefix = DatabaseDescriptor.getAcornOptions().keyspace_prefix;
-        //    SelectStatement.RawStatement s = (SelectStatement.RawStatement) statement;
-        //    if (s.keyspace().startsWith(acorn_ks_prefix)
-        //            // TODO:
-        //            // && (! s.keyspace().endsWith("_attr_pop"))
-        //            && (! s.keyspace().endsWith("_obj_loc"))
-        //            && (! s.keyspace().endsWith("_sync"))) {
-        //        acorn = true;
-        //        logger.warn("Acorn: statement={} s.keyspace()={} s.columnFamily()={}"
-        //                , statement, s.keyspace(), s.columnFamily());
-        //    }
-        //}
+        boolean acorn = false;
+        SelectStatement.RawStatement rs = null;
+        if (statement.getClass().equals(SelectStatement.RawStatement.class)) {
+            final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            rs = (SelectStatement.RawStatement) statement;
+            if (rs.keyspace().matches(acorn_ks_regex))
+                acorn = true;
+        }
+        if (acorn) {
+            logger.warn("Acorn: statement={} rs.keyspace()={} rs.columnFamily()={} queryStr={}"
+                    , statement, rs.keyspace(), rs.columnFamily(), queryStr);
 
-        //if (acorn) {
-        //    logger.warn(String.format("Acorn: queryStr=[%s]", queryStr));
-        //    // TODO: figure out where is the most natural place to issue a query.
-        //    //for (StackTraceElement ste : Thread.currentThread().getStackTrace())
-        //    //  logger.warn("Acorn: {}", ste);
-
-        //    // Stack trace
-        //    //   Thread name: SharedPool-Worker-3
-        //    //   org.apache.cassandra.cql3.QueryProcessor.getStatement(QueryProcessor.java:553)
-        //    //   org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:229)
-        //    //   org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:223)
-        //    //   org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:115)
-        //    //   org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
-        //    //   org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
-        //    //   io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
-        //    //   io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
-        //    //   io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
-        //    //   io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
-        //    //   java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
-        //    //   org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
-        //    //   org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
-        //    //   java.lang.Thread.run(Thread.java:745)
-        //}
+            // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.getStatement(QueryProcessor.java:529)
+            // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:246)
+            // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:241)
+            // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:235)
+            // SharedPool-Worker-2 org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:148)
+            // SharedPool-Worker-2 org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+            // SharedPool-Worker-2 org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+            // SharedPool-Worker-2 io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+            // SharedPool-Worker-2 io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+            // SharedPool-Worker-2 io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+            // SharedPool-Worker-2 io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+            // SharedPool-Worker-2 java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+            // SharedPool-Worker-2 org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+            // SharedPool-Worker-2 org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+            // SharedPool-Worker-2 java.lang.Thread.run(Thread.java:745)
+        }
 
         // Set keyspace for statement that require login
         if (statement instanceof CFStatement)
