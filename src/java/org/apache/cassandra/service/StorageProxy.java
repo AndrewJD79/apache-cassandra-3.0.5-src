@@ -1172,7 +1172,7 @@ public class StorageProxy implements StorageProxyMBean
                 if (! rmr.result.getClass().equals(ResultSet.class))
                     throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
                 ResultSet rs1 = (ResultSet) rmr.result;
-                //logger.warn("Acorn: attrCnt={}", rs1.GetAttrCount());
+                //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
                 if (rs1.GetAttrCount() > 0)
                     attrPopAwareEndpoints.add(ne);
 
