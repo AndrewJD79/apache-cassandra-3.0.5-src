@@ -183,7 +183,8 @@ public class AcornTest {
 			//XDcTrafficOnReadCount();
 
 			//TestPartialRep();
-			TestTopicFilter();
+			//TestTopicFilter();
+			TestReadMakingAttrsPopular();
 
 			// TODO TestFetchOnDemand();
 			// It should probably be asynchronous
@@ -615,6 +616,127 @@ public class AcornTest {
 						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
 							System.out.printf(" no record found\n");
 							break;
+						}
+					}
+				}
+			}
+			Cass.ExecutionBarrier();
+		}
+	}
+
+	private static void TestReadMakingAttrsPopular() throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Testing read request making attrs popular ...")) {
+			String user_john = String.format("john-%s", Conf.ExpID());
+			String user_jack = String.format("jack-%s", Conf.ExpID());
+			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
+			String topic_uga = String.format("uga-%s", Conf.ExpID());
+			String topic_dirty_sock = String.format("dirtysock-%s", Conf.ExpID());
+
+			// Make the topic tennis popular in the west by inserting a record
+			String objId0 = ObjIDFactory.Gen();
+			if (Cass.LocalDC().equals("us-west")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record %s ...", objId0)) {
+					Cass.InsertRecordPartial(objId0, user_jack, new TreeSet<String>(Arrays.asList(topic_tennis)));
+				}
+			}
+			Cass.ExecutionBarrier();
+
+			// Wait until the topics become unpopular in the west
+			try (Cons.MT _1 = new Cons.MT("Wait until popularity items expire ...")) {
+				Thread.sleep(Conf.acornOptions.attr_pop_monitor_window_size_in_ms
+						+ Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500);
+			}
+
+			// Insert a record in the east
+			String objId1 = ObjIDFactory.Gen();
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record %s ...", objId1)) {
+					Cass.InsertRecordPartial(objId1, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				}
+			}
+			// Expect the record immediately visible in the east and not visible in the west.
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Expect to see the record immediately in the east ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId1);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId1=%s rows.size()=%d", objId1, rows.size()));
+				}
+			} else if (Cass.LocalDC().equals("us-west")) {
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated in the west ...")) {
+					// Poll for a bit longer than the popularity broadcast interval to
+					// make sure the record is not propagated.
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(objId1);
+						if (rows.size() == 0) {
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else {
+							throw new RuntimeException(String.format("Unexpected: objId1=%s rows.size()=%d", objId1, rows.size()));
+						}
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
+							System.out.printf(" no record found\n");
+							break;
+						}
+					}
+				}
+			}
+			Cass.ExecutionBarrier();
+
+			// Read the fist record in the west to make the topics popular
+			try (Cons.MT _1 = new Cons.MT("Make the topics popular in the west by reading the record ...")) {
+				if (Cass.LocalDC().equals("us-west")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId0);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+				}
+				// Wait until the topic popularities propagate
+				try (Cons.MT _2 = new Cons.MT("Wait a bit for the popularity to propagate ...")) {
+					Thread.sleep(Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500);
+				}
+				Cass.ExecutionBarrier();
+			}
+
+			// Insert another record in the east
+			String objId2 = ObjIDFactory.Gen();
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record %s ...", objId2)) {
+					Cass.InsertRecordPartial(objId2, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				}
+			}
+			// Expect the record immediately visible in the east and eventually visible in the west.
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Expect to see the record immediately in the east ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId2);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
+				}
+			} else if (Cass.LocalDC().equals("us-west")) {
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record replicated in the west ...")) {
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					boolean first = true;
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(objId2);
+						if (rows.size() == 0) {
+							if (first) {
+								System.out.printf(" ");
+								first = false;
+							}
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else if (rows.size() == 1) {
+							System.out.printf(" got it!\n");
+							break;
+						} else
+							throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
+
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
+							System.out.printf("\n");
+							throw new RuntimeException("Time out :(");
 						}
 					}
 				}
