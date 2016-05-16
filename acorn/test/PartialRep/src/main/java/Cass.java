@@ -432,7 +432,7 @@ class Cass {
 	static public void ExecutionBarrier() throws InterruptedException {
 		String q = null;
 		try {
-			Cons.Pnnl("Execution barrier ");
+			Cons.Pnnl("Execution barrier");
 			long bt = System.currentTimeMillis();
 
 			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
@@ -470,8 +470,10 @@ class Cass {
 				} else
 					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 
-				if (System.currentTimeMillis() - bt > 10000)
+				if (System.currentTimeMillis() - bt > 10000) {
+					System.out.printf("\n");
 					throw new RuntimeException("Execution barrier wait timed out :(");
+				}
 			}
 
 			_barrier_id ++;
