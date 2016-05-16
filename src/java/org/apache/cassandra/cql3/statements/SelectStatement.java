@@ -366,15 +366,32 @@ public class SelectStatement implements CQLStatement
     {
         return execute(false, pager, options, pageSize, nowInSec, userLimit);
     }
-    private ResultMessage.Rows execute(boolean acorn,
+    private ResultMessage.Rows execute(boolean acorn_pr,
                                        Pager pager,
                                        QueryOptions options,
                                        int pageSize,
                                        int nowInSec,
                                        int userLimit) throws RequestValidationException, RequestExecutionException
     {
+        // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:378)
+        // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:214)
+        // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:215)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:264)
+        // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:244)
+        // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:148)
+        // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+        // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+        // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+        // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+        // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+        // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+        // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+        // java.lang.Thread.run(Thread.java:745)
+
         if (selection.isAggregate())
-            return pageAggregateQuery(acorn, pager, options, pageSize, nowInSec);
+            return pageAggregateQuery(acorn_pr, pager, options, pageSize, nowInSec);
 
         // We can't properly do post-query ordering if we page (see #6722)
         checkFalse(needsPostQueryOrdering(),

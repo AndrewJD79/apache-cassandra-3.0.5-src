@@ -35,6 +35,12 @@ public interface QueryHandler
                           QueryOptions options,
                           Map<String, ByteBuffer> customPayload) throws RequestExecutionException, RequestValidationException;
 
+    ResultMessage process(boolean acorn_pr,
+                          String query,
+                          QueryState state,
+                          QueryOptions options,
+                          Map<String, ByteBuffer> customPayload) throws RequestExecutionException, RequestValidationException;
+
     ResultMessage.Prepared prepare(String query,
                                    QueryState state,
                                    Map<String, ByteBuffer> customPayload) throws RequestValidationException;

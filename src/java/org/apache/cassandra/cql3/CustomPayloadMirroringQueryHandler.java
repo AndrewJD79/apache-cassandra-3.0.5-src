@@ -40,6 +40,14 @@ public class CustomPayloadMirroringQueryHandler implements QueryHandler
                                  QueryOptions options,
                                  Map<String, ByteBuffer> customPayload)
     {
+        return process(false, query, state, options, customPayload);
+    }
+    public ResultMessage process(boolean acorn_pr,
+                                 String query,
+                                 QueryState state,
+                                 QueryOptions options,
+                                 Map<String, ByteBuffer> customPayload)
+    {
         ResultMessage result = queryProcessor.process(query, state, options, customPayload);
         result.setCustomPayload(customPayload);
         return result;

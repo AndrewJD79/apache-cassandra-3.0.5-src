@@ -321,6 +321,15 @@ public class MessagePayloadTest extends CQLTester
                                      Map<String, ByteBuffer> customPayload)
                                              throws RequestExecutionException, RequestValidationException
         {
+            return process(false, query, state, options, customPayload);
+        }
+        public ResultMessage process(boolean acorn_pr,
+                                     String query,
+                                     QueryState state,
+                                     QueryOptions options,
+                                     Map<String, ByteBuffer> customPayload)
+                                             throws RequestExecutionException, RequestValidationException
+        {
             if (customPayload != null)
                 requestPayload = customPayload;
             ResultMessage result = QueryProcessor.instance.process(query, state, options, customPayload);
