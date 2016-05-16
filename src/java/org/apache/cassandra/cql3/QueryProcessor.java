@@ -201,7 +201,7 @@ public class QueryProcessor implements QueryHandler
     {
         return processStatement(false, statement, queryState, options);
     }
-    public ResultMessage processStatement(boolean acorn, CQLStatement statement, QueryState queryState, QueryOptions options)
+    public ResultMessage processStatement(boolean acorn_pr, CQLStatement statement, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
         logger.trace("Process {} @CL.{}", statement, options.getConsistency());
@@ -210,9 +210,9 @@ public class QueryProcessor implements QueryHandler
         statement.validate(clientState);
 
         ResultMessage result = null;
-        if (acorn && statement.getClass().equals(SelectStatement.class)) {
+        if (acorn_pr && statement.getClass().equals(SelectStatement.class)) {
             SelectStatement ss = (SelectStatement) statement;
-            result = ss.execute(acorn, queryState, options);
+            result = ss.execute(acorn_pr, queryState, options);
         } else {
             result = statement.execute(queryState, options);
         }
@@ -232,7 +232,16 @@ public class QueryProcessor implements QueryHandler
                                  Map<String, ByteBuffer> customPayload)
                                          throws RequestExecutionException, RequestValidationException
     {
-        return process(query, state, options);
+        return process(false, query, state, options, customPayload);
+    }
+    public ResultMessage process(boolean acorn_pr,
+                                 String query,
+                                 QueryState state,
+                                 QueryOptions options,
+                                 Map<String, ByteBuffer> customPayload)
+                                         throws RequestExecutionException, RequestValidationException
+    {
+        return process(acorn_pr, query, state, options);
     }
 
     public ResultMessage process(String queryString, QueryState queryState, QueryOptions options)
@@ -240,7 +249,7 @@ public class QueryProcessor implements QueryHandler
     {
         return process(false, queryString, queryState, options);
     }
-    public ResultMessage process(boolean acorn, String queryString, QueryState queryState, QueryOptions options)
+    public ResultMessage process(boolean acorn_pr, String queryString, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
         ParsedStatement.Prepared p = getStatement(queryString, queryState.getClientState());
@@ -252,7 +261,7 @@ public class QueryProcessor implements QueryHandler
         if (!queryState.getClientState().isInternal)
             metrics.regularStatementsExecuted.inc();
 
-        return processStatement(acorn, prepared, queryState, options);
+        return processStatement(acorn_pr, prepared, queryState, options);
     }
 
     public static ParsedStatement.Prepared parseStatement(String queryStr, QueryState queryState) throws RequestValidationException
