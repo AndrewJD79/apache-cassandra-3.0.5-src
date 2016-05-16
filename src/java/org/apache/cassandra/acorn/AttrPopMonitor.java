@@ -40,17 +40,18 @@ public class AttrPopMonitor implements Runnable {
     private static String localDataCenter;
     private static String localDataCenterCql;
 
-	// Popularity count per attribute item
-	private Map<String, Integer> pcUser = new TreeMap<String, Integer>();
-	private Map<String, Integer> pcTopic = new TreeMap<String, Integer>();
+    // Popularity count per attribute item
+    private Map<String, Integer> popCntUser = new TreeMap<String, Integer>();
+    private Map<String, Integer> popCntTopic = new TreeMap<String, Integer>();
 
     // Popular attribute items in previous broadcast epoch
+    private Set<String> popUsersPrev = null;
     private Set<String> popTopicsPrev = null;
-	private Set<String> popUsersPrev = null;
 
-    // TODO: make it configurable from cassandra.yaml
+    // TODO: make these configurable from cassandra.yaml
     // In milliseconds
-    static final long popMonSlidingWindowSize = 2000;
+    static final long popMonSlidingWindowSize = 6000;
+    static final long popBcInterval = 2000;
 
     class SlidingWindowItem<T> {
         T attrItem;
@@ -61,34 +62,29 @@ public class AttrPopMonitor implements Runnable {
             expirationTime = reqTime + popMonSlidingWindowSize;
         }
     }
-    Queue<SlidingWindowItem> swUser;
-    Queue<SlidingWindowItem> swTopic;
-
-    AttrPopMonitor() {
-        swUser = new LinkedList<SlidingWindowItem>();
-        swTopic = new LinkedList<SlidingWindowItem>();
-    }
+    Queue<SlidingWindowItem> slidingWindowUser = new LinkedList<SlidingWindowItem>();
+    Queue<SlidingWindowItem> slidingWindowTopic = new LinkedList<SlidingWindowItem>();
 
     public void run() {
         try {
             while (true) {
                 // Fetch a request
                 // TODO: make it configurable
-                Req r = reqQ.poll(2000, TimeUnit.MILLISECONDS);
+                Req r = reqQ.poll(popBcInterval, TimeUnit.MILLISECONDS);
                 long reqTime;
                 if (r != null) {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
-                    swUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
-                    pcUser.put(r.ut.user, pcUser.getOrDefault(r.ut.user, 0) + 1);
-                    logger.warn("Acorn: popular user + {}", r.ut.user);
+                    slidingWindowUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
+                    popCntUser.put(r.ut.user, popCntUser.getOrDefault(r.ut.user, 0) + 1);
+                    //logger.warn("Acorn: popular user + {}", r.ut.user);
 
                     for (String t: r.ut.topics) {
                         if (TopicFilter.IsBlackListed(t))
                             continue;
-                        swTopic.add(new SlidingWindowItem(t, r.reqTime));
-                        pcTopic.put(t, pcTopic.getOrDefault(t, 0) + 1);
-                        logger.warn("Acorn: popular topic + {}", t);
+                        slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
+                        popCntTopic.put(t, popCntTopic.getOrDefault(t, 0) + 1);
+                        //logger.warn("Acorn: popular topic + {}", t);
                     }
 
                     reqTime = r.reqTime;
@@ -136,29 +132,39 @@ public class AttrPopMonitor implements Runnable {
 
     private void _ExpirePopularities(long reqTime) {
         while (true) {
-            SlidingWindowItem<String> swi = swUser.peek();
+            SlidingWindowItem<String> swi = slidingWindowUser.peek();
             if (swi == null)
                 break;
-            logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
+            //logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
             if (swi.expirationTime > reqTime)
                 break;
             String attrItem = swi.attrItem;
-            swUser.remove();
-            pcUser.put(attrItem, pcUser.get(attrItem) - 1);
-            logger.warn("Acorn: popular user - {}", attrItem);
+            slidingWindowUser.remove();
+            int cnt = popCntUser.get(attrItem) - 1;
+            if (cnt > 0) {
+                popCntUser.put(attrItem, cnt);
+            } else {
+                popCntUser.remove(attrItem);
+            }
+            //logger.warn("Acorn: popular user - {}", attrItem);
         }
 
         while (true) {
-            SlidingWindowItem<String> swi = swTopic.peek();
+            SlidingWindowItem<String> swi = slidingWindowTopic.peek();
             if (swi == null)
                 break;
-            logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
+            //logger.warn("Acorn: swi.expirationTime={} reqTime={}", swi.expirationTime, reqTime);
             if (swi.expirationTime > reqTime)
                 break;
             String attrItem = swi.attrItem;
-            swTopic.remove();
-            pcTopic.put(attrItem, pcTopic.get(attrItem) - 1);
-            logger.warn("Acorn: popular topic - {}", attrItem);
+            slidingWindowTopic.remove();
+            int cnt = popCntTopic.get(attrItem) - 1;
+            if (cnt > 0) {
+                popCntTopic.put(attrItem, cnt);
+            } else {
+                popCntTopic.remove(attrItem);
+            }
+            //logger.warn("Acorn: popular topic - {}", attrItem);
         }
     }
 
@@ -172,15 +178,15 @@ public class AttrPopMonitor implements Runnable {
             return;
         }
 
-        // TODO: make it configurable
-        long curBcEpoch = (reqTime - firstBcReqTime) / 2000;
+        long curBcEpoch = (reqTime - firstBcReqTime) / popBcInterval;
+        //logger.warn("Acorn: prevBcEpoch={} curBcEpoch={}", prevBcEpoch, curBcEpoch);
         if (curBcEpoch == prevBcEpoch)
             return;
 
         // Build popUsersCur and popTopicsCur. Attribute items will be added in
         // the natural (sorted) order
         Set<String> popUsersCur = new TreeSet<String>();
-        for (Map.Entry<String, Integer> e : pcUser.entrySet()) {
+        for (Map.Entry<String, Integer> e : popCntUser.entrySet()) {
             String user = e.getKey();
             int cnt = e.getValue();
             // Note: The sensitivity analysis of popularity threshould can be done here.
@@ -188,22 +194,14 @@ public class AttrPopMonitor implements Runnable {
                 popUsersCur.add(user);
         }
         Set<String> popTopicsCur = new TreeSet<String>();
-        for (Map.Entry<String, Integer> e : pcTopic.entrySet()) {
+        for (Map.Entry<String, Integer> e : popCntTopic.entrySet()) {
             String t = e.getKey();
             int cnt = e.getValue();
             // Note: The sensitivity analysis of popularity threshould can be done here.
             if (cnt > 0)
                 popTopicsCur.add(t);
         }
-        if (popUsersCur.size() == 0 && popTopicsCur.size() == 0) {
-            // This early return and the one below don't change prevBcEpoch and
-            // makes the next broadcast in popularity change more responsive
-            // without paying any extra broadcast cost. Good.
-            return;
-        }
-        logger.warn("Acorn: popUsersCur={} popTopicsCur={}"
-                , String.join(",", popUsersCur)
-                , String.join(",", popTopicsCur));
+        //logger.warn("Acorn: popUsersCur={} popTopicsCur={}", String.join(",", popUsersCur) , String.join(",", popTopicsCur));
 
         // Calc diffs: what attributes to add and delete.
         Set<String> popUsersAdded;
@@ -238,6 +236,9 @@ public class AttrPopMonitor implements Runnable {
                     popTopicsDeleted.add(e);
         }
 
+        // This early return doesn't change prevBcEpoch and makes the next
+        // broadcast in popularity change more responsive without paying any
+        // extra broadcast cost. Good.
         if (popUsersAdded.size() == 0 && popUsersDeleted.size() == 0
                 && popTopicsAdded.size() == 0 && popTopicsDeleted.size() == 0)
             return;
