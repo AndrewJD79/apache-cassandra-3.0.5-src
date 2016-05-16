@@ -41,8 +41,8 @@ public class AttrPopMonitor implements Runnable {
     private static String localDataCenterCql;
 
 	// Popularity count per attribute item
-	private Map<String, Integer> pcUser;
-	private Map<String, Integer> pcTopic;
+	private Map<String, Integer> pcUser = new TreeMap<String, Integer>();
+	private Map<String, Integer> pcTopic = new TreeMap<String, Integer>();
 
     // Popular attribute items in previous broadcast epoch
     private Set<String> popTopicsPrev = null;
