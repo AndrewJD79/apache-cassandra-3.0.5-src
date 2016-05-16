@@ -387,8 +387,9 @@ public class PartialRep {
 						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 				}
 			} else if (Cass.LocalDC().equals("us-west")) {
-				try (Cons.MT _1 = new Cons.MT("Checking to see no record is replicated here ...")) {
-					// Poll for 2 secs making sure the record is not propagated.
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated here ...")) {
+					// Poll for a bit longer than the popularity broadcast interval to
+					// make sure the record is not propagated.
 					Cons.Pnnl("Checking: ");
 					long bt = System.currentTimeMillis();
 					while (true) {
@@ -400,7 +401,8 @@ public class PartialRep {
 						} else {
 							throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 						}
-						if (System.currentTimeMillis() - bt > 2000) {
+						// TODO:
+						if (System.currentTimeMillis() - bt > 2000 + 500) {
 							System.out.printf(" no record found\n");
 							break;
 						}
@@ -410,8 +412,7 @@ public class PartialRep {
 			Cass.ExecutionBarrier();
 
 			// Make the topic tennis popular in the West with a write request. Write
-			// is easier here. A read would have done the same. Give some time for
-			// the attr popularity to propagate.
+			// is easier here. A read would have done the same.
 			String objId1 = ObjIDFactory.Gen();
 			Set<String> topics = new TreeSet<String>(Arrays.asList(topic_tennis, topic_dirty_sock));
 			try (Cons.MT _1 = new Cons.MT("Making topics %s popular by inserting a record %s in the west ..."
@@ -419,9 +420,13 @@ public class PartialRep {
 			{
 				if (Cass.LocalDC().equals("us-west"))
 					Cass.InsertRecordPartial(objId1, user_jack, topics);
-				// TODO: read the configuration from cassandra.yaml
-				Thread.sleep(500);
 				Cass.ExecutionBarrier();
+			}
+
+			// TODO: read the configuration from cassandra.yaml
+			long waitTime = 2000 + 500;
+			try (Cons.MT _1 = new Cons.MT("Wait for a bit longer than the attribute popularity broadcast interval %s ms for the popularity change to propagate ...", waitTime)) {
+				Thread.sleep(waitTime);
 			}
 
 			// Insert another record from the east. Expect it immediately visible in
@@ -432,7 +437,6 @@ public class PartialRep {
 					Cass.InsertRecordPartial(objId2, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 				Cass.ExecutionBarrier();
 			}
-
 			if (Cass.LocalDC().equals("us-east")) {
 				try (Cons.MT _1 = new Cons.MT("Expecting to see the record immediately here ...")) {
 					List<Row> rows = Cass.SelectRecordLocal(objId2);
@@ -440,7 +444,7 @@ public class PartialRep {
 						throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
 				}
 			} else {
-				try (Cons.MT _1 = new Cons.MT("Checking to see a record replicated here ...")) {
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record replicated here ...")) {
 					Cons.Pnnl("Checking: ");
 					long bt = System.currentTimeMillis();
 					boolean first = true;
@@ -469,10 +473,49 @@ public class PartialRep {
 			}
 			Cass.ExecutionBarrier();
 
-			// TODO: After 2 seconds (set the popularity detection sliding window
-			// length to 2 sec in simulation time), insert another record in the east
-			// with the same topic, which is not expected to be replicated to the
-			// west.
+			// TODO: After (popularity monitor sliding window length + popularity
+			// broadcast interval) time, insert another record in the east with the
+			// same topic, which is not expected to be replicated to the west.
+			try (Cons.MT _1 = new Cons.MT("Wait until popularity items expires ...")) {
+				// TODO:
+				Thread.sleep(6000 + 2000 + 500);
+			}
+			String objId3 = ObjIDFactory.Gen();
+			try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId3)) {
+				if (Cass.LocalDC().equals("us-east"))
+					Cass.InsertRecordPartial(objId3, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+				Cass.ExecutionBarrier();
+			}
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Expecting to see the record immediately here ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId3);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId3=%s rows.size()=%d", objId3, rows.size()));
+				}
+			} else {
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record not replicated here ...")) {
+					// Poll for a bit longer than the popularity broadcast interval to
+					// make sure the record is not propagated.
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(objId3);
+						if (rows.size() == 0) {
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else {
+							throw new RuntimeException(String.format("Unexpected: objId3=%s rows.size()=%d", objId3, rows.size()));
+						}
+						// TODO:
+						if (System.currentTimeMillis() - bt > 2000 + 500) {
+							System.out.printf(" no record found\n");
+							break;
+						}
+					}
+				}
+			}
+			Cass.ExecutionBarrier();
 		}
 	}
 
