@@ -18,9 +18,9 @@ def BuildSrc():
 	dn_this = os.path.dirname(os.path.realpath(__file__))
 	os.chdir(dn_this)
 
-	proj_name = "PartialRep"
+	proj_name = "AcornTest"
 	need_to_build_dep = False
-	fn_jar = "target/PartialRep-0.1.jar"
+	fn_jar = "target/AcornTest-0.1.jar"
 	need_to_build_pkg = False
 
 	if not os.path.isfile(fn_dep_class_path):
@@ -44,7 +44,7 @@ def BuildSrc():
 	#fi
 
 	if need_to_build_pkg == False:
-		mt_jar = Util.RunSubp("find target -maxdepth 1 -name \"PartialRep-*.jar\" -printf \"%T@\\n\""
+		mt_jar = Util.RunSubp("find target -maxdepth 1 -name \"AcornTest-*.jar\" -printf \"%T@\\n\""
 				, shell = True, print_cmd = False, print_result = False).strip()
 		#Cons.P(mt_jar)
 
@@ -67,9 +67,9 @@ def BuildSrc():
 
 def RunLocal(cur_datetime):
 	with Cons.MeasureTime("Running locally ..."):
-		Util.RunSubp("killall -qw PartialRep-0.1.ja[r] || true", shell = True)
+		Util.RunSubp("killall -qw AcornTest-0.1.ja[r] || true", shell = True)
 
-		cmd = "java -cp target/PartialRep-0.1.jar:`cat %s` PartialRep %s 2>&1" % (fn_dep_class_path, cur_datetime)
+		cmd = "java -cp target/AcornTest-0.1.jar:`cat %s` AcornTest %s 2>&1" % (fn_dep_class_path, cur_datetime)
 		Util.RunSubp(cmd, shell = True)
 
 

@@ -33,9 +33,9 @@ def RsyncSrcToUsWest1():
 		#Cons.P(ip)
 		# Make sure you sync only source files. Syncing build result confuses the
 		# build system.
-		cmd = "cd ~/work/acorn/acorn/test/PartialRep" \
+		cmd = "cd ~/work/acorn/acorn/test/AcornTest" \
 				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml src" \
-				" %s:work/acorn/acorn/test/PartialRep/" % ip
+				" %s:work/acorn/acorn/test/AcornTest/" % ip
 		Util.RunSubp(cmd, shell = True)
 
 

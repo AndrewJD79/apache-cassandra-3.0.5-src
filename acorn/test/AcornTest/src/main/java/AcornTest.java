@@ -10,7 +10,7 @@ import javax.xml.bind.DatatypeConverter;
 import com.datastax.driver.core.*;
 
 
-public class PartialRep {
+public class AcornTest {
 
 	// TODO: clean up
 //	private static void TestReadAfterWrite()
@@ -127,7 +127,7 @@ public class PartialRep {
 //			_SelectAsyncFetchOnDemand(_tid, 0);
 //			_SelectLocalUntil(_tid, 1);
 //			long et = System.currentTimeMillis();
-//			System.out.printf("    got new data in %d ms from PartialRep\n", et - bt);
+//			System.out.printf("    got new data in %d ms from AcornTest\n", et - bt);
 //		} else
 //			throw new RuntimeException("unknown dc: " + Conf.dc);
 //		_tid ++;

@@ -2,10 +2,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>multidc</groupId>
-	<artifactId>PartialRep</artifactId>
+	<artifactId>AcornTest</artifactId>
 	<packaging>jar</packaging>
 	<version>0.1</version>
-	<name>PartialRep</name>
+	<name>AcornTest</name>
 
 	<dependencies>
 		<dependency>
@@ -72,7 +72,7 @@
 					<execution><goals><goal>java</goal></goals></execution>
 				</executions>
 				<configuration>
-					<mainClass>PartialRep</mainClass>
+					<mainClass>AcornTest</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>

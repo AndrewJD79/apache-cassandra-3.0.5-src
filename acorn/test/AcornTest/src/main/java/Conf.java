@@ -20,9 +20,9 @@ class Conf {
 		accepts("help", "Show this help message");
 	}};
 
-	private static void _PrintHelp() throws java.io.IOException {
-		System.out.println("Usage: PartialRep [<option>]* dt_begin");
-		System.out.println("  dt_begin: begin date time, which identifies the run. Try `date +\"%y%m%d-%H%M%S\"`.\n");
+	private static void _PrintHelp(String[] args) throws java.io.IOException {
+		System.out.printf("Usage: %s [<option>]* dt_begin\n", args[0]);
+		System.out.printf("  dt_begin: begin date time, which identifies the run. Try `date +\"%y%m%d-%H%M%S\"`.\n");
 		_opt_parser.printHelpOn(System.out);
 	}
 
@@ -31,12 +31,12 @@ class Conf {
 
 		OptionSet options = _opt_parser.parse(args);
 		if (options.has("help")) {
-			_PrintHelp();
+			_PrintHelp(args);
 			System.exit(0);
 		}
 		List<?> nonop_args = options.nonOptionArguments();
 		if (nonop_args.size() != 1) {
-			_PrintHelp();
+			_PrintHelp(args);
 			System.exit(1);
 		}
 
