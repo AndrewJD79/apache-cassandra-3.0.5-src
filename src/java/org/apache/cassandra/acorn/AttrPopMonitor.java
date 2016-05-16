@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.TreeMap;
 
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.QueryHandler;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.cql3.QueryProcessor;
@@ -48,10 +49,9 @@ public class AttrPopMonitor implements Runnable {
     private Set<String> popUsersPrev = null;
     private Set<String> popTopicsPrev = null;
 
-    // TODO: make these configurable from cassandra.yaml
     // In milliseconds
-    static final long popMonSlidingWindowSize = 6000;
-    static final long popBcInterval = 2000;
+    static final long popMonSlidingWindowSize = DatabaseDescriptor.getAcornOptions().attr_pop_monitor_window_size_in_ms;
+    static final long popBcInterval = DatabaseDescriptor.getAcornOptions().attr_pop_broadcast_interval_in_ms;
 
     class SlidingWindowItem<T> {
         T attrItem;
@@ -69,7 +69,6 @@ public class AttrPopMonitor implements Runnable {
         try {
             while (true) {
                 // Fetch a request
-                // TODO: make it configurable
                 Req r = reqQ.poll(popBcInterval, TimeUnit.MILLISECONDS);
                 long reqTime;
                 if (r != null) {
@@ -258,7 +257,6 @@ public class AttrPopMonitor implements Runnable {
             q.append(String.format(" DELETE FROM %s_attr_pop.%s_topic where topic = '%s';"
                         , acornKsPrefix, localDataCenterCql, t));
         q.append(" APPLY BATCH");
-        // TODO: make more test cases and verify this
         logger.warn("Acorn: q={}", q.toString());
 
         QueryState state = QueryState.forInternalCalls();

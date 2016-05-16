@@ -941,5 +941,7 @@ enable_scripted_user_defined_functions: false
 windows_timer_interval: 1
 
 acorn_options:
-    # Partial replications work on the keyspace, keyspace_prefix + "_pr".
+    # Partial replications work on the keyspace (keyspace_prefix).*_pr
     keyspace_prefix: acorn
+    attr_pop_broadcast_interval_in_ms: 2000
+    attr_pop_monitor_window_size_in_ms: 6000
