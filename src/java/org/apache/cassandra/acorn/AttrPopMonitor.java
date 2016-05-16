@@ -255,7 +255,7 @@ public class AttrPopMonitor implements Runnable {
             q.append(String.format(" INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
                         , acornKsPrefix, localDataCenterCql, t));
         for (String t: popTopicsDeleted)
-            q.append(String.format(" DELETE FROM %s_attr_pop.%s_user where user_id = '%s';"
+            q.append(String.format(" DELETE FROM %s_attr_pop.%s_topic where topic = '%s';"
                         , acornKsPrefix, localDataCenterCql, t));
         q.append(" APPLY BATCH");
         // TODO: make more test cases and verify this
