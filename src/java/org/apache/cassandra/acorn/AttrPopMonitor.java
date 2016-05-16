@@ -79,7 +79,7 @@ public class AttrPopMonitor implements Runnable {
                     //logger.warn("Acorn: popular user + {}", r.ut.user);
 
                     for (String t: r.ut.topics) {
-                        if (TopicFilter.IsBlackListed(t))
+                        if (AttrFilter.IsTopicBlackListed(t))
                             continue;
                         slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
                         popCntTopic.put(t, popCntTopic.getOrDefault(t, 0) + 1);

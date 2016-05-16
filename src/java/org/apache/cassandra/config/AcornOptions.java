@@ -7,6 +7,8 @@ public class AcornOptions
     public String keyspace_prefix;
     public long attr_pop_broadcast_interval_in_ms;
     public long attr_pop_monitor_window_size_in_ms;
+    public String attr_filter_topic;
+    public String attr_filter_user;
 
     public String toString() {
         return ReflectionToStringBuilder.toString(this);
