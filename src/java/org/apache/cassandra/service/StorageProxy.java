@@ -2355,7 +2355,17 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator getRangeSlice(PartitionRangeReadCommand command, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        return getRangeSlice(false, command, consistencyLevel);
+    }
+    @SuppressWarnings("resource")
+    public static PartitionIterator getRangeSlice(boolean acorn_pr, PartitionRangeReadCommand command, ConsistencyLevel consistencyLevel)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
         Tracing.trace("Computing ranges to query");
+
+        if (acorn_pr) {
+            logger.warn("Acorn: IMPLEMENT!");
+        }
 
         Keyspace keyspace = Keyspace.open(command.metadata().ksName);
         RangeIterator ranges = new RangeIterator(command, keyspace, consistencyLevel);

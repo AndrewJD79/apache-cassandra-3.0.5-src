@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.acorn.AcornAttributes;
+import org.apache.cassandra.acorn.AttrPopMonitor;
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
@@ -58,6 +59,7 @@ import org.apache.cassandra.service.pager.PagingState;
 import org.apache.cassandra.service.pager.QueryPager;
 import org.apache.cassandra.thrift.ThriftValidation;
 import org.apache.cassandra.transport.messages.ResultMessage;
+import org.apache.cassandra.transport.Server;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -405,34 +407,6 @@ public class SelectStatement implements CQLStatement
                 "Cannot page queries with both ORDER BY and a IN restriction on the partition key;"
                 + " you must either remove the ORDER BY or the IN and sort client side, or disable paging for this query");
 
-        if (acorn_pr) {
-            // If the keyspace is acorn.*_pr, make the attributes popular in
-            // the local datacenter.
-            final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-
-            // TODO: look into RawStatement and Parameters
-            if (keyspace().matches(acorn_ks_regex)) {
-                logger.warn("Acorn: cfm={} boundTerms={} selection={} restrictions={} isReversed={}"
-                        + " orderingComparator={} parameters={} limit={} queriedColumns={}"
-                        , cfm, boundTerms, selection, restrictions, isReversed
-                        , orderingComparator, parameters, limit, queriedColumns
-                        );
-                // cfm=org.apache.cassandra.config.CFMetaData@2890279[cfId=40699580-1b6f-11e6-aeb9-b7476415a7fd,ksName=acorn_pr,cfName=t0,flags=[COMPOUND],params=TableParams{comment=, read_repair_chance=0.0, dclocal_read_repair_chance=0.1, bloom_filter_fp_chance=0.01, crc_check_chance=1.0, gc_grace_seconds=864000, default_time_to_live=0, memtable_flush_period_in_ms=0, min_index_interval=128, max_index_interval=2048, speculative_retry=99PERCENTILE, caching={'keys' : 'ALL', 'rows_per_partition' : 'NONE'}, compaction=CompactionParams{class=org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy, options={max_threshold=32, min_threshold=4}}, compression=org.apache.cassandra.schema.CompressionParams@531df769, extensions={}},comparator=comparator(),partitionColumns=[[] | [user topics]],partitionKeyColumns=[ColumnDefinition{name=obj_id, type=org.apache.cassandra.db.marshal.UTF8Type, kind=PARTITION_KEY, position=0}],clusteringColumns=[],keyValidator=org.apache.cassandra.db.marshal.UTF8Type,columnMetadata=[ColumnDefinition{name=obj_id, type=org.apache.cassandra.db.marshal.UTF8Type, kind=PARTITION_KEY, position=0}, ColumnDefinition{name=user, type=org.apache.cassandra.db.marshal.UTF8Type, kind=REGULAR, position=-1}, ColumnDefinition{name=topics, type=org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.UTF8Type), kind=REGULAR, position=-1}],droppedColumns={},triggers=[],indexes=[]]
-                // boundTerms=0
-                // selection=SimpleSelection{columns=[ColumnDefinition{name=obj_id, type=org.apache.cassandra.db.marshal.UTF8Type, kind=PARTITION_KEY, position=0}, ColumnDefinition{name=topics, type=org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.UTF8Type), kind=REGULAR, position=-1}, ColumnDefinition{name=user, type=org.apache.cassandra.db.marshal.UTF8Type, kind=REGULAR, position=-1}], columnMapping={ Columns:[obj_id, topics, user], Mappings:{obj_id:[obj_id], user:[user], topics:[topics]} }, metadata=[obj_id(acorn_pr, t0), org.apache.cassandra.db.marshal.UTF8Type][topics(acorn_pr, t0), org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.UTF8Type)][user(acorn_pr, t0), org.apache.cassandra.db.marshal.UTF8Type], collectTimestamps=false, collectTTLs=false}
-                // restrictions=org.apache.cassandra.cql3.restrictions.StatementRestrictions@4c70bfab
-                // isReversed=false
-                // orderingComparator=null
-                // parameters=org.apache.cassandra.cql3.statements.SelectStatement$Parameters@1a09378b
-                // limit=null
-                // queriedColumns=*
-
-
-                // TODO: Get this and pass to AttrPopMonitor
-                // AcornAttributes acornAttrs;
-            }
-        }
-
         ResultMessage.Rows msg;
         try (PartitionIterator page = pager.fetchPage(acorn_pr, pageSize))
         {
@@ -443,6 +417,56 @@ public class SelectStatement implements CQLStatement
         // shouldn't be moved inside the 'try' above.
         if (!pager.isExhausted())
             msg.result.metadata.setHasMorePages(pager.state());
+
+        if (acorn_pr) {
+            // If the keyspace is acorn.*_pr, make the attributes popular in
+            // the local datacenter.
+            final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            final String acornKsPrefix = keyspace().substring(0, keyspace().length() - 3);
+            final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
+
+            if (keyspace().matches(acorn_ks_regex)) {
+                ResultSet rs = msg.result;
+                ResultSet.ResultMetadata rm = rs.metadata;
+                if (rm.names == null)
+                    throw new RuntimeException("Unexpected: rs.names == null");
+
+                if (rm.flags.contains(ResultSet.Flag.HAS_MORE_PAGES))
+                    throw new RuntimeException("Unexpected");
+
+                for (List<ByteBuffer> row : rs.rows)
+                {
+                    String user = null;
+                    List<String> topics = new ArrayList<String>();
+
+                    for (int i = 0; i < row.size(); i++)
+                    {
+                        String k = rm.names.get(i).name.toString();
+
+                        ByteBuffer bb = row.get(i);
+                        String v;
+                        if (bb == null) {
+                            v = null;
+                            // This is okay. topics can be a zero-sized set.
+                        } else {
+                            if (k.equals("user")) {
+                                user = rm.names.get(i).type.getString(bb);
+
+                            } else if (k.equals("topics")) {
+                                // The metadata is of type db.marshal.SetType
+                                // It works with multiple topics. Tested.
+                                // ["tennis-160516-164741", "uga-160516-164741"]
+                                String jsonStr = rm.names.get(i).type.toJSONString(bb, Server.CURRENT_VERSION);
+                                // TODO: implement! add them to topics!
+                            }
+                        }
+                    }
+                    AcornAttributes acornAttrs = new AcornAttributes(user, topics);
+                    logger.warn("Acorn: acornAttrs={}", acornAttrs);
+                    AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix, localDataCenter);
+                }
+            }
+        }
 
         return msg;
     }

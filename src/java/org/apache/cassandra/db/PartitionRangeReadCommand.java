@@ -160,7 +160,11 @@ public class PartitionRangeReadCommand extends ReadCommand
 
     public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return StorageProxy.getRangeSlice(this, consistency);
+        return execute(false, consistency, clientState);
+    }
+    public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+    {
+        return StorageProxy.getRangeSlice(acorn_pr, this, consistency);
     }
 
     public QueryPager getPager(PagingState pagingState, int protocolVersion)

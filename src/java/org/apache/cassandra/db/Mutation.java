@@ -307,7 +307,6 @@ public class Mutation implements IMutation
             // pu.iterator() is of type org.apache.cassandra.utils.btree.BTreeSearchIterator
             //logger.warn("Acorn: pu.iterator()={} {}", pu.iterator(true), pu.iterator().getClass().getName());
 
-
             Iterator<Row> iter = pu.iterator();
             while (iter.hasNext()) {
                 Row r = iter.next();

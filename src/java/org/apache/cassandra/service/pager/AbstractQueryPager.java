@@ -70,14 +70,7 @@ public abstract class AbstractQueryPager implements QueryPager
         Pager pager = new Pager(limits.forPaging(pageSize), command.nowInSec());
 
         ReadCommand rc = nextPageReadCommand(pageSize);
-        if (acorn_pr) {
-            if (! rc.getClass().equals(SinglePartitionReadCommand.class))
-                throw new RuntimeException(String.format("Unexpected: rc.getClass()=%s", rc.getClass().getName()));
-            SinglePartitionReadCommand sprc = (SinglePartitionReadCommand) rc;
-            return Transformation.apply(sprc.execute(acorn_pr, consistency, clientState), pager);
-        } else {
-            return Transformation.apply(rc.execute(consistency, clientState), pager);
-        }
+        return Transformation.apply(rc.execute(acorn_pr, consistency, clientState), pager);
     }
 
     public PartitionIterator fetchPageInternal(int pageSize, ReadOrderGroup orderGroup) throws RequestValidationException, RequestExecutionException

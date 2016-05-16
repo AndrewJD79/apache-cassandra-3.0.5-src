@@ -240,7 +240,7 @@ public class ResultSet
 
         public static final ResultMetadata EMPTY = new ResultMetadata(EnumSet.of(Flag.NO_METADATA), null, 0, null);
 
-        private final EnumSet<Flag> flags;
+        public final EnumSet<Flag> flags;
         // Please note that columnCount can actually be smaller than names, even if names is not null. This is
         // used to include columns in the resultSet that we need to do post-query re-orderings
         // (SelectStatement.orderResults) but that shouldn't be sent to the user as they haven't been requested
