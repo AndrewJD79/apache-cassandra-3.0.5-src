@@ -74,11 +74,11 @@ public class AttrPopMonitor implements Runnable {
                 if (r != null) {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
-                    slidingWindowUser.add(new SlidingWindowItem(r.ut.user, r.reqTime));
-                    popCntUser.put(r.ut.user, popCntUser.getOrDefault(r.ut.user, 0) + 1);
-                    //logger.warn("Acorn: popular user + {}", r.ut.user);
+                    slidingWindowUser.add(new SlidingWindowItem(r.aa.user, r.reqTime));
+                    popCntUser.put(r.aa.user, popCntUser.getOrDefault(r.aa.user, 0) + 1);
+                    //logger.warn("Acorn: popular user + {}", r.aa.user);
 
-                    for (String t: r.ut.topics) {
+                    for (String t: r.aa.topics) {
                         if (AttrFilter.IsTopicBlackListed(t))
                             continue;
                         slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
@@ -101,17 +101,17 @@ public class AttrPopMonitor implements Runnable {
 
     static class Req {
         long reqTime;
-        Mutation.UserTopics ut;
+        AcornAttributes aa;
 
-        Req(Mutation.UserTopics ut) {
+        Req(AcornAttributes aa) {
             reqTime = System.currentTimeMillis();
-            this.ut = ut;
+            this.aa = aa;
         }
     }
 
     // Note: Play with popularity detection threshould. Hope I have some time
     // for this.
-    public static void SetPopular(Mutation.UserTopics ut, String acornKsPrefix_, String localDataCenter_) {
+    public static void SetPopular(AcornAttributes aa, String acornKsPrefix_, String localDataCenter_) {
         try {
             // The parameters acornKsPrefix and localDataCenter are supposed to
             // be the same every time.
@@ -123,7 +123,7 @@ public class AttrPopMonitor implements Runnable {
             }
 
             // Enqueue the request
-            reqQ.put(new Req(ut));
+            reqQ.put(new Req(aa));
         } catch (InterruptedException e) {
             logger.warn("Acorn: Exception {}", e);
         }

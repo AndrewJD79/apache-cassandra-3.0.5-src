@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.apache.cassandra.acorn.AcornAttributes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
@@ -294,26 +295,8 @@ public class Mutation implements IMutation
         return buff.append("])").toString();
     }
 
-    public class UserTopics {
-        public String user;
-        public List<String> topics;
-
-        public UserTopics(
-                String user,
-                List<String> topics)
-        {
-            this.user = user;
-            this.topics = topics;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("user=%s topics=[%s]", user, String.join(", ", topics));
-        }
-    }
-
     // Called only by Acorn code
-    public UserTopics getUserTopics()
+    public AcornAttributes getAcornAttributes()
     {
         //logger.warn("Acorn: modifications.values()=[{}]", StringUtils.join(modifications.values(), ", "));
         String user = null;
@@ -352,7 +335,7 @@ public class Mutation implements IMutation
             }
         }
 
-        return new UserTopics(user, topics);
+        return new AcornAttributes(user, topics);
     }
 
     public static class MutationSerializer implements IVersionedSerializer<Mutation>

@@ -37,6 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.acorn.AcornAttributes;
 import org.apache.cassandra.acorn.AttrPopMonitor;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -645,19 +646,19 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
 
-                    Mutation.UserTopics ut = null;
+                    AcornAttributes acornAttrs = null;
                     if (acorn) {
                         Mutation m = (Mutation) mutation;
-                        ut = m.getUserTopics();
-                        //logger.warn("Acorn: ut={}", ut);
+                        acornAttrs = m.getAcornAttributes();
+                        //logger.warn("Acorn: acornAttrs={}", acornAttrs);
                     }
 
-                    responseHandlers.add(performWrite(acorn, ut, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    responseHandlers.add(performWrite(acorn, acornAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
 
                     if (acorn) {
                         // Asynchronously make attributes popular in the local
                         // datacenter in a separate thread
-                        AttrPopMonitor.SetPopular(ut, acornKsPrefix, localDataCenter);
+                        AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix, localDataCenter);
                     }
                 }
             }
@@ -1098,7 +1099,7 @@ public class StorageProxy implements StorageProxyMBean
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
                                                             boolean acorn,
-                                                            Mutation.UserTopics ut,
+                                                            AcornAttributes acornAttrs,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
                                                             String localDataCenter,
@@ -1129,7 +1130,7 @@ public class StorageProxy implements StorageProxyMBean
             if (! mutation.getClass().equals(Mutation.class))
                 throw new RuntimeException(String.format("Unexpected: mutation.getClass()=%s", mutation.getClass().getName()));
 
-            String topicsCql = String.join(", ", ut.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
+            String topicsCql = String.join(", ", acornAttrs.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
             List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
             for (InetAddress ne: naturalEndpoints) {
@@ -1663,6 +1664,15 @@ public class StorageProxy implements StorageProxyMBean
             throw new IsBootstrappingException();
         }
 
+        if (acorn_pr) {
+            // Always read with LOCAL_ONE with keyspaces acorn_pr,
+            // acorn_attr_pop, acorn_obj_loc, and acorn_sync.
+            //
+            // acorn_regular is not the case. The queries to acorn_regular
+            // shouldn't set acorn_pr to true.
+            consistencyLevel = ConsistencyLevel.LOCAL_ONE;
+        }
+
         return consistencyLevel.isSerialConsistency()
              ? readWithPaxos(group, consistencyLevel, state)
              : readRegular(acorn_pr, group, consistencyLevel);
@@ -1794,19 +1804,43 @@ public class StorageProxy implements StorageProxyMBean
     {
         return fetchRows(false, commands, consistencyLevel);
     }
+    // Note: May want to differenciate acorn_pr and acorn_others, like
+    // acorn_attr_pop, that don't do partial replications and affect attribute
+    // popularity. Although, it is okay for now.
     private static PartitionIterator fetchRows(boolean acorn_pr, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
         if (acorn_pr) {
-            logger.warn("acorn_pr: cmdCount={}", cmdCount);
+            logger.warn("Acorn: cmdCount={}", cmdCount);
             for (int i = 0; i < cmdCount; i++) {
-                logger.warn("acorn_pr: commands.get({})={} {} consistencyLevel={}"
+                logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
                         , i, commands.get(i), commands.get(i).getClass().getName()
                         , consistencyLevel);
             }
-            for (StackTraceElement ste : Thread.currentThread().getStackTrace())
-                logger.warn("Acorn: {}", ste);
+
+            // org.apache.cassandra.service.StorageProxy.fetchRows(StorageProxy.java:1808)
+            // org.apache.cassandra.service.StorageProxy.readRegular(StorageProxy.java:1749)
+            // org.apache.cassandra.service.StorageProxy.read(StorageProxy.java:1668)
+            // org.apache.cassandra.db.SinglePartitionReadCommand.execute(SinglePartitionReadCommand.java:306)
+            // org.apache.cassandra.service.pager.AbstractQueryPager.fetchPage(AbstractQueryPager.java:77)
+            // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:341)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:407)
+            // org.apache.cassandra.cql3.statements.SelectStatement.execute(SelectStatement.java:214)
+            // org.apache.cassandra.cql3.QueryProcessor.processStatement(QueryProcessor.java:215)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:264)
+            // org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:244)
+            // org.apache.cassandra.transport.messages.QueryMessage.execute(QueryMessage.java:148)
+            // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:507)
+            // org.apache.cassandra.transport.Message$Dispatcher.channelRead0(Message.java:401)
+            // io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:105)
+            // io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:333)
+            // io.netty.channel.AbstractChannelHandlerContext.access$700(AbstractChannelHandlerContext.java:32)
+            // io.netty.channel.AbstractChannelHandlerContext$8.run(AbstractChannelHandlerContext.java:324)
+            // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+            // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+            // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
+            // java.lang.Thread.run(Thread.java:745)
         }
 
         SinglePartitionReadLifecycle[] reads = new SinglePartitionReadLifecycle[cmdCount];
