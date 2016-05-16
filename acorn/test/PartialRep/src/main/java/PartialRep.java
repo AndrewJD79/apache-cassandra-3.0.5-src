@@ -12,6 +12,7 @@ import com.datastax.driver.core.*;
 
 public class PartialRep {
 
+	// TODO: clean up
 //	private static void TestReadAfterWrite()
 //		throws java.lang.InterruptedException, UnknownHostException {
 //		Cass.ExecutionBarrier(_tid);
@@ -364,6 +365,8 @@ public class PartialRep {
 			// cannot just use current date time, since the two machines on the east
 			// and west won't have the same value.
 			String objId0 = ObjIDFactory.Gen();
+			String user_john = String.format("john-%s", Conf.ExpID());
+			String user_jack = String.format("jack-%s", Conf.ExpID());
 			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
 			String topic_uga = String.format("uga-%s", Conf.ExpID());
 			String topic_dirty_sock = String.format("dirtysock-%s", Conf.ExpID());
@@ -371,7 +374,7 @@ public class PartialRep {
 			// Insert a record
 			if (Cass.LocalDC().equals("us-east")) {
 				try (Cons.MT _1 = new Cons.MT("Inserting a record, %s ...", objId0)) {
-					Cass.InsertRecordPartial(objId0, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+					Cass.InsertRecordPartial(objId0, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 				}
 			}
 			Cass.ExecutionBarrier();
@@ -415,7 +418,8 @@ public class PartialRep {
 						, String.join(", ", topics), objId1))
 			{
 				if (Cass.LocalDC().equals("us-west"))
-					Cass.InsertRecordPartial(objId1, "jack", topics);
+					Cass.InsertRecordPartial(objId1, user_jack, topics);
+				// TODO: read the configuration from cassandra.yaml
 				Thread.sleep(500);
 				Cass.ExecutionBarrier();
 			}
@@ -425,7 +429,7 @@ public class PartialRep {
 			String objId2 = ObjIDFactory.Gen();
 			try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId2)) {
 				if (Cass.LocalDC().equals("us-east"))
-					Cass.InsertRecordPartial(objId2, "john", new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
+					Cass.InsertRecordPartial(objId2, user_john, new TreeSet<String>(Arrays.asList(topic_tennis, topic_uga)));
 				Cass.ExecutionBarrier();
 			}
 
