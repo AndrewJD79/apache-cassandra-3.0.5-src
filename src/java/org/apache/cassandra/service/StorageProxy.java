@@ -1102,7 +1102,7 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
-                                                            boolean acorn,
+                                                            boolean acorn_pr,
                                                             AcornObjIdAttributes acornOiAttrs,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
@@ -1119,7 +1119,7 @@ public class StorageProxy implements StorageProxyMBean
         List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, tk);
         Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
 
-        if (acorn) {
+        if (acorn_pr) {
             final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
             if (! keyspaceName.matches(acorn_ks_regex))
                 throw new RuntimeException(String.format("Unexpected: keyspaceName=%s", keyspaceName));
@@ -1171,7 +1171,7 @@ public class StorageProxy implements StorageProxyMBean
                     // However, I'm concerned about the number of messages
                     // (especially cross-DC ones). Leave it for now. Suppress the
                     // warning for acorn queries.
-                    Message.Response response = qp.process(acorn, q, state, options);
+                    Message.Response response = qp.process(acorn_pr, q, state, options);
 
                     if (! response.getClass().equals(ResultMessage.Rows.class))
                         throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
@@ -1192,7 +1192,7 @@ public class StorageProxy implements StorageProxyMBean
                     String q = String.format("select count(topic) from %s.%s_topic where topic in (%s);"
                             , ks_attr_pop, dcCql, topicsCql);
                     //logger.warn("Acorn: q={}", q);
-                    Message.Response response = qp.process(acorn, q, state, options);
+                    Message.Response response = qp.process(acorn_pr, q, state, options);
 
                     if (! response.getClass().equals(ResultMessage.Rows.class))
                         throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
