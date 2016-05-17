@@ -15,6 +15,10 @@ public class AcornAttributes {
         this.topics = topics;
     }
 
+    public boolean Empty() {
+        return ((user == null) && (topics == null || topics.size() == 0));
+    }
+
     @Override
     public String toString() {
         return String.format("user=%s topics=[%s]", user, String.join(", ", topics));

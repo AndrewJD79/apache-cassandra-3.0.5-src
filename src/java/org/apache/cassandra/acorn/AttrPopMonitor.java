@@ -74,16 +74,20 @@ public class AttrPopMonitor implements Runnable {
                 if (r != null) {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
-                    slidingWindowUser.add(new SlidingWindowItem(r.aa.user, r.reqTime));
-                    popCntUser.put(r.aa.user, popCntUser.getOrDefault(r.aa.user, 0) + 1);
-                    //logger.warn("Acorn: popular user + {}", r.aa.user);
+                    if (r.aa.user != null) {
+                        slidingWindowUser.add(new SlidingWindowItem(r.aa.user, r.reqTime));
+                        popCntUser.put(r.aa.user, popCntUser.getOrDefault(r.aa.user, 0) + 1);
+                        //logger.warn("Acorn: popular user + {}", r.aa.user);
+                    }
 
-                    for (String t: r.aa.topics) {
-                        if (AttrFilter.IsTopicBlackListed(t))
-                            continue;
-                        slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
-                        popCntTopic.put(t, popCntTopic.getOrDefault(t, 0) + 1);
-                        //logger.warn("Acorn: popular topic + {}", t);
+                    if (r.aa.topics != null) {
+                        for (String t: r.aa.topics) {
+                            if (AttrFilter.IsTopicBlackListed(t))
+                                continue;
+                            slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
+                            popCntTopic.put(t, popCntTopic.getOrDefault(t, 0) + 1);
+                            //logger.warn("Acorn: popular topic + {}", t);
+                        }
                     }
 
                     reqTime = r.reqTime;
@@ -123,7 +127,8 @@ public class AttrPopMonitor implements Runnable {
             }
 
             // Enqueue the request
-            reqQ.put(new Req(aa));
+            if (! aa.Empty())
+                reqQ.put(new Req(aa));
         } catch (InterruptedException e) {
             logger.warn("Acorn: Exception {}", e);
         }
