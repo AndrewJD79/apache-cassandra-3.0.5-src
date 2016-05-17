@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.db.marshal;
 
+import java.nio.charset.Charset;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -29,6 +30,7 @@ import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.serializers.CollectionSerializer;
 import org.apache.cassandra.serializers.MarshalException;
 import org.apache.cassandra.serializers.ListSerializer;
+import org.apache.cassandra.utils.ByteBufferUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -216,6 +218,25 @@ public class ListType<T> extends CollectionType<List<T>>
             sb.append(elementsType.toJSONString(CollectionSerializer.readValue(buffer, protocolVersion), protocolVersion));
         }
         return sb.append("]").toString();
+    }
+
+    public static List<String> toListOfStrings(ByteBuffer buffer, AbstractType elementsType, int protocolVersion)
+    {
+        List<String> ss = new ArrayList<String>();
+        try {
+            int size = CollectionSerializer.readCollectionSize(buffer, protocolVersion);
+            for (int i = 0; i < size; i++) {
+                // elementsType is of type org.apache.cassandra.db.marshal.UTF8Type
+                //logger.warn("Acorn: elementsType={}", elementsType);
+                ByteBuffer bb = CollectionSerializer.readValue(buffer, protocolVersion);
+                String s = ByteBufferUtil.string(bb, Charset.forName("UTF-8"));
+                //logger.warn("Acorn: s={}", s);
+                ss.add(s);
+            }
+        } catch (Exception e) {
+            logger.warn("Acorn: Exception: {}", e);
+        }
+        return ss;
     }
 
     @Override

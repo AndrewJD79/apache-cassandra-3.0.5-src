@@ -42,6 +42,7 @@ import org.apache.cassandra.db.filter.*;
 import org.apache.cassandra.db.marshal.CollectionType;
 import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.db.marshal.Int32Type;
+import org.apache.cassandra.db.marshal.SetType;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.rows.ComplexColumnData;
 import org.apache.cassandra.db.rows.Row;
@@ -437,32 +438,28 @@ public class SelectStatement implements CQLStatement
                 for (List<ByteBuffer> row : rs.rows)
                 {
                     String user = null;
-                    List<String> topics = new ArrayList<String>();
+                    List<String> topics = null;
 
                     for (int i = 0; i < row.size(); i++)
                     {
-                        String k = rm.names.get(i).name.toString();
+                        String colName = rm.names.get(i).name.toString();
+                        ByteBuffer colValue = row.get(i);
+                        if (colValue == null)
+                            continue;
 
-                        ByteBuffer bb = row.get(i);
-                        String v;
-                        if (bb == null) {
-                            v = null;
-                            // This is okay. topics can be a zero-sized set.
-                        } else {
-                            if (k.equals("user")) {
-                                user = rm.names.get(i).type.getString(bb);
-
-                            } else if (k.equals("topics")) {
-                                // The metadata is of type db.marshal.SetType
-                                // It works with multiple topics. Tested.
-                                // ["tennis-160516-164741", "uga-160516-164741"]
-                                String jsonStr = rm.names.get(i).type.toJSONString(bb, Server.CURRENT_VERSION);
-                                // TODO: implement! add them to topics!
-                            }
+                        if (colName.equals("user")) {
+                            user = rm.names.get(i).type.getString(colValue);
+                        } else if (colName.equals("topics")) {
+                            // E.g., ["tennis-160516-164741", "uga-160516-164741"]
+                            if (! rm.names.get(i).type.getClass().equals(SetType.class))
+                                throw new RuntimeException(String.format("Unexpected: rm.names.get(%d).type.getClass()=%s"
+                                            , i, rm.names.get(i).type.getClass().getName()));
+                            SetType type = (SetType) rm.names.get(i).type;
+                            topics = type.toListOfStrings(colValue, Server.CURRENT_VERSION);
                         }
                     }
                     AcornAttributes acornAttrs = new AcornAttributes(user, topics);
-                    logger.warn("Acorn: acornAttrs={}", acornAttrs);
+                    //logger.warn("Acorn: acornAttrs={}", acornAttrs);
                     AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix, localDataCenter);
                 }
             }

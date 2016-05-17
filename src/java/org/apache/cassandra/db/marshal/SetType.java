@@ -179,4 +179,9 @@ public class SetType<T> extends CollectionType<Set<T>>
     {
         return ListType.setOrListToJsonString(buffer, elements, protocolVersion);
     }
+
+    public List<String> toListOfStrings(ByteBuffer buffer, int protocolVersion)
+    {
+        return ListType.toListOfStrings(buffer, elements, protocolVersion);
+    }
 }
