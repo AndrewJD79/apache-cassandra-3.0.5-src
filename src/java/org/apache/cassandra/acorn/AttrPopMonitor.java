@@ -71,7 +71,9 @@ public class AttrPopMonitor implements Runnable {
                 // Fetch a request
                 Req r = reqQ.poll(popBcInterval, TimeUnit.MILLISECONDS);
                 long reqTime;
-                if (r != null) {
+                if (r == null) {
+                    reqTime = System.currentTimeMillis();
+                } else {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
                     if (r.aa.user != null) {
@@ -91,8 +93,6 @@ public class AttrPopMonitor implements Runnable {
                     }
 
                     reqTime = r.reqTime;
-                } else {
-                    reqTime = System.currentTimeMillis();
                 }
 
                 _ExpirePopularities(reqTime);
