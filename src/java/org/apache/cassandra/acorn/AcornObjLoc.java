@@ -27,6 +27,7 @@ public class AcornObjLoc implements Runnable {
         // Let a dedicated thread do the work for all requests.  Then, you only
         // need to synchronize on the request queue.
         _thread = new Thread(new AcornObjLoc());
+        _thread.setName("AcornObjLoc");
         _thread.start();
     }
 

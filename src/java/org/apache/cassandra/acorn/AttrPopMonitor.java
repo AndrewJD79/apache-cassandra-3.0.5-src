@@ -34,6 +34,7 @@ public class AttrPopMonitor implements Runnable {
         // Let a dedicated thread do the work for all requests.  Then, you only
         // need to synchronize on the request queue.
         _thread = new Thread(new AttrPopMonitor());
+        _thread.setName("AcornPopMon");
         _thread.start();
     }
 
