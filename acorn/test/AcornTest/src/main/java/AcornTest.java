@@ -522,6 +522,7 @@ public class AcornTest {
 
 			String user_jack = String.format("jack-%s", Conf.ExpID());
 			String user_john = String.format("john-%s", Conf.ExpID());
+			String user_vasek = String.format("vasek-%s", Conf.ExpID());
 			String topic_tennis = String.format("tennis-%s", Conf.ExpID());
 			String topic_tbt = "throwbackthursday";
 
@@ -588,7 +589,7 @@ public class AcornTest {
 			String objId2 = ObjIDFactory.Gen();
 			try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId2)) {
 				if (Cass.LocalDC().equals("us-east"))
-					Cass.InsertRecordPartial(objId2, user_john, new TreeSet<String>(Arrays.asList(topic_tbt)));
+					Cass.InsertRecordPartial(objId2, user_vasek, new TreeSet<String>(Arrays.asList(topic_tbt)));
 				Cass.ExecutionBarrier();
 			}
 			if (Cass.LocalDC().equals("us-east")) {
@@ -757,7 +758,7 @@ public class AcornTest {
 			// Insert a record in the east. Not replicated to the west.
 			String objId0 = ObjIDFactory.Gen();
 			if (Cass.LocalDC().equals("us-east")) {
-				try (Cons.MT _1 = new Cons.MT("Inserting a record %s ...", objId0)) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId0)) {
 					Cass.InsertRecordPartial(objId0, user_john, new TreeSet<String>(Arrays.asList(topic_tennis_1, topic_uga_1)));
 				}
 			}
