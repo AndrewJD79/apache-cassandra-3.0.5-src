@@ -63,7 +63,7 @@ public class AcornObjLoc implements Runnable {
     }
 
     private static void _AddObjLoc(String objId) {
-        String q = String.format("UPDATE %s_obj_loc.obj_loc SET locations = locations + {'%s'} WHERE obj_id = 'aaa'"
+        String q = String.format("UPDATE %s_obj_loc.obj_loc SET locations = locations + {'%s'} WHERE obj_id = '%s'"
                 , acornKsPrefix, localDataCenter, objId);
         // Here the datacenter names contain '-'.
         //

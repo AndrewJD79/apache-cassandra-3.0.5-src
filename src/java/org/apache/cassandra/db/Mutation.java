@@ -318,14 +318,14 @@ public class Mutation implements IMutation
             Iterator<Row> iter = pu.iterator();
             while (iter.hasNext()) {
                 Row r = iter.next();
-                logger.warn("Acorn: r={} {}", r, r.getClass().getName());
+                //logger.warn("Acorn: r={} {}", r, r.getClass().getName());
 
                 //public Iterable<Cell> cells();
                 Iterator<Cell> i1 = r.cells().iterator();
                 while(i1.hasNext()) {
                     // c is of type org.apache.cassandra.db.rows.BufferCell
                     Cell c = i1.next();
-                    logger.warn("Acorn: c={} {}", c, c.getClass().getName());
+                    //logger.warn("Acorn: c={} {}", c, c.getClass().getName());
 
                     // c.column().name is of type ColumnIdentifier
                     String colName = c.column().name.toString();
