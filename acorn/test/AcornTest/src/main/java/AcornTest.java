@@ -184,10 +184,8 @@ public class AcornTest {
 
 			//TestPartialRep();
 			//TestTopicFilter();
-			TestReadMakingAttrsPopular();
-
-			// TODO TestFetchOnDemand();
-			// It should probably be asynchronous
+			//TestReadMakingAttrsPopular();
+			TestFetchOnDemand();
 
 			// TODO: clean up
 			//TestSyncFetchOnDemand();
@@ -745,6 +743,68 @@ public class AcornTest {
 		}
 	}
 
-	private static void TestFetchOnDemand() {
+	private static void TestFetchOnDemand() throws InterruptedException {
+		try (Cons.MT _ = new Cons.MT("Testing fetch on demand ...")) {
+			String user_john = String.format("john-%s", Conf.ExpID());
+			String user_jack = String.format("jack-%s", Conf.ExpID());
+			String topic_tennis_1 = String.format("tennis-1-%s", Conf.ExpID());
+			String topic_uga_1 = String.format("uga-1-%s", Conf.ExpID());
+			String topic_dirty_sock = String.format("dirtysock-%s", Conf.ExpID());
+
+			Cass.ExecutionBarrier();
+
+			// Insert a record in the east. Not replicated to the west.
+			String objId0 = ObjIDFactory.Gen();
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Inserting a record %s ...", objId0)) {
+					Cass.InsertRecordPartial(objId0, user_john, new TreeSet<String>(Arrays.asList(topic_tennis_1, topic_uga_1)));
+				}
+			}
+			// Expect the record immediately visible in the east and not visible in the west.
+			if (Cass.LocalDC().equals("us-east")) {
+				try (Cons.MT _1 = new Cons.MT("Expect to see the record immediately in the east ...")) {
+					List<Row> rows = Cass.SelectRecordLocal(objId0);
+					if (rows.size() != 1)
+						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+				}
+			} else if (Cass.LocalDC().equals("us-west")) {
+				try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated in the west ...")) {
+					// Poll for a bit longer than the popularity broadcast interval to
+					// make sure the record is not propagated.
+					Cons.Pnnl("Checking: ");
+					long bt = System.currentTimeMillis();
+					while (true) {
+						List<Row> rows = Cass.SelectRecordLocal(objId0);
+						if (rows.size() == 0) {
+							System.out.printf(".");
+							System.out.flush();
+							Thread.sleep(100);
+						} else {
+							throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+						}
+						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
+							System.out.printf(" no record found\n");
+							break;
+						}
+					}
+				}
+			}
+			Cass.ExecutionBarrier();
+		}
+
+
+
+		// TODO:
+		//
+		// Wait for 0.5 sec for the location record to propagate. Not sure if this is needed. Probably not.
+		//
+		// In the west, keep reading the record until succeed.
+		// If the record doesn't exist and the location db says it exists
+		// somewhere, then fetch it from the remote DC.
+		//
+		// .run/dc-ip-map has where to connect to. May have to use prefix match.
+		// Ec2Snitch says us-east when the file says us-east-1.
+		//
+		// See how long it takes.
 	}
 }
