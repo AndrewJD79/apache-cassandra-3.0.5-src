@@ -453,6 +453,8 @@ public class SelectStatement implements CQLStatement
                             SetType type = (SetType) rm.names.get(i).type;
                             topics = type.toListOfStrings(colValue, Server.CURRENT_VERSION);
                         }
+                        // Reading from colValue seems to change the internal pointer
+                        colValue.rewind();
                     }
                     AcornAttributes acornAttrs = new AcornAttributes(user, topics);
                     //logger.warn("Acorn: acornAttrs={}", acornAttrs);
