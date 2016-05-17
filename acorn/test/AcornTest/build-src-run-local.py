@@ -9,6 +9,8 @@ sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
 import Cons
 import Util
 
+import AcornUtil
+
 
 fn_dep_class_path = ".dep-class-path"
 
@@ -84,6 +86,9 @@ def main(argv):
 		print "Usage: %s cur_datetime (used for identifying each run)" % argv[0]
 		print "  E.g.: %s 160507-191237" % argv[0]
 		sys.exit(1)
+
+	# DC to public IP mapping is needed for fetch on demand requests.
+	AcornUtil.GenHostfiles()
 
 	BuildSrc()
 	RunLocal(cur_datetime)
