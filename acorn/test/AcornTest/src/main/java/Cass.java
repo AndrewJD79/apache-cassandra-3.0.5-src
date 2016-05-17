@@ -375,7 +375,8 @@ class Cass {
 	}
 
 	static public List<Row> SelectRecordLocal(String obj_id) {
-		String q = String.format("select obj_id from %s.t0 where obj_id='%s'"
+		// Note: Must do select * to have all attributes processed inside Cassandra server
+		String q = String.format("select * from %s.t0 where obj_id='%s'"
 				, _ks_pr, obj_id);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
@@ -387,44 +388,6 @@ class Cass {
 			throw e;
 		}
 	}
-
-	//static public void KeepCheckingUntilAnyOfTopicsBecomesPopular(
-	//		String pop_table_region, Set<String> topics)
-	//	throws InterruptedException {
-	//	try (Cons.MT _ = new Cons.MT("Wait for the topics %s become popular ...", String.join(", ", topics))) {
-	//		String q = String.format("select topic from %s.%s_topic where topic in (%s);"
-	//				, _ks_attr_pop, pop_table_region.replace("-", "_")
-	//				, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
-	//		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-	//		Cons.Pnnl("Checking: ");
-	//		long bt = System.currentTimeMillis();
-	//		while (true) {
-	//			try {
-	//				ResultSet rs = _sess.execute(s);
-	//				List<Row> rows = rs.all();
-	//				//Cons.P("[%s] %d", q, rows.size());
-	//				if (rows.size() < topics.size()) {
-	//					System.out.printf(".");
-	//					System.out.flush();
-	//					Thread.sleep(10);
-	//				} else if (rows.size() == topics.size()) {
-	//					System.out.printf(" got %d\n", topics.size());
-	//					break;
-	//				} else {
-	//					throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-	//				}
-	//			} catch (com.datastax.driver.core.exceptions.DriverException e) {
-	//				Cons.P("Exception=[%s] query=[%s]", e, q);
-	//				throw e;
-	//			}
-
-	//			if (System.currentTimeMillis() - bt > 5000) {
-	//				System.out.printf("\n");
-	//				throw new RuntimeException("Time out");
-	//			}
-	//		}
-	//	}
-	//}
 
 	static private int _barrier_id = 0;
 
