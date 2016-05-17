@@ -772,7 +772,7 @@ public class AcornTest {
 				try (Cons.MT _1 = new Cons.MT("Fetch on demand in the west ...")) {
 					// Poll for a bit longer than the popularity broadcast interval to
 					// make sure the record is not propagated.
-					Cons.Pnnl("Checking: ");
+					Cons.Pnnl("Checking:");
 					long bt = System.currentTimeMillis();
 					while (true) {
 						List<Row> rows = Cass.SelectRecordLocal(objId0);
@@ -780,19 +780,24 @@ public class AcornTest {
 							// Get a DC where the object is
 							String dc = Cass.GetObjLoc(objId0);
 							if (dc == null) {
-								System.out.printf("0");
+								System.out.printf(" loc");
 								System.out.flush();
-								Thread.sleep(100);
+								// Thread.sleep(100);
 							} else {
 								List<Row> rows1 = Cass.SelectRecordRemote(dc, objId0);
-								for (Row r: rows1) {
-									String user = r.getString("user");
-									Set<String> topics = r.getSet("topics", String.class);
-									Cons.P("user={%s}", user);
-									Cons.P("topics={%s}", String.join(", ", topics));
-								}
+								if (rows1.size() != 1)
+									throw new RuntimeException(String.format("Unexpected: rows1.size()=%d", rows1.size()));
+								Row r = rows1.get(0);
+								String objId = r.getString("obj_id");
+								String user = r.getString("user");
+								Set<String> topics = r.getSet("topics", String.class);
+								//Cons.P("user={%s}", user);
+								//Cons.P("topics={%s}", String.join(", ", topics));
+								System.out.printf(" rf");
+								System.out.flush();
 
-								// TODO: insert into the local DC. The obj location DB will be updated automatically.
+								Cass.InsertRecordPartial(objId, user, topics);
+								System.out.printf(" lw\n");
 								break;
 							}
 						}
@@ -803,45 +808,8 @@ public class AcornTest {
 						}
 					}
 				}
-
-				//try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated in the west ...")) {
-				//	// Poll for a bit longer than the popularity broadcast interval to
-				//	// make sure the record is not propagated.
-				//	Cons.Pnnl("Checking: ");
-				//	long bt = System.currentTimeMillis();
-				//	while (true) {
-				//		List<Row> rows = Cass.SelectRecordLocal(objId0);
-				//		if (rows.size() == 0) {
-				//			System.out.printf(".");
-				//			System.out.flush();
-				//			Thread.sleep(100);
-				//		} else {
-				//			throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
-				//		}
-				//		if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
-				//			System.out.printf(" no record found\n");
-				//			break;
-				//		}
-				//	}
-				//}
 			}
-
 			Cass.ExecutionBarrier();
 		}
-
-
-
-		// TODO:
-		//
-		// Wait for 0.5 sec for the location record to propagate. Not sure if this is needed. Probably not.
-		//
-		// In the west, keep reading the record until succeed.
-		// If the record doesn't exist and the location db says it exists
-		// somewhere, then fetch it from the remote DC.
-		//
-		// .run/dc-ip-map has where to connect to. May have to use prefix match.
-		// Ec2Snitch says us-east when the file says us-east-1.
-		//
-		// See how long it takes.
 	}
 }
