@@ -352,7 +352,7 @@ class Cass {
 
 	static public List<Row> SelectRecordRemote(String dc, String objId) throws Exception {
 		// Note: Must do select * to have all attributes processed inside Cassandra server
-		String q = String.format("select user, topics from %s.t0 where obj_id='%s'"
+		String q = String.format("select * from %s.t0 where obj_id='%s'"
 				, _ks_pr, objId);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {

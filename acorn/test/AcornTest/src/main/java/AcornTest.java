@@ -787,8 +787,7 @@ public class AcornTest {
 								List<Row> rows1 = Cass.SelectRecordRemote(dc, objId0);
 								for (Row r: rows1) {
 									String user = r.getString("user");
-									//Set<String> topics = r.getSet("topics", String.class);
-									Set<String> topics = r.getSet(1, String.class);
+									Set<String> topics = r.getSet("topics", String.class);
 									Cons.P("user={%s}", user);
 									Cons.P("topics={%s}", String.join(", ", topics));
 								}
