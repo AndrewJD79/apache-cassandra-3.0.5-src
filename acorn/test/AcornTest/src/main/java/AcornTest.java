@@ -195,7 +195,8 @@ public class AcornTest {
 			// this takes a really long time. ?? TODO: what is it? Need to remind.
 			//TestReadAfterWrite();
 
-			Cass.Close();
+			// Cassandra cluster and session are not closed. Force quit.
+			System.exit(0);
 		} catch (Exception e) {
 			System.err.println("Exception: " + e.getMessage());
 			e.printStackTrace();
@@ -203,7 +204,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void CreateSchema() throws InterruptedException, UnknownHostException {
+	private static void CreateSchema() throws Exception {
 		if (Cass.LocalDC().equals("us-east")) {
 			if (Cass.SchemaExist()) {
 				Cons.P("Schema already exists.");
@@ -222,7 +223,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void XDcTrafficOnRead() throws InterruptedException, IOException {
+	private static void XDcTrafficOnRead() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
 			// Insert a big record to the acorn keyspace and keep reading it while
 			// monitoring the inter-DC traffic.
@@ -256,7 +257,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void XDcTrafficOnReadCount() throws InterruptedException, IOException {
+	private static void XDcTrafficOnReadCount() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Monitor traffic while reading ...")) {
 			// Insert a big record to the acorn keyspace and keep reading it while
 			// monitoring the inter-DC traffic.
@@ -283,7 +284,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void _XDcTrafficOnRead(ConsistencyLevel cl, String obj_id) throws InterruptedException, IOException {
+	private static void _XDcTrafficOnRead(ConsistencyLevel cl, String obj_id) throws Exception {
 		Util.RxTx rxtx0 = null;
 		if (Cass.LocalDC().equals("us-east")) {
 			rxtx0 = Util.GetEth0RxTx();
@@ -325,7 +326,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void _XDcTrafficOnReadCount(ConsistencyLevel cl, String objId0, String objId1) throws InterruptedException, IOException {
+	private static void _XDcTrafficOnReadCount(ConsistencyLevel cl, String objId0, String objId1) throws Exception {
 		Util.RxTx rxtx0 = null;
 		if (Cass.LocalDC().equals("us-east")) {
 			rxtx0 = Util.GetEth0RxTx();
@@ -357,7 +358,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void TestPartialRep() throws InterruptedException {
+	private static void TestPartialRep() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Testing partial replication ...")) {
 			// Object id is constructed from the experiment id and _test_id.  You
 			// cannot just use current date time, since the two machines on the east
@@ -514,7 +515,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void TestTopicFilter() throws InterruptedException {
+	private static void TestTopicFilter() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Testing topic filter ...")) {
 			// Make tennis and throwbackthursday popular in the west.  Check if an
 			// object with tennis is propagated, but an object with tbt is not.
@@ -622,7 +623,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void TestReadMakingAttrsPopular() throws InterruptedException {
+	private static void TestReadMakingAttrsPopular() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Testing read request making attrs popular ...")) {
 			String user_john = String.format("john-%s", Conf.ExpID());
 			String user_jack = String.format("jack-%s", Conf.ExpID());
@@ -743,7 +744,7 @@ public class AcornTest {
 		}
 	}
 
-	private static void TestFetchOnDemand() throws InterruptedException {
+	private static void TestFetchOnDemand() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Testing fetch on demand ...")) {
 			String user_john = String.format("john-%s", Conf.ExpID());
 			String user_jack = String.format("jack-%s", Conf.ExpID());
@@ -768,7 +769,7 @@ public class AcornTest {
 						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
 				}
 			} else if (Cass.LocalDC().equals("us-west")) {
-				try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated in the west ...")) {
+				try (Cons.MT _1 = new Cons.MT("Fetch on demand in the west ...")) {
 					// Poll for a bit longer than the popularity broadcast interval to
 					// make sure the record is not propagated.
 					Cons.Pnnl("Checking: ");
@@ -776,19 +777,56 @@ public class AcornTest {
 					while (true) {
 						List<Row> rows = Cass.SelectRecordLocal(objId0);
 						if (rows.size() == 0) {
-							System.out.printf(".");
-							System.out.flush();
-							Thread.sleep(100);
-						} else {
-							throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+							// Get a DC where the object is
+							String dc = Cass.GetObjLoc(objId0);
+							if (dc == null) {
+								System.out.printf("0");
+								System.out.flush();
+								Thread.sleep(100);
+							} else {
+								List<Row> rows1 = Cass.SelectRecordRemote(dc, objId0);
+								for (Row r: rows1) {
+									String user = r.getString("user");
+									//Set<String> topics = r.getSet("topics", String.class);
+									Set<String> topics = r.getSet(1, String.class);
+									Cons.P("user={%s}", user);
+									Cons.P("topics={%s}", String.join(", ", topics));
+								}
+
+								// TODO: insert into the local DC. The obj location DB will be updated automatically.
+								break;
+							}
 						}
+						// Wait for a bit. Doesn't have to be broadcast interval. Okay for now.
 						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
-							System.out.printf(" no record found\n");
-							break;
+							System.out.printf("\n");
+							throw new RuntimeException("Time out :(");
 						}
 					}
 				}
+
+				//try (Cons.MT _1 = new Cons.MT("Checking to see the record is not replicated in the west ...")) {
+				//	// Poll for a bit longer than the popularity broadcast interval to
+				//	// make sure the record is not propagated.
+				//	Cons.Pnnl("Checking: ");
+				//	long bt = System.currentTimeMillis();
+				//	while (true) {
+				//		List<Row> rows = Cass.SelectRecordLocal(objId0);
+				//		if (rows.size() == 0) {
+				//			System.out.printf(".");
+				//			System.out.flush();
+				//			Thread.sleep(100);
+				//		} else {
+				//			throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
+				//		}
+				//		if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
+				//			System.out.printf(" no record found\n");
+				//			break;
+				//		}
+				//	}
+				//}
 			}
+
 			Cass.ExecutionBarrier();
 		}
 

@@ -1,13 +1,20 @@
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.lang.InterruptedException;
 import java.net.InetSocketAddress;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import com.datastax.driver.core.*;
@@ -18,13 +25,7 @@ import com.google.common.base.Joiner;
 
 
 class Cass {
-	private static Cluster _cluster;
-
-	// Session instances are thread-safe and usually a single instance is enough per application.
-	// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Session.html
-	private static Session _sess;
-
-	private static String _local_dc = null;
+	private static String _localDc = null;
 	private static List<String> _remote_dcs = null;
 	private static List<String> _all_dcs = null;
 
@@ -40,36 +41,8 @@ class Cass {
 	// For comparison
 	private static String _ks_regular = null;
 
-	public static void Init() {
+	public static void Init() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
-			// The default LoadBalancingPolicy is DCAwareRoundRobinPolicy, which
-			// round-robins over the nodes of the local data center, which is exactly
-			// what you want in this project.
-			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/DCAwareRoundRobinPolicy.html
-			_cluster = new Cluster.Builder()
-				// Connect to the local Cassandra server
-				.addContactPoints("127.0.0.1")
-
-				// It says,
-				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /54.177.212.255:9042 added
-				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /127.0.0.1:9042 added
-				// , which made me wonder if this connect to a remote region as well.
-				// The public IP is on a different region.
-				//
-				// Specifying a white list doesn't seem to make any difference.
-				//.withLoadBalancingPolicy(
-				//		new WhiteListPolicy(new DCAwareRoundRobinPolicy.Builder().build()
-				//			, Collections.singletonList(new InetSocketAddress("127.0.0.1", 9042))
-				//		))
-				//
-				// It might not mean which nodes this client connects to.
-
-				.build();
-
-			_sess = _cluster.connect();
-			Metadata metadata = _cluster.getMetadata();
-			Cons.P("Connected to cluster '%s'.", metadata.getClusterName());
-
 			_WaitUntilYouSee2DCs();
 
 			String ks_prefix = "acorn";
@@ -78,28 +51,24 @@ class Cass {
 			_ks_obj_loc  = ks_prefix + "_obj_loc";
 			_ks_sync = ks_prefix + "_sync";
 			_ks_regular = ks_prefix + "_regular";
-		} catch (Exception e) {
-			System.err.println("Exception: " + e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
 		}
 	}
 
-	private static void _WaitUntilYouSee2DCs() throws InterruptedException {
+	private static void _WaitUntilYouSee2DCs() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Wait until you see 2 DCs ...")) {
-			ResultSet rs = _sess.execute("select data_center from system.local;");
+			ResultSet rs = _GetSession().execute("select data_center from system.local;");
 			// Note that calling rs.all() for the second time returns an empty List<>.
 			List<Row> rs_all = rs.all();
 			if (rs_all.size() != 1)
 				throw new RuntimeException(String.format("Unexpcted: %d", rs.all().size()));
 
-			_local_dc = rs_all.get(0).getString("data_center");
-			Cons.P("Local DC: %s", _local_dc);
+			_localDc = rs_all.get(0).getString("data_center");
+			Cons.P("Local DC: %s", _localDc);
 
 			Cons.Pnnl("Remote DCs:");
 			boolean first = true;
 			while (true) {
-				rs = _sess.execute("select data_center from system.peers;");
+				rs = _GetSession().execute("select data_center from system.peers;");
 				rs_all = rs.all();
 				if (rs_all.size() == 1)
 					break;
@@ -121,29 +90,22 @@ class Cass {
 			System.out.printf("\n");
 
 			_all_dcs = new ArrayList<String>();
-			_all_dcs.add(_local_dc);
+			_all_dcs.add(_localDc);
 			for (String r: _remote_dcs)
 				_all_dcs.add(r);
 		}
 	}
 
-	public static void Close() {
-		try (Cons.MT _ = new Cons.MT("Closing _sess and _cluster ...")) {
-			_sess.close();
-			_cluster.close();
-		}
-	}
-
 	public static String LocalDC() {
-		return _local_dc;
+		return _localDc;
 	}
 
-	public static boolean SchemaExist() {
+	public static boolean SchemaExist() throws Exception {
 		// Check if the created table, that is created last, exists
 		String q = String.format("select c0 from %s.t0 limit 1", _ks_regular);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
-			_sess.execute(s);
+			_GetSession().execute(s);
 			return true;
 		} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
 			if (e.toString().matches("(.*)Keyspace (.*) does not exist")) {
@@ -161,7 +123,7 @@ class Cass {
 		}
 	}
 
-	public static void CreateSchema() {
+	public static void CreateSchema() throws Exception {
 		// You want to make sure that each test is starting from a clean sheet.
 		// - But it takes too much time like 20 secs. Reuse the schema and make
 		//   object IDs unique across runs, using the datetime of the run.
@@ -186,7 +148,7 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_pr, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 					// It shouldn't already exist. The keyspace name is supposed to be
 					// unique for each run. No need to catch AlreadyExistsException.
 
@@ -197,7 +159,7 @@ class Cass {
 							+ ");",
 							_ks_pr);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 				}
 
 				// Attribute popularity keyspace
@@ -206,19 +168,19 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_attr_pop, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 
 					// These are periodically updated (broadcasted). Cassandra doesn't like "-".
 					for (String dc: _all_dcs) {
 						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
 								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
-						_sess.execute(s);
+						_GetSession().execute(s);
 
 						q = String.format("CREATE TABLE %s.%s_topic (topic text, PRIMARY KEY (topic));"
 								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
-						_sess.execute(s);
+						_GetSession().execute(s);
 					}
 				}
 
@@ -228,14 +190,14 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_obj_loc, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
 					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
 							, _ks_obj_loc);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 				}
 
 				// Sync keyspace for testing purpose.
@@ -244,14 +206,14 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_sync, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
 					q = String.format("CREATE TABLE %s.t0 (sync_id text, PRIMARY KEY (sync_id));"
 							, _ks_sync);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 				}
 
 				// A regular keyspace for comparison
@@ -260,14 +222,14 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_regular, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 
 					// The CLs of the operations on this table determines the consistency
 					// model of the applications.
 					q = String.format("CREATE TABLE %s.t0 (c0 text, c1 blob, PRIMARY KEY (c0));"
 							, _ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_sess.execute(s);
+					_GetSession().execute(s);
 				}
 			} catch (com.datastax.driver.core.exceptions.DriverException e) {
 				Cons.P("Exception %s. query=[%s]", e, q);
@@ -284,8 +246,7 @@ class Cass {
 		// the future (like 1 sec after).
 	}
 
-	public static void WaitForSchemaCreation()
-		throws InterruptedException {
+	public static void WaitForSchemaCreation() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Waiting for the schema creation ...")) {
 			// Select data from the last created table with a CL LOCAL_ONE until
 			// there is no exception.
@@ -295,7 +256,7 @@ class Cass {
 			boolean first = true;
 			while (true) {
 				try {
-					_sess.execute(s);
+					_GetSession().execute(s);
 					break;
 				} catch (com.datastax.driver.core.exceptions.InvalidQueryException e) {
 					char error_code = '-';
@@ -330,21 +291,21 @@ class Cass {
 		}
 	}
 
-	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) {
+	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) throws Exception {
 		String q = null;
 		try {
 			q = String.format(
 					"INSERT INTO %s.t0 (obj_id, user, topics) VALUES ('%s', '%s', {%s});"
 					, _ks_pr, obj_id, user
 					, String.join(", ", topics.stream().map(t -> String.format("'%s'", t)).collect(Collectors.toList())));
-			_sess.execute(q);
+			_GetSession().execute(q);
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
 		}
 	}
 
-	static public void SelectRecordLocalUntilSucceed(String obj_id) throws InterruptedException {
+	static public void SelectRecordLocalUntilSucceed(String obj_id) throws Exception {
 		try (Cons.MT _ = new Cons.MT("Select record %s ", obj_id)) {
 			// Select data from the last created table with a CL local_ONE until
 			// succeed.
@@ -354,7 +315,7 @@ class Cass {
 			Cons.Pnnl("Checking: ");
 			while (true) {
 				try {
-					ResultSet rs = _sess.execute(s);
+					ResultSet rs = _GetSession().execute(s);
 					List<Row> rows = rs.all();
 					if (rows.size() == 0) {
 						System.out.printf(".");
@@ -374,13 +335,13 @@ class Cass {
 		}
 	}
 
-	static public List<Row> SelectRecordLocal(String obj_id) {
+	static public List<Row> SelectRecordLocal(String objId) throws Exception {
 		// Note: Must do select * to have all attributes processed inside Cassandra server
 		String q = String.format("select * from %s.t0 where obj_id='%s'"
-				, _ks_pr, obj_id);
+				, _ks_pr, objId);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
-			ResultSet rs = _sess.execute(s);
+			ResultSet rs = _GetSession().execute(s);
 			List<Row> rows = rs.all();
 			return rows;
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
@@ -389,10 +350,167 @@ class Cass {
 		}
 	}
 
+	static public List<Row> SelectRecordRemote(String dc, String objId) throws Exception {
+		// Note: Must do select * to have all attributes processed inside Cassandra server
+		String q = String.format("select user, topics from %s.t0 where obj_id='%s'"
+				, _ks_pr, objId);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			ResultSet rs = _GetSession(dc).execute(s);
+			List<Row> rows = rs.all();
+			return rows;
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
+
+	static private class ClusterSession {
+		Cluster c;
+		// Session instances are thread-safe and usually a single instance is enough per application.
+		// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Session.html
+		Session s;
+
+		ClusterSession(Cluster c, Session s) {
+			this.c = c;
+			this.s = s;
+		}
+	}
+
+	static private Map<String, ClusterSession> _mapDcSession = new TreeMap<String, ClusterSession>();
+
+	static private Session _GetSession(String dc) throws Exception {
+		ClusterSession cs = _mapDcSession.get(dc);
+		if (cs == null) {
+			// The default LoadBalancingPolicy is DCAwareRoundRobinPolicy, which
+			// round-robins over the nodes of the local data center, which is exactly
+			// what you want in this project.
+			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/DCAwareRoundRobinPolicy.html
+			Cluster c = new Cluster.Builder()
+				.addContactPoints(_GetDcPubIp(dc))
+				// It says,
+				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /54.177.212.255:9042 added
+				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /127.0.0.1:9042 added
+				// , which made me wonder if this connect to a remote region as well.
+				// The public IP is on a different region.
+				//
+				// Specifying a white list doesn't seem to make any difference.
+				//.withLoadBalancingPolicy(
+				//		new WhiteListPolicy(new DCAwareRoundRobinPolicy.Builder().build()
+				//			, Collections.singletonList(new InetSocketAddress("127.0.0.1", 9042))
+				//		))
+				//
+				// It might not mean which nodes this client connects to.
+				.build();
+			Session s = c.connect();
+			//Metadata metadata = c.getMetadata();
+			//Cons.P("Connected to cluster '%s'.", metadata.getClusterName());
+
+			_mapDcSession.put(dc, new ClusterSession(c, s));
+			return s;
+		} else {
+			return cs.s;
+		}
+	}
+
+	static private String _availabilityZone = null;
+
+	static private Session _GetSession() throws Exception {
+		if (_localDc != null)
+		return _GetSession(_localDc);
+
+		if (_availabilityZone == null) {
+			Runtime r = Runtime.getRuntime();
+			Process p = r.exec("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone");
+			p.waitFor();
+			BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			String line = "";
+			while ((line = b.readLine()) != null) {
+				_availabilityZone = line;
+			}
+			b.close();
+		}
+
+		// Trim the last [a-z]
+		return _GetSession(_availabilityZone.substring(0, _availabilityZone.length() - 1));
+	}
+
+	static private Map<String, String> _mapDcPubIp = new TreeMap<String, String>();
+
+	static private String _GetDcPubIp(String dc) throws Exception {
+		String ip = _GetDcPubIpStartsWith(dc);
+		if (ip == null) {
+			File fn_jar = new File(AcornTest.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
+			// /mnt/local-ssd0/work/apache-cassandra-3.0.5-src/acorn/test/AcornTest/target/AcornTest-0.1.jar
+			String fn = String.format("%s/.run/dc-ip-map", fn_jar.getParentFile().getParentFile());
+			Cons.P(fn);
+
+			try (BufferedReader br = new BufferedReader(new FileReader(fn))) {
+				String line;
+				while ((line = br.readLine()) != null) {
+					// us-east-1 54.160.118.182
+					String[] t = line.split("\\s+");
+					if (t.length !=2)
+						throw new RuntimeException(String.format("Unexpcted format [%s]", line));
+					_mapDcPubIp.put(t[0], t[1]);
+				}
+			}
+
+			ip = _GetDcPubIpStartsWith(dc);
+			if (ip == null)
+				throw new RuntimeException(String.format("No pub ip found for dc %s", dc));
+		}
+		return ip;
+	}
+
+	static private String _GetDcPubIpStartsWith(String dc) {
+		for (Map.Entry<String, String> e : _mapDcPubIp.entrySet()) {
+			String k = e.getKey();
+			String v = e.getValue();
+			if (k.startsWith(dc))
+				return v;
+		}
+		return null;
+	}
+
+	static private Random _rand = new Random();
+
+	static public String GetObjLoc(String objId) throws Exception {
+		String q = String.format("select obj_id, locations from %s.obj_loc where obj_id='%s'"
+				, _ks_obj_loc, objId);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			ResultSet rs = _GetSession().execute(s);
+			List<Row> rows = rs.all();
+			if (rows.size() == 0) {
+				return null;
+			} else if (rows.size() == 1) {
+				Row r = rows.get(0);
+				Set<String> locs = r.getSet(1, String.class);
+				int locSize = locs.size();
+				if (locSize == 0)
+					throw new RuntimeException(String.format("Unexpected: no location for object %s", objId));
+				int rand = _rand.nextInt(locSize);
+				int i = 0;
+				for (String l: locs) {
+					if (i == rand)
+						return l;
+					i ++;
+				}
+			} else {
+				throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+			}
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+		return null;
+	}
+
 	static private int _barrier_id = 0;
 
 	// Wait until east and west gets here
-	static public void ExecutionBarrier() throws InterruptedException {
+	static public void ExecutionBarrier() throws Exception {
 		String q = null;
 		try {
 			Cons.Pnnl("Execution barrier");
@@ -403,7 +521,7 @@ class Cass {
 			q = String.format("Insert into %s.t0 (sync_id) values ('%s-%s-%d');" ,
 					_ks_sync, LocalDC(), Conf.ExpID(), _barrier_id);
 			Statement s = new SimpleStatement(q);
-			_sess.execute(s);
+			_GetSession().execute(s);
 
 			// Keep reading us-(remote_dc)-(exp_id)-(sync_id) with CL LOCAL_ONE until
 			// it sees the message from the other side.
@@ -418,7 +536,7 @@ class Cass {
 			s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			boolean first = true;
 			while (true) {
-				ResultSet rs = _sess.execute(s);
+				ResultSet rs = _GetSession().execute(s);
 				List<Row> rows = rs.all();
 				if (rows.size() == 0) {
 					if (first) {
@@ -448,31 +566,31 @@ class Cass {
 		}
 	}
 
-	static public void InsertRandomToRegular(String obj_id, int recSize) throws InterruptedException {
+	static public void InsertRandomToRegular(String obj_id, int recSize) throws Exception {
 		try {
 			// http://ac31004.blogspot.com/2014/03/saving-image-in-cassandra-blob-field.html
 
 			// http://stackoverflow.com/questions/5683206/how-to-create-an-array-of-20-random-bytes
 			byte[] b = new byte[recSize];
-			new Random().nextBytes(b);
+			_rand.nextBytes(b);
 			ByteBuffer bb = ByteBuffer.wrap(b);
 
-			PreparedStatement ps = _sess.prepare(
+			PreparedStatement ps = _GetSession().prepare(
 					String.format("insert into %s.t0 (c0, c1) values (?,?)", _ks_regular));
 			BoundStatement bs = new BoundStatement(ps);
-			_sess.execute(bs.bind(obj_id, bb));
+			_GetSession().execute(bs.bind(obj_id, bb));
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s]", e);
 			throw e;
 		}
 	}
 
-	static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) {
+	static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) throws Exception {
 		String q = String.format("select * from %s.t0 where c0='%s'"
 				, _ks_regular, obj_id);
 		try {
 			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-			ResultSet rs = _sess.execute(s);
+			ResultSet rs = _GetSession().execute(s);
 			List<Row> rows = rs.all();
 			if (rows.size() != 1)
 				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
@@ -483,12 +601,12 @@ class Cass {
 		}
 	}
 
-	static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) {
+	static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) throws Exception {
 		String q = String.format("select count(*) from %s.t0 where c0 in ('%s', '%s')"
 				, _ks_regular, objId0, objId1);
 		try {
 			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-			ResultSet rs = _sess.execute(s);
+			ResultSet rs = _GetSession().execute(s);
 			List<Row> rows = rs.all();
 			if (rows.size() != 1)
 				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
