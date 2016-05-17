@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.apache.cassandra.acorn.AcornAttributes;
+import org.apache.cassandra.acorn.AcornObjIdAttributes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
@@ -296,13 +296,21 @@ public class Mutation implements IMutation
     }
 
     // Called only by Acorn code
-    public AcornAttributes getAcornAttributes()
+    public AcornObjIdAttributes getAcornObjIdAttributes()
     {
-        //logger.warn("Acorn: modifications.values()=[{}]", StringUtils.join(modifications.values(), ", "));
+        String objId = null;
         String user = null;
         List<String> topics = new ArrayList<String>();
 
+        // of type java.util.HashMap$Values
+        //logger.warn("Acorn: modifications.values()={} {}", modifications.values(), modifications.values().getClass().getName());
+
         for (PartitionUpdate pu: modifications.values()) {
+            objId = pu.AcornGetKeyString();
+
+            // pu.partitionKey() is of type PreHashedDecoratedKey
+            //logger.warn("Acorn: pu.partitionKey()={} {}", pu.partitionKey(), pu.partitionKey().getClass().getName());
+
             //logger.warn("Acorn: pu={} {}", pu, pu.getClass().getName());
             // pu.iterator() is of type org.apache.cassandra.utils.btree.BTreeSearchIterator
             //logger.warn("Acorn: pu.iterator()={} {}", pu.iterator(true), pu.iterator().getClass().getName());
@@ -310,14 +318,14 @@ public class Mutation implements IMutation
             Iterator<Row> iter = pu.iterator();
             while (iter.hasNext()) {
                 Row r = iter.next();
-                //logger.warn("Acorn: r={} {}", r, r.getClass().getName());
+                logger.warn("Acorn: r={} {}", r, r.getClass().getName());
 
                 //public Iterable<Cell> cells();
                 Iterator<Cell> i1 = r.cells().iterator();
                 while(i1.hasNext()) {
                     // c is of type org.apache.cassandra.db.rows.BufferCell
                     Cell c = i1.next();
-                    //logger.warn("Acorn: c={} {}", c, c.getClass().getName());
+                    logger.warn("Acorn: c={} {}", c, c.getClass().getName());
 
                     // c.column().name is of type ColumnIdentifier
                     String colName = c.column().name.toString();
@@ -334,7 +342,7 @@ public class Mutation implements IMutation
             }
         }
 
-        return new AcornAttributes(user, topics);
+        return new AcornObjIdAttributes(objId, user, topics);
     }
 
     public static class MutationSerializer implements IVersionedSerializer<Mutation>

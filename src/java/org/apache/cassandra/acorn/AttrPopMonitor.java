@@ -76,14 +76,14 @@ public class AttrPopMonitor implements Runnable {
                 } else {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
-                    if (r.aa.user != null) {
-                        slidingWindowUser.add(new SlidingWindowItem(r.aa.user, r.reqTime));
-                        popCntUser.put(r.aa.user, popCntUser.getOrDefault(r.aa.user, 0) + 1);
-                        //logger.warn("Acorn: popular user + {}", r.aa.user);
+                    if (r.aoa.user != null) {
+                        slidingWindowUser.add(new SlidingWindowItem(r.aoa.user, r.reqTime));
+                        popCntUser.put(r.aoa.user, popCntUser.getOrDefault(r.aoa.user, 0) + 1);
+                        //logger.warn("Acorn: popular user + {}", r.aoa.user);
                     }
 
-                    if (r.aa.topics != null) {
-                        for (String t: r.aa.topics) {
+                    if (r.aoa.topics != null) {
+                        for (String t: r.aoa.topics) {
                             if (AttrFilter.IsTopicBlackListed(t))
                                 continue;
                             slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
@@ -105,17 +105,17 @@ public class AttrPopMonitor implements Runnable {
 
     static class Req {
         long reqTime;
-        AcornAttributes aa;
+        AcornObjIdAttributes aoa;
 
-        Req(AcornAttributes aa) {
+        Req(AcornObjIdAttributes aoa) {
             reqTime = System.currentTimeMillis();
-            this.aa = aa;
+            this.aoa = aoa;
         }
     }
 
     // Note: Play with popularity detection threshould. Hope I have some time
     // for this.
-    public static void SetPopular(AcornAttributes aa, String acornKsPrefix_, String localDataCenter_) {
+    public static void SetPopular(AcornObjIdAttributes aoa, String acornKsPrefix_, String localDataCenter_) {
         try {
             // The parameters acornKsPrefix and localDataCenter are supposed to
             // be the same every time.
@@ -127,8 +127,8 @@ public class AttrPopMonitor implements Runnable {
             }
 
             // Enqueue the request
-            if (! aa.Empty())
-                reqQ.put(new Req(aa));
+            if (! aoa.IsAttrEmpty())
+                reqQ.put(new Req(aoa));
         } catch (InterruptedException e) {
             logger.warn("Acorn: Exception {}", e);
         }

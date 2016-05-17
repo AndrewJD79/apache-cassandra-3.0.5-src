@@ -37,7 +37,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.cassandra.acorn.AcornAttributes;
+import org.apache.cassandra.acorn.AcornObjIdAttributes;
+import org.apache.cassandra.acorn.AcornObjLoc;
 import org.apache.cassandra.acorn.AttrPopMonitor;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -617,16 +618,16 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
-        // Is the mutation on acorn keyspace?
-        boolean acorn = false;
+        // Is the mutation on acorn.*_pr keyspace?
+        boolean acorn_pr = false;
         if (cnt_acorn > 0) {
             if (cnt_others > 0) {
                 throw new RuntimeException(String.format("Unexpected: cnt_acorn=%d cnt_others=%d", cnt_acorn, cnt_others));
             } else {
-                acorn = true;
+                acorn_pr = true;
             }
         }
-        //if (acorn) {
+        //if (acorn_pr) {
         //    logger.warn("Acorn: mutations={} consistency_level={} localDataCenter={}",
         //            mutations, consistency_level, localDataCenter);
         //}
@@ -646,19 +647,22 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
 
-                    AcornAttributes acornAttrs = null;
-                    if (acorn) {
+                    AcornObjIdAttributes acornOiAttrs = null;
+                    if (acorn_pr) {
                         Mutation m = (Mutation) mutation;
-                        acornAttrs = m.getAcornAttributes();
-                        //logger.warn("Acorn: acornAttrs={}", acornAttrs);
+                        acornOiAttrs = m.getAcornObjIdAttributes();
+                        //logger.warn("Acorn: acornOiAttrs={}", acornOiAttrs);
                     }
 
-                    responseHandlers.add(performWrite(acorn, acornAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    responseHandlers.add(performWrite(acorn_pr, acornOiAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
 
-                    if (acorn) {
+                    if (acorn_pr) {
                         // Asynchronously make attributes popular in the local
                         // datacenter in a separate thread
-                        AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix, localDataCenter);
+                        AttrPopMonitor.SetPopular(acornOiAttrs, acornKsPrefix, localDataCenter);
+
+                        // Asynchronously record the object location
+                        AcornObjLoc.Add(acornOiAttrs, acornKsPrefix, localDataCenter);
                     }
                 }
             }
@@ -1099,7 +1103,7 @@ public class StorageProxy implements StorageProxyMBean
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
                                                             boolean acorn,
-                                                            AcornAttributes acornAttrs,
+                                                            AcornObjIdAttributes acornOiAttrs,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
                                                             String localDataCenter,
@@ -1130,7 +1134,7 @@ public class StorageProxy implements StorageProxyMBean
             if (! mutation.getClass().equals(Mutation.class))
                 throw new RuntimeException(String.format("Unexpected: mutation.getClass()=%s", mutation.getClass().getName()));
 
-            String topicsCql = String.join(", ", acornAttrs.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
+            String topicsCql = String.join(", ", acornOiAttrs.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
             List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
             for (InetAddress ne: naturalEndpoints) {
@@ -1143,41 +1147,66 @@ public class StorageProxy implements StorageProxyMBean
                     continue;
                 }
 
-                // Is any of the attributes popular in this datacenter?
+                String dcCql = dc.replace("-", "_");
 
-                // ClientState.getCQLQueryHandler() is of type org.apache.cassandra.cql3.QueryProcessor
+                // TODO: Make it configurable by cassandra.yaml.
+
                 QueryHandler qh = ClientState.getCQLQueryHandler();
                 if (! qh.getClass().equals(QueryProcessor.class))
                     throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
                 QueryProcessor qp = (QueryProcessor) qh;
+                final QueryState state = QueryState.forInternalCalls();
+                final QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
 
-                // Referenced QueryMessage.java
-                String q = String.format("select count(topic) from %s.%s_topic where topic in (%s);"
-                        , ks_attr_pop, dc.replace("-", "_"), topicsCql);
-                QueryState state = QueryState.forInternalCalls();
-                QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
-                //logger.warn("Acorn: q={}", q);
+                // Is the user popular in this datacenter?
+                {
+                    // Referenced QueryMessage.java
+                    String q = String.format("select count(user_id) from %s.%s_user where user_id='%s';"
+                            , ks_attr_pop, dcCql, acornOiAttrs.user);
+                    //logger.warn("Acorn: q={}", q);
 
-                // A warning: Aggregation query used on multiple partition keys (IN restriction)
-                // A solution is splitting the query by each topic. You can
-                // early-terminate when you get a hit.
-                // However, I'm concerned about the number of messages
-                // (especially cross-DC ones). Leave it for now. Suppress the
-                // warning for acorn queries.
-                Message.Response response = qp.process(acorn, q, state, options);
+                    // A warning: Aggregation query used on multiple partition keys (IN restriction)
+                    // A solution is splitting the query by each topic. You can
+                    // early-terminate when you get a hit.
+                    // However, I'm concerned about the number of messages
+                    // (especially cross-DC ones). Leave it for now. Suppress the
+                    // warning for acorn queries.
+                    Message.Response response = qp.process(acorn, q, state, options);
 
-                if (! response.getClass().equals(ResultMessage.Rows.class))
-                    throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
-                ResultMessage.Rows rmr = (ResultMessage.Rows) response;
+                    if (! response.getClass().equals(ResultMessage.Rows.class))
+                        throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
+                    ResultMessage.Rows rmr = (ResultMessage.Rows) response;
 
-                if (! rmr.result.getClass().equals(ResultSet.class))
-                    throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
-                ResultSet rs1 = (ResultSet) rmr.result;
-                //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
-                if (rs1.GetAttrCount() > 0)
-                    attrPopAwareEndpoints.add(ne);
+                    if (! rmr.result.getClass().equals(ResultSet.class))
+                        throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
+                    ResultSet rs1 = (ResultSet) rmr.result;
+                    //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
+                    if (rs1.GetAttrCount() > 0) {
+                        attrPopAwareEndpoints.add(ne);
+                        continue;
+                    }
+                }
 
-                // TODO: Do the same with user too. Make it configurable by cassandra.yaml.
+                // Is any of the topics popular in this datacenter?
+                {
+                    String q = String.format("select count(topic) from %s.%s_topic where topic in (%s);"
+                            , ks_attr_pop, dcCql, topicsCql);
+                    //logger.warn("Acorn: q={}", q);
+                    Message.Response response = qp.process(acorn, q, state, options);
+
+                    if (! response.getClass().equals(ResultMessage.Rows.class))
+                        throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
+                    ResultMessage.Rows rmr = (ResultMessage.Rows) response;
+
+                    if (! rmr.result.getClass().equals(ResultSet.class))
+                        throw new RuntimeException(String.format("Unexpected: rmr.result.getClass()=%s", rmr.result.getClass().getName()));
+                    ResultSet rs1 = (ResultSet) rmr.result;
+                    //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
+                    if (rs1.GetAttrCount() > 0) {
+                        attrPopAwareEndpoints.add(ne);
+                        continue;
+                    }
+                }
             }
 
             logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"

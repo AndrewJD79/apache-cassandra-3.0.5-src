@@ -387,6 +387,11 @@ public abstract class AbstractBTreePartition implements Partition, Iterable<Row>
         return sb.toString();
     }
 
+    public String AcornGetKeyString()
+    {
+        return metadata.getKeyValidator().getString(partitionKey().getKey());
+    }
+
     public int rowCount()
     {
         return BTree.size(holder().tree);
