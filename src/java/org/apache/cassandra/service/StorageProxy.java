@@ -1812,12 +1812,12 @@ public class StorageProxy implements StorageProxyMBean
     {
         int cmdCount = commands.size();
         if (acorn_pr) {
-            logger.warn("Acorn: cmdCount={}", cmdCount);
-            for (int i = 0; i < cmdCount; i++) {
-                logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
-                        , i, commands.get(i), commands.get(i).getClass().getName()
-                        , consistencyLevel);
-            }
+            //logger.warn("Acorn: cmdCount={}", cmdCount);
+            //for (int i = 0; i < cmdCount; i++) {
+            //    logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
+            //            , i, commands.get(i), commands.get(i).getClass().getName()
+            //            , consistencyLevel);
+            //}
 
             // org.apache.cassandra.service.StorageProxy.fetchRows(StorageProxy.java:1808)
             // org.apache.cassandra.service.StorageProxy.readRegular(StorageProxy.java:1749)
