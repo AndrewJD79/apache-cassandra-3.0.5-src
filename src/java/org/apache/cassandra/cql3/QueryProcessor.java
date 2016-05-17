@@ -533,8 +533,8 @@ public class QueryProcessor implements QueryHandler
                 acorn = true;
         }
         if (acorn) {
-            logger.warn("Acorn: statement={} rs.keyspace()={} rs.columnFamily()={} queryStr={}"
-                    , statement, rs.keyspace(), rs.columnFamily(), queryStr);
+            //logger.warn("Acorn: statement={} rs.keyspace()={} rs.columnFamily()={} queryStr={}"
+            //        , statement, rs.keyspace(), rs.columnFamily(), queryStr);
 
             // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.getStatement(QueryProcessor.java:529)
             // SharedPool-Worker-2 org.apache.cassandra.cql3.QueryProcessor.process(QueryProcessor.java:246)

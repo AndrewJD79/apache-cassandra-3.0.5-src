@@ -129,21 +129,25 @@ public class QueryMessage extends Message.Request
                 // This gives you whether it is an internal call or not:
                 // ClientState cs = state.getClientState();
                 //
-                logger.warn("Acorn: query={} state={} state.getClientState()={}"
-                        + " options={}"
-                        + " options.getConsistency()={}"
-                        + " options.getValues()={}"
-                        + " options.skipMetadata()={}"
-                        + " options.getProtocolVersion()={}"
-                        + " getCustomPayload()={}"
+                //logger.warn("Acorn: query={} state={} state.getClientState()={}"
+                //        + " options={}"
+                //        + " options.getConsistency()={}"
+                //        + " options.getValues()={}"
+                //        + " options.skipMetadata()={}"
+                //        + " options.getProtocolVersion()={}"
+                //        + " getCustomPayload()={}"
+                //        , query
+                //        , state, state.getClientState()
+                //        , options
+                //        , options.getConsistency()
+                //        , options.getValues()
+                //        , options.skipMetadata()
+                //        , options.getProtocolVersion()
+                //        , getCustomPayload());
+                //
+                logger.warn("Acorn: query={} options.getConsistency()={}"
                         , query
-                        , state, state.getClientState()
-                        , options
-                        , options.getConsistency()
-                        , options.getValues()
-                        , options.skipMetadata()
-                        , options.getProtocolVersion()
-                        , getCustomPayload());
+                        , options.getConsistency());
             }
             Message.Response response = ClientState.getCQLQueryHandler().process(acorn_pr, query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
