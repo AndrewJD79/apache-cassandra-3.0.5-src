@@ -5,6 +5,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
@@ -77,14 +78,14 @@ public class AttrPopMonitor implements Runnable {
                 } else {
                     // Note: May want to monitor user or topic popularity based on the
                     // configuration. Monitor both for now.
-                    if (r.aoa.user != null) {
-                        slidingWindowUser.add(new SlidingWindowItem(r.aoa.user, r.reqTime));
-                        popCntUser.put(r.aoa.user, popCntUser.getOrDefault(r.aoa.user, 0) + 1);
-                        //logger.warn("Acorn: popular user + {}", r.aoa.user);
+                    if (r.user != null) {
+                        slidingWindowUser.add(new SlidingWindowItem(r.user, r.reqTime));
+                        popCntUser.put(r.user, popCntUser.getOrDefault(r.user, 0) + 1);
+                        //logger.warn("Acorn: popular user + {}", r.user);
                     }
 
-                    if (r.aoa.topics != null) {
-                        for (String t: r.aoa.topics) {
+                    if (r.topics != null) {
+                        for (String t: r.topics) {
                             if (AttrFilter.IsTopicBlackListed(t))
                                 continue;
                             slidingWindowTopic.add(new SlidingWindowItem(t, r.reqTime));
@@ -106,11 +107,13 @@ public class AttrPopMonitor implements Runnable {
 
     static class Req {
         long reqTime;
-        AcornObjIdAttributes aoa;
+        String user;
+        List<String> topics;
 
-        Req(AcornObjIdAttributes aoa) {
+        Req(String user, List<String> topics) {
             reqTime = System.currentTimeMillis();
-            this.aoa = aoa;
+            this.user = user;
+            this.topics = topics;
         }
     }
 
@@ -129,7 +132,26 @@ public class AttrPopMonitor implements Runnable {
 
             // Enqueue the request
             if (! aoa.IsAttrEmpty())
-                reqQ.put(new Req(aoa));
+                reqQ.put(new Req(aoa.user, aoa.topics));
+        } catch (InterruptedException e) {
+            logger.warn("Acorn: Exception {}", e);
+        }
+    }
+
+    public static void SetPopular(AcornAttributes aa, String acornKsPrefix_, String localDataCenter_) {
+        try {
+            // The parameters acornKsPrefix and localDataCenter are supposed to
+            // be the same every time.
+            if (acornKsPrefix == null)
+                acornKsPrefix = acornKsPrefix_;
+            if (localDataCenter == null) {
+                localDataCenter = localDataCenter_;
+                localDataCenterCql = localDataCenter.replace("-", "_");
+            }
+
+            // Enqueue the request
+            if (! aa.Empty())
+                reqQ.put(new Req(aa.user, aa.topics));
         } catch (InterruptedException e) {
             logger.warn("Acorn: Exception {}", e);
         }
