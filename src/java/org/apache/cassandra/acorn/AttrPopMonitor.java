@@ -195,15 +195,12 @@ public class AttrPopMonitor implements Runnable {
         }
     }
 
-    private long firstBcReqTime;
+    private long firstBcReqTime = -1;
     private long prevBcEpoch = -1;
 
     private void _PropagateToRemoteDCs(long reqTime) {
-        if (prevBcEpoch == -1) {
+        if (firstBcReqTime == -1)
             firstBcReqTime = reqTime;
-            prevBcEpoch = 0;
-            return;
-        }
 
         long curBcEpoch = (reqTime - firstBcReqTime) / popBcInterval;
         //logger.warn("Acorn: prevBcEpoch={} curBcEpoch={}", prevBcEpoch, curBcEpoch);
