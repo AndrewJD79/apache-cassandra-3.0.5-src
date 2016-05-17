@@ -19,6 +19,7 @@ package org.apache.cassandra.service;
 
 import java.net.InetAddress;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -191,12 +192,22 @@ public abstract class AbstractReadExecutor
         List<InetAddress> targetReplicas = consistencyLevel.filterForQuery(keyspace, allReplicas, repairDecision);
         if (acorn) {
             // This is probably where you need to restrict DCs for read (select) operations
-            logger.warn("Acorn: before allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
+            //logger.warn("Acorn: before allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
+
             String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
             IEndpointSnitch snitch = DatabaseDescriptor.getEndpointSnitch();
-            allReplicas.removeIf(ia -> (! snitch.getDatacenter(ia).equals(localDataCenter)));
-            targetReplicas = allReplicas;
-            logger.warn("Acorn: after allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
+
+            List<InetAddress> keepReplicas = new ArrayList<InetAddress>();
+            List<InetAddress> dropReplicas = new ArrayList<InetAddress>();
+            for (InetAddress ia: allReplicas) {
+                if (snitch.getDatacenter(ia).equals(localDataCenter))
+                    keepReplicas.add(ia);
+                else
+                    dropReplicas.add(ia);
+            }
+            targetReplicas = allReplicas = keepReplicas;
+
+            logger.warn("Acorn: drop replicas {}", dropReplicas);
         }
 
         // org.apache.cassandra.service.AbstractReadExecutor.getReadExecutor(AbstractReadExecutor.java:191)
