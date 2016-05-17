@@ -25,7 +25,9 @@ import com.google.common.base.Joiner;
 
 
 class Cass {
+	// What Cassandra Ec2Snitch returns
 	private static String _localDc = null;
+
 	private static List<String> _remote_dcs = null;
 	private static List<String> _all_dcs = null;
 
@@ -58,19 +60,19 @@ class Cass {
 		try (Cons.MT _ = new Cons.MT("Wait until you see 2 DCs ...")) {
 			ResultSet rs = _GetSession().execute("select data_center from system.local;");
 			// Note that calling rs.all() for the second time returns an empty List<>.
-			List<Row> rs_all = rs.all();
-			if (rs_all.size() != 1)
-				throw new RuntimeException(String.format("Unexpcted: %d", rs.all().size()));
+			List<Row> rows = rs.all();
+			if (rows.size() != 1)
+				throw new RuntimeException(String.format("Unexpcted: %d", rows.size()));
 
-			_localDc = rs_all.get(0).getString("data_center");
+			_localDc = rows.get(0).getString("data_center");
 			Cons.P("Local DC: %s", _localDc);
 
 			Cons.Pnnl("Remote DCs:");
 			boolean first = true;
 			while (true) {
 				rs = _GetSession().execute("select data_center from system.peers;");
-				rs_all = rs.all();
-				if (rs_all.size() == 1)
+				rows = rs.all();
+				if (rows.size() == 1)
 					break;
 
 				if (first) {
@@ -83,16 +85,23 @@ class Cass {
 			}
 
 			_remote_dcs = new ArrayList<String>();
-			for (Row r: rs_all)
+			for (Row r: rows)
 				_remote_dcs.add(r.getString("data_center"));
-			for (String r: _remote_dcs)
-				System.out.printf(" %s", r);
+			for (String rDc: _remote_dcs)
+				System.out.printf(" %s", rDc);
 			System.out.printf("\n");
 
 			_all_dcs = new ArrayList<String>();
 			_all_dcs.add(_localDc);
-			for (String r: _remote_dcs)
-				_all_dcs.add(r);
+			for (String rDc: _remote_dcs)
+				_all_dcs.add(rDc);
+
+			// Prepare remote sessions for later. It takes about 800 ms. Can be
+			// threaded to save time, if needed.
+			try (Cons.MT _1 = new Cons.MT("Prepareing remote sessions ...")) {
+				for (String rDc: _remote_dcs)
+					_GetSession(rDc);
+			}
 		}
 	}
 
@@ -385,7 +394,8 @@ class Cass {
 	static private Map<String, ClusterSession> _mapDcSession = new TreeMap<String, ClusterSession>();
 
 	static private Session _GetSession(String dc) throws Exception {
-		ClusterSession cs = _mapDcSession.get(dc);
+		//Cons.P(dc);
+		ClusterSession cs = _GetDcCassSessionStartsWith(dc);
 		if (cs == null) {
 			// The default LoadBalancingPolicy is DCAwareRoundRobinPolicy, which
 			// round-robins over the nodes of the local data center, which is exactly
@@ -418,11 +428,21 @@ class Cass {
 		}
 	}
 
+	static private ClusterSession _GetDcCassSessionStartsWith(String dc) {
+		for (Map.Entry<String, ClusterSession> e : _mapDcSession.entrySet()) {
+			String k = e.getKey();
+			ClusterSession v = e.getValue();
+			if (k.startsWith(dc))
+				return v;
+		}
+		return null;
+	}
+
 	static private String _availabilityZone = null;
 
 	static private Session _GetSession() throws Exception {
 		if (_localDc != null)
-		return _GetSession(_localDc);
+			return _GetSession(_localDc);
 
 		if (_availabilityZone == null) {
 			Runtime r = Runtime.getRuntime();
