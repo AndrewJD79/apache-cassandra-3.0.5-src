@@ -117,6 +117,19 @@ public class QueryMessage extends Message.Request
             // through here.
             //   SELECT * FROM system_schema.keyspaces
             final String acorn_ks_regex = String.format(".* %s.*_pr\\..*", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+
+            // I will need something like AcornKeyspaceType
+            //
+            //   Keyspace          Read scope regardless of CL
+            //                               Write scope          Does a read update local attr popularity?
+            //                                                         Does a write update local attr popularity?
+            //   acorn.*_pr        DC local  DC local             Yes  Yes
+            //   acorn.*_obj_loc   DC local  Eventually global    No   No
+            //   acorn.*_attr_pop  DC local  Eventually global    No   No
+            //   acorn.*_sync      DC local  Eventually global    No   No
+            //
+            //   others            follow Cassandra default model
+
             boolean acorn_pr = query.matches(acorn_ks_regex);
             if (acorn_pr) {
                 // state is of type org.apache.cassandra.service.QueryState
