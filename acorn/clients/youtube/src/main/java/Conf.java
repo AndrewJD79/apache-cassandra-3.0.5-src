@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
@@ -112,11 +113,25 @@ class Conf {
 		public String dn_data;
 		public String fn_users;
 		public String fn_youtube_reqs;
+		public Map<String, DC.Coord> mapDcCoord = new TreeMap<String, DC.Coord>();
 
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
 			fn_users = (String) m.get("fn_users");
 			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
+			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
+			for (Map.Entry<String, String> e: ((Map<String, String>) m.get("dc_coordinates")).entrySet()) {
+				String k = e.getKey();
+				String v = e.getValue();
+				//Cons.P("[%s] [%s]", k, v);
+
+				String[] t = v.split(", ");
+				if (t.length != 2)
+					throw new RuntimeException(String.format("Unexpected: t.length=%d", t.length));
+				double longi = Double.parseDouble(t[0]);
+				double lati = Double.parseDouble(t[1]);
+				mapDcCoord.put(k, new DC.Coord(longi, lati));
+			}
 		}
 
 		@Override

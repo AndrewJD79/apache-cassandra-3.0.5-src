@@ -5,6 +5,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+
 class YoutubeData {
 	public static void Load() throws Exception {
 		String fn = String.format("%s/%s"
@@ -18,8 +20,16 @@ class YoutubeData {
 			long numTweets = _ReadLong(bis);
 			Cons.P("Total number of read and write requests: %d", numTweets);
 
-			for (long i = 0; i < numTweets; i ++)
-				allReqs.add(new Req(bis));
+			for (long i = 0; i < numTweets; i ++) {
+				Req r = new Req(bis);
+				if (i == 0)
+					Cons.P(r);
+
+				// Load the req only when the local DC is the closest DC from the
+				// request.
+				if (DC.IsLocalDcTheClosestToReq(r))
+						allReqs.add(r);
+			}
 
 			Cons.P("Loaded %d", allReqs.size());
 			// Takes 906 ms to read a 68MB file. About 600 ms with a warm cache.
@@ -70,6 +80,11 @@ class YoutubeData {
 			// http://stackoverflow.com/questions/5878952/cast-int-to-enum-in-java
 			type = Type.values()[_ReadInt(bis)];
 			//Cons.P("type=%s", type);
+		}
+
+		@Override
+		public String toString() {
+			return ReflectionToStringBuilder.toString(this);
 		}
 	}
 	private static List<Req> allReqs = new ArrayList<Req>();

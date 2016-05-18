@@ -6,3 +6,8 @@ fn_users: 150505-104600-users
 # The files don't have lonely writes. Repeated reads from the same user is not filtered out.
 fn_youtube_reqs: tweets-010
 #fn_youtube_reqs: tweets-100
+
+dc_coordinates:
+  # Longitude, latitude
+  us-east-1: -77.539001, 39.018002
+  us-west-1: -121.741798, 37.178699

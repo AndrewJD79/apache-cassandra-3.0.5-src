@@ -15,7 +15,10 @@ public class AcornYoutube {
 		try {
 			Conf.ParseArgs(args);
 
+			DC.Init();
+
 			YoutubeData.Load();
+
 			System.exit(0);
 
 			Cass.Init();
