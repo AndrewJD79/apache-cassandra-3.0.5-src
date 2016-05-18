@@ -30,8 +30,9 @@ class YoutubeData {
 	}
 
 	static class Req {
-		// TODO: What are these?
+		// Tweet ID. Not used for this application.
 		long id;
+		// User ID. Video uploader is constructed from uid.
 		long uid;
 
 		String createdAt;
@@ -40,7 +41,6 @@ class YoutubeData {
 		// YouTube video ID
 		String vid;
 		// Video uploader
-		// TODO: why long?
 		long videoUploader;
 		List<String> topics;
 
