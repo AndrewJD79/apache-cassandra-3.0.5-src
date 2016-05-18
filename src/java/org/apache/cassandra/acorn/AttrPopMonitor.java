@@ -290,7 +290,7 @@ public class AttrPopMonitor implements Runnable {
         if (! qh.getClass().equals(QueryProcessor.class))
             throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
         QueryProcessor qp = (QueryProcessor) qh;
-        qp.process(AcornKsOptions.DcLocal(), q.toString(), state, options);
+        qp.process(AcornKsOptions.AcornOthers(), q.toString(), state, options);
 
         popUsersPrev = popUsersCur;
         popTopicsPrev = popTopicsCur;

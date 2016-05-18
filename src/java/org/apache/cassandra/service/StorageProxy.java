@@ -1683,9 +1683,9 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator read(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
-        return read(false, group, consistencyLevel, state);
+        return read(AcornKsOptions.Others(), group, consistencyLevel, state);
     }
-    public static PartitionIterator read(boolean acorn_pr, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
+    public static PartitionIterator read(AcornKsOptions ako, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.commands))
@@ -1694,9 +1694,9 @@ public class StorageProxy implements StorageProxyMBean
             throw new IsBootstrappingException();
         }
 
-        if (acorn_pr) {
-            // Always read with LOCAL_ONE with keyspaces acorn_pr,
-            // acorn_attr_pop, acorn_obj_loc, and acorn_sync.
+        if (ako.IsAcorn()) {
+            // Always read with LOCAL_ONE with acorn tables, as explained in
+            // AcornKsOptions.
             //
             // acorn_regular is not the case. The queries to acorn_regular
             // shouldn't set acorn_pr to true.
@@ -1705,7 +1705,7 @@ public class StorageProxy implements StorageProxyMBean
 
         return consistencyLevel.isSerialConsistency()
              ? readWithPaxos(group, consistencyLevel, state)
-             : readRegular(acorn_pr, group, consistencyLevel);
+             : readRegular(ako, group, consistencyLevel);
     }
 
     private static PartitionIterator readWithPaxos(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state)
@@ -1780,13 +1780,13 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     @SuppressWarnings("resource")
-    private static PartitionIterator readRegular(boolean acorn_pr, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
+    private static PartitionIterator readRegular(AcornKsOptions ako, SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         long start = System.nanoTime();
         try
         {
-            PartitionIterator result = fetchRows(acorn_pr, group.commands, consistencyLevel);
+            PartitionIterator result = fetchRows(ako, group.commands, consistencyLevel);
             // If we have more than one command, then despite each read command honoring the limit, the total result
             // might not honor it and so we should enforce it
             if (group.commands.size() > 1)
@@ -1832,16 +1832,13 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        return fetchRows(false, commands, consistencyLevel);
+        return fetchRows(AcornKsOptions.Others(), commands, consistencyLevel);
     }
-    // Note: May want to differenciate acorn_pr and acorn_others, like
-    // acorn_attr_pop, that don't do partial replications and affect attribute
-    // popularity. Although, it is okay for now.
-    private static PartitionIterator fetchRows(boolean acorn_pr, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
+    private static PartitionIterator fetchRows(AcornKsOptions ako, List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
-        if (acorn_pr) {
+        if (ako.IsPartialRep()) {
             //logger.warn("Acorn: cmdCount={}", cmdCount);
             //for (int i = 0; i < cmdCount; i++) {
             //    logger.warn("Acorn: commands.get({})={} {} consistencyLevel={}"
@@ -1875,13 +1872,13 @@ public class StorageProxy implements StorageProxyMBean
 
         SinglePartitionReadLifecycle[] reads = new SinglePartitionReadLifecycle[cmdCount];
         for (int i = 0; i < cmdCount; i++)
-            reads[i] = new SinglePartitionReadLifecycle(acorn_pr, commands.get(i), consistencyLevel);
+            reads[i] = new SinglePartitionReadLifecycle(ako, commands.get(i), consistencyLevel);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].doInitialQueries();
 
         for (int i = 0; i < cmdCount; i++)
-            reads[i].maybeTryAdditionalReplicas(acorn_pr);
+            reads[i].maybeTryAdditionalReplicas(ako);
 
         for (int i = 0; i < cmdCount; i++)
             reads[i].awaitResultsAndRetryOnDigestMismatch();
@@ -1909,10 +1906,10 @@ public class StorageProxy implements StorageProxyMBean
         private PartitionIterator result;
         private ReadCallback repairHandler;
 
-        SinglePartitionReadLifecycle(boolean acorn, SinglePartitionReadCommand command, ConsistencyLevel consistency)
+        SinglePartitionReadLifecycle(AcornKsOptions ako, SinglePartitionReadCommand command, ConsistencyLevel consistency)
         {
             this.command = command;
-            this.executor = AbstractReadExecutor.getReadExecutor(acorn, command, consistency);
+            this.executor = AbstractReadExecutor.getReadExecutor(ako, command, consistency);
             this.consistency = consistency;
         }
 
@@ -1926,9 +1923,9 @@ public class StorageProxy implements StorageProxyMBean
             executor.executeAsync();
         }
 
-        void maybeTryAdditionalReplicas(boolean acorn)
+        void maybeTryAdditionalReplicas(AcornKsOptions ako)
         {
-            executor.maybeTryAdditionalReplicas(acorn);
+            executor.maybeTryAdditionalReplicas(ako);
         }
 
         void awaitResultsAndRetryOnDigestMismatch() throws ReadFailureException, ReadTimeoutException
@@ -2385,17 +2382,16 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator getRangeSlice(PartitionRangeReadCommand command, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        return getRangeSlice(false, command, consistencyLevel);
+        return getRangeSlice(AcornKsOptions.Others(), command, consistencyLevel);
     }
     @SuppressWarnings("resource")
-    public static PartitionIterator getRangeSlice(boolean acorn_pr, PartitionRangeReadCommand command, ConsistencyLevel consistencyLevel)
+    public static PartitionIterator getRangeSlice(AcornKsOptions ako, PartitionRangeReadCommand command, ConsistencyLevel consistencyLevel)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         Tracing.trace("Computing ranges to query");
 
-        if (acorn_pr) {
+        if (ako.IsPartialRep())
             logger.warn("Acorn: IMPLEMENT!");
-        }
 
         Keyspace keyspace = Keyspace.open(command.metadata().ksName);
         RangeIterator ranges = new RangeIterator(command, keyspace, consistencyLevel);

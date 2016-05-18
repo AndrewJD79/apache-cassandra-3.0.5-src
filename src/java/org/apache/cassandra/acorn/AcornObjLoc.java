@@ -83,7 +83,6 @@ public class AcornObjLoc implements Runnable {
         if (! qh.getClass().equals(QueryProcessor.class))
             throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
         QueryProcessor qp = (QueryProcessor) qh;
-        final boolean acorn = true;
-        qp.process(acorn, q, state, options);
+        qp.process(AcornKsOptions.AcornOthers(), q, state, options);
     }
 }

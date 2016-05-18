@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -158,7 +159,7 @@ public abstract class AbstractReadExecutor
      * Perform additional requests if it looks like the original will time out.  May block while it waits
      * to see if the original requests are answered first.
      */
-    public abstract void maybeTryAdditionalReplicas(boolean acorn);
+    public abstract void maybeTryAdditionalReplicas(AcornKsOptions ako);
 
     /**
      * Get the replicas involved in the [finished] request.
@@ -184,13 +185,13 @@ public abstract class AbstractReadExecutor
     /**
      * @return an executor appropriate for the configured speculative read policy
      */
-    public static AbstractReadExecutor getReadExecutor(boolean acorn, SinglePartitionReadCommand command, ConsistencyLevel consistencyLevel) throws UnavailableException
+    public static AbstractReadExecutor getReadExecutor(AcornKsOptions ako, SinglePartitionReadCommand command, ConsistencyLevel consistencyLevel) throws UnavailableException
     {
         Keyspace keyspace = Keyspace.open(command.metadata().ksName);
         List<InetAddress> allReplicas = StorageProxy.getLiveSortedEndpoints(keyspace, command.partitionKey());
         ReadRepairDecision repairDecision = command.metadata().newReadRepairDecision();
         List<InetAddress> targetReplicas = consistencyLevel.filterForQuery(keyspace, allReplicas, repairDecision);
-        if (acorn) {
+        if (ako.IsAcorn()) {
             // This is probably where you need to restrict DCs for read (select) operations
             //logger.warn("Acorn: before allReplicas={} targetReplicas={}", allReplicas, targetReplicas);
 
@@ -306,7 +307,7 @@ public abstract class AbstractReadExecutor
                 makeDigestRequests(targetReplicas.subList(1, targetReplicas.size()));
         }
 
-        public void maybeTryAdditionalReplicas(boolean acorn)
+        public void maybeTryAdditionalReplicas(AcornKsOptions ako)
         {
             // no-op
         }
@@ -357,10 +358,9 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        public void maybeTryAdditionalReplicas(boolean acorn)
+        public void maybeTryAdditionalReplicas(AcornKsOptions ako)
         {
-            // Non-acorn requsts with all DCs are coming here. I don't think it matters.
-            //logger.warn("Acorn: acorn={} targetReplicas={}", acorn, targetReplicas);
+            //logger.warn("Acorn: targetReplicas={}", targetReplicas);
 
             // no latency information, or we're overloaded
             if (cfs.sampleLatencyNanos > TimeUnit.MILLISECONDS.toNanos(command.getTimeout()))
@@ -407,7 +407,7 @@ public abstract class AbstractReadExecutor
             this.cfs = cfs;
         }
 
-        public void maybeTryAdditionalReplicas(boolean acorn)
+        public void maybeTryAdditionalReplicas(AcornKsOptions ako)
         {
             // no-op
         }

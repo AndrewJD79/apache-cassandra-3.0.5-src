@@ -32,7 +32,7 @@ public class AcornKsOptions {
 
     private enum KsType {
         PARTIAL_REP,
-        DC_LOCAL,   // Covers acorn.*_obj_loc, acorn.*_attr_pop, acorn.*_sync
+        ACORN_OTHERS,   // Covers acorn.*_obj_loc, acorn.*_attr_pop, acorn.*_sync
         OTHERS
     }
     private KsType ksType = KsType.OTHERS;
@@ -42,7 +42,7 @@ public class AcornKsOptions {
         if (query.matches(_regexAcornPrFromQuery))
             ako.ksType = KsType.PARTIAL_REP;
         else if (query.matches(_regexAcornFromQuery))
-            ako.ksType = KsType.DC_LOCAL;
+            ako.ksType = KsType.ACORN_OTHERS;
         else
             ako.ksType = KsType.OTHERS;
         return ako;
@@ -54,9 +54,9 @@ public class AcornKsOptions {
         return ako;
     }
 
-    public static AcornKsOptions DcLocal() {
+    public static AcornKsOptions AcornOthers() {
         AcornKsOptions ako = new AcornKsOptions();
-        ako.ksType = KsType.DC_LOCAL;
+        ako.ksType = KsType.ACORN_OTHERS;
         return ako;
     }
 

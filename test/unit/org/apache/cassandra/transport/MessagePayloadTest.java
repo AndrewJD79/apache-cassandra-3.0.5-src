@@ -29,6 +29,7 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.BatchQueryOptions;
 import org.apache.cassandra.cql3.CQLStatement;
@@ -321,9 +322,9 @@ public class MessagePayloadTest extends CQLTester
                                      Map<String, ByteBuffer> customPayload)
                                              throws RequestExecutionException, RequestValidationException
         {
-            return process(false, query, state, options, customPayload);
+            return process(AcornKsOptions.Others(), query, state, options, customPayload);
         }
-        public ResultMessage process(boolean acorn_pr,
+        public ResultMessage process(AcornKsOptions ako,
                                      String query,
                                      QueryState state,
                                      QueryOptions options,

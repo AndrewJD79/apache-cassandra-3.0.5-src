@@ -24,6 +24,7 @@ import java.util.*;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.cache.IRowCacheEntry;
 import org.apache.cassandra.cache.RowCacheKey;
 import org.apache.cassandra.cache.RowCacheSentinel;
@@ -299,11 +300,11 @@ public class SinglePartitionReadCommand extends ReadCommand
 
     public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return execute(false, consistency, clientState);
+        return execute(AcornKsOptions.Others(), consistency, clientState);
     }
-    public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+    public PartitionIterator execute(AcornKsOptions ako, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return StorageProxy.read(acorn_pr, Group.one(this), consistency, clientState);
+        return StorageProxy.read(ako, Group.one(this), consistency, clientState);
     }
 
     public SinglePartitionPager getPager(PagingState pagingState, int protocolVersion)
@@ -956,11 +957,11 @@ public class SinglePartitionReadCommand extends ReadCommand
 
         public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
         {
-            return execute(false, consistency, clientState);
+            return execute(AcornKsOptions.Others(), consistency, clientState);
         }
-        public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+        public PartitionIterator execute(AcornKsOptions ako, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
         {
-            return StorageProxy.read(acorn_pr, this, consistency, clientState);
+            return StorageProxy.read(ako, this, consistency, clientState);
         }
 
         public int nowInSec()

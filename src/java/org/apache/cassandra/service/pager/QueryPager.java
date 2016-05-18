@@ -54,7 +54,7 @@ public interface QueryPager
             return ReadOrderGroup.emptyGroup();
         }
 
-        public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+        public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
         {
             return EmptyIterators.partition();
         }

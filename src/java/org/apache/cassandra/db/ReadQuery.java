@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.db;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.db.filter.DataLimits;
 import org.apache.cassandra.db.partitions.*;
 import org.apache.cassandra.exceptions.RequestExecutionException;
@@ -42,9 +43,9 @@ public interface ReadQuery
 
         public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
         {
-            return execute(false, consistency, clientState);
+            return execute(AcornKsOptions.Others(), consistency, clientState);
         }
-        public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+        public PartitionIterator execute(AcornKsOptions ako, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
         {
             return EmptyIterators.partition();
         }
@@ -104,7 +105,7 @@ public interface ReadQuery
      * @return the result of the query.
      */
     public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException;
-    public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException;
+    public PartitionIterator execute(AcornKsOptions ako, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException;
 
     /**
      * Execute the query for internal queries (that is, it basically executes the query locally).
