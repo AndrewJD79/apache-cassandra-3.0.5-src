@@ -418,11 +418,11 @@ public class SelectStatement implements CQLStatement
         if (acorn_pr) {
             // If the keyspace is acorn.*_pr, make the attributes popular in
             // the local datacenter.
-            final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
+            final String acornKsRegex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
             final String acornKsPrefix = keyspace().substring(0, keyspace().length() - 3);
             final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
 
-            if (keyspace().matches(acorn_ks_regex)) {
+            if (keyspace().matches(acornKsRegex)) {
                 ResultSet rs = msg.result;
                 ResultSet.ResultMetadata rm = rs.metadata;
                 if (rm.names == null)
