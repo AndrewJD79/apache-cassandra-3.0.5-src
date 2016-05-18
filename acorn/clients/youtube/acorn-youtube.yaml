@@ -3,5 +3,6 @@ dn_data: /home/ubuntu/work/acorn-data
 fn_users: 150505-104600-users
 #150812-143151-users-833266
 
+# The files don't have lonely writes. Repeated reads from the same user is not filtered out.
 fn_youtube_reqs: 150505-104600-tweets
 #150812-143151-tweets-5667779

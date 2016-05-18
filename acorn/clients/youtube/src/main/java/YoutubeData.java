@@ -1,7 +1,13 @@
-
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.BufferedInputStream;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 class YoutubeData {
-	public static void Load() {
+
+	public static void Load() throws Exception {
 		String fn = String.format("%s/%s"
 				, Conf.acornYoutubeOptions.dn_data
 				, Conf.acornYoutubeOptions.fn_youtube_reqs);
@@ -10,127 +16,104 @@ class YoutubeData {
 			FileInputStream fis = new FileInputStream(file);
 			BufferedInputStream bis = new BufferedInputStream(fis);
 
-			//byte[] contents = new byte[1024];
-			//int bytesRead=0;
-			//while ((bytesRead = bis.read(contents)) != -1) {
-			//	String strFileContents = new String(contents, 0, bytesRead);
-			//	System.out.print(strFileContents);
-			//}
+			long numTweets = _ReadLong(bis);
+			Cons.P("Total number of read and write requests: %d", numTweets);
+
+			for (long i = 0; i < numTweets; i ++)
+				allReqs.add(new Req(bis));
+
+			Cons.P("Loaded %d", allReqs.size());
+			// Takes 906 ms to read a 68MB file.
+			//   /home/ubuntu/work/acorn-data/150505-104600-tweets
+			//   Total number of read and write requests: 556609
 		}
 	}
 
+	static class Req {
+		// TODO: What are these?
+		long id;
+		long uid;
 
-	private static String _dt_begin;
-	private static final OptionParser _opt_parser = new OptionParser() {{
-		accepts("help", "Show this help message");
-	}};
+		String createdAt;
+		double geoLati;
+		double geoLongi;
+		// YouTube video ID
+		String vid;
+		// Video uploader
+		// TODO: why long?
+		long videoUploader;
+		List<String> topics;
 
-	private static void _PrintHelp(String[] args) throws java.io.IOException {
-		System.out.printf("Usage: %s [<option>]* dt_begin\n", args[0]);
-		System.out.printf("  dt_begin: begin date time, which identifies the run. Try `date +\"%y%m%d-%H%M%S\"`.\n");
-		_opt_parser.printHelpOn(System.out);
-	}
-
-	public static void ParseArgs(String[] args) throws Exception {
-		OptionSet options = _opt_parser.parse(args);
-		if (options.has("help")) {
-			_PrintHelp(args);
-			System.exit(0);
+		enum Type {
+			NA, // Not assigned yet
+			W,
+			R,
 		}
-		List<?> nonop_args = options.nonOptionArguments();
-		if (nonop_args.size() != 1) {
-			_PrintHelp(args);
-			System.exit(1);
-		}
+		Type type;
 
-		// I don't think I need a hostname. I only need a DC name. Interesting that
-		// Cassandra thinks it's just us-east and us-west, not like us-east-1. I
-		// wonder what's gonna happen when you add both us-west-1 and us-west-2. If
-		// they change dynamically, wouldn't it make any trouble?
-		//
-		// $ nodetool status
-		// Datacenter: us-east
-		// ===================
-		// Status=Up/Down
-		// |/ State=Normal/Leaving/Joining/Moving
-		// --  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
-		// UN  54.160.83.23    211.5 KB   256          100.0%            ce88ef0e-0bca-458d-ba95-02e8cf755642  1e
-		// Datacenter: us-west
-		// ===================
-		// Status=Up/Down
-		// |/ State=Normal/Leaving/Joining/Moving
-		// --  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
-		// UN  54.177.212.255  211.71 KB  256          100.0%            3c7a698c-705c-42c4-b27e-93262c53b7b3  1b
-		//
-		// http://stackoverflow.com/questions/19489498/getting-cassandra-datacenter-name-in-cqlsh
-		//
-		//Cons.P("hostname: %s", Util.Hostname());
+		public Req(BufferedInputStream bis) throws Exception {
+			id = _ReadLong(bis);
+			uid = _ReadLong(bis);
+			createdAt = _ReadStr(bis);
+			geoLati = _ReadDouble(bis);
+			geoLongi = _ReadDouble(bis);
+			vid = _ReadStr(bis);
+			videoUploader = _ReadLong(bis);
 
-		_dt_begin = (String) nonop_args.get(0);
+			long numTopics = _ReadLong(bis);
+			//Cons.P("numTopics=%d", numTopics);
+			topics = new ArrayList<String>();
+			for (long i = 0; i < numTopics; i ++)
+				topics.add(_ReadStr(bis));
 
-		_LoadYaml();
-	}
-
-	public static String ExpID() {
-		return _dt_begin;
-	}
-
-	private static void _LoadYaml() throws Exception {
-		File fn_jar = new File(AcornYoutube.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
-		// /mnt/local-ssd0/work/apache-cassandra-3.0.5-src/acorn/clients/youtube/target/AcornYoutube-0.1.jar
-
-		{
-			String fn = String.format("%s/conf/cassandra.yaml", fn_jar.getParentFile().getParentFile().getParentFile().getParentFile().getParentFile());
-			Map root = (Map) ((new Yaml()).load(new FileInputStream(new File(fn))));
-			Object o = root.get("acorn_options");
-			if (! (o instanceof Map))
-				throw new RuntimeException(String.format("Unexpected: o.getClass()=%s", o.getClass().getName()));
-			acornOptions = new AcornOptions((Map) o);
-		}
-
-		{
-			String fn = String.format("%s/acorn-youtube.yaml", fn_jar.getParentFile().getParentFile());
-			Object root = (new Yaml()).load(new FileInputStream(new File(fn)));
-			if (! (root instanceof Map))
-				throw new RuntimeException(String.format("Unexpected: root.getClass()=%s", root.getClass().getName()));
-			acornYoutubeOptions = new AcornYoutubeOptions((Map) root);
+			// http://stackoverflow.com/questions/5878952/cast-int-to-enum-in-java
+			type = Type.values()[_ReadInt(bis)];
+			//Cons.P("type=%s", type);
 		}
 	}
+	private static List<Req> allReqs = new ArrayList<Req>();
 
-	public static class AcornOptions {
-		// Keep underscore notations for the future when the parsing is automated,
-		// which I would love to in the future.
-		long attr_pop_broadcast_interval_in_ms;
-		long attr_pop_monitor_window_size_in_ms;
+	private static int _ReadInt(BufferedInputStream bis) throws Exception {
+		// 32-bit int
+		byte[] bytes = new byte[4];
+		int bytesRead = bis.read(bytes);
+		if (bytesRead != 4)
+			throw new RuntimeException(String.format("Unexpected: bytesRead=%d", bytesRead));
 
-		AcornOptions(Map m) {
-			attr_pop_broadcast_interval_in_ms  = Long.parseLong(m.get("attr_pop_broadcast_interval_in_ms").toString());
-			attr_pop_monitor_window_size_in_ms = Long.parseLong(m.get("attr_pop_monitor_window_size_in_ms").toString());
-		}
-
-		@Override
-		public String toString() {
-			return ReflectionToStringBuilder.toString(this);
-		}
+		// http://stackoverflow.com/questions/5616052/how-can-i-convert-a-4-byte-array-to-an-integer
+		return ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt();
 	}
 
-	public static class AcornYoutubeOptions {
-		public String dn_data;
-		public String fn_users;
-		public String fn_youtube_reqs;
+	private static long _ReadLong(BufferedInputStream bis) throws Exception {
+		// 64-bit int
+		byte[] bytes = new byte[8];
+		int bytesRead = bis.read(bytes);
+		if (bytesRead != 8)
+			throw new RuntimeException(String.format("Unexpected: bytesRead=%d", bytesRead));
 
-		AcornYoutubeOptions(Map m) {
-			dn_data = (String) m.get("dn_data");
-			fn_users = (String) m.get("fn_users");
-			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
-		}
-
-		@Override
-		public String toString() {
-			return ReflectionToStringBuilder.toString(this);
-		}
+		// http://stackoverflow.com/questions/5616052/how-can-i-convert-a-4-byte-array-to-an-integer
+		return ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getLong();
 	}
 
-	public static AcornOptions acornOptions = null;
-	public static AcornYoutubeOptions acornYoutubeOptions = null;
+	private static String _ReadStr(BufferedInputStream bis) throws Exception {
+		int size = (int) _ReadLong(bis);
+
+		byte[] bytes = new byte[size];
+		int bytesRead = bis.read(bytes);
+		if (bytesRead != size)
+			throw new RuntimeException(String.format("Unexpected: bytesRead=%d size=%d", bytesRead, size));
+		// http://stackoverflow.com/questions/17354891/java-bytebuffer-to-string
+		return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+	}
+
+	private static double _ReadDouble(BufferedInputStream bis) throws Exception {
+		// 64-bit int
+		byte[] bytes = new byte[8];
+		int bytesRead = bis.read(bytes);
+		if (bytesRead != 8)
+			throw new RuntimeException(String.format("Unexpected: bytesRead=%d", bytesRead));
+
+		// http://stackoverflow.com/questions/2905556/how-can-i-convert-a-byte-array-into-a-double-and-back
+		return ByteBuffer.wrap(bytes).getDouble();
+	}
 }
