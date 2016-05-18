@@ -16,12 +16,14 @@ public class AcornYoutube {
 			Conf.ParseArgs(args);
 
 			DC.Init();
+
+			Cass.Init();
 			System.exit(0);
 
+			// Could be overlapped with Cassandra init
 			YoutubeData.Load();
 
 
-			Cass.Init();
 
 			if ((! Cass.LocalDC().equals("us-east"))
 					&& (! Cass.LocalDC().equals("us-west")))

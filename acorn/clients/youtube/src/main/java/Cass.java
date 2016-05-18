@@ -45,7 +45,7 @@ class Cass {
 
 	public static void Init() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Cass Init ...")) {
-			_WaitUntilYouSee2DCs();
+			_WaitUntilYouSeeAllDCs();
 
 			String ks_prefix = "acorn";
 			_ks_pr = ks_prefix + "_pr";
@@ -56,8 +56,8 @@ class Cass {
 		}
 	}
 
-	private static void _WaitUntilYouSee2DCs() throws Exception {
-		try (Cons.MT _ = new Cons.MT("Wait until you see 2 DCs ...")) {
+	private static void _WaitUntilYouSeeAllDCs() throws Exception {
+		try (Cons.MT _ = new Cons.MT("Wait until you see all DCs ...")) {
 			ResultSet rs = _GetSession().execute("select data_center from system.local;");
 			// Note that calling rs.all() for the second time returns an empty List<>.
 			List<Row> rows = rs.all();
@@ -68,11 +68,12 @@ class Cass {
 			Cons.P("Local DC: %s", _localDc);
 
 			Cons.Pnnl("Remote DCs:");
+			long bt = System.currentTimeMillis();
 			boolean first = true;
 			while (true) {
 				rs = _GetSession().execute("select data_center from system.peers;");
 				rows = rs.all();
-				if (rows.size() == 1)
+				if (rows.size() == DC.remoteDCs.size())
 					break;
 
 				if (first) {
@@ -81,6 +82,12 @@ class Cass {
 				}
 				System.out.print(".");
 				System.out.flush();
+
+				if (System.currentTimeMillis() - bt > 2000) {
+					System.out.printf("\n");
+					throw new RuntimeException("Time out :(");
+				}
+
 				Thread.sleep(100);
 			}
 
