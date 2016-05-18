@@ -1,12 +1,6 @@
 time mvn compile exec:java
 time mvn package -DskipTests
 
-# run on the cluster
-./run.sh
-
-# local debugging
-time (mvn package -DskipTests && time ./_run.sh `hostname` `date +'%y%m%d-%H%M%S'`
-
 # Deleting all rows in a table.
 # http://stackoverflow.com/questions/25483308/deleting-all-rows-from-cassandra-cql-table
 cqlsh -e "truncate acorn_regular.t0;"
