@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
@@ -44,16 +45,12 @@ public class DC {
 		localDc = localAz.substring(0, localAz.length() - 1);
 		Cons.P("Local DC=%s AZ=%s", localDc, localAz);
 
+		// Calc remote DC names.
+		remoteDCs = allDCs.stream() .filter(dc -> (!dc.equals(localDc))).collect(Collectors.toList());
+		Cons.P("remoteDCs: %s", String.join(", ", remoteDCs));
 
-
-		System.exit(0);
-
-		// TODO
-//		// Calc remote DC names.
-//		for (String: dc: allDCs) {
-//			if (dc.star
-//		}
-
+		// Cassandra Ec2Snitch sometimes seems to have shorter names, which you
+		// could get around with prefix matches.
 	}
 
 	static public boolean IsLocalDcTheClosestToReq(YoutubeData.Req r) {
