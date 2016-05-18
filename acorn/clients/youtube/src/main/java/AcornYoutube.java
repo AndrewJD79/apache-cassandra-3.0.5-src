@@ -14,6 +14,8 @@ public class AcornYoutube {
 	public static void main(String[] args) throws Exception {
 		try {
 			Conf.ParseArgs(args);
+
+			YoutubeData.Load();
 			System.exit(0);
 
 			Cass.Init();

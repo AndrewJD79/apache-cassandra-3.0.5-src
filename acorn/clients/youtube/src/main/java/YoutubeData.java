@@ -1,19 +1,25 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
-
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
-import org.yaml.snakeyaml.Yaml;
 
 
-class Conf {
+class YoutubeData {
+	public static void Load() {
+		String fn = String.format("%s/%s"
+				, Conf.acornYoutubeOptions.dn_data
+				, Conf.acornYoutubeOptions.fn_youtube_reqs);
+		try (Cons.MT _ = new Cons.MT("Loading data file %s ...", fn)) {
+			File file = new File(fn);
+			FileInputStream fis = new FileInputStream(file);
+			BufferedInputStream bis = new BufferedInputStream(fis);
+
+			//byte[] contents = new byte[1024];
+			//int bytesRead=0;
+			//while ((bytesRead = bis.read(contents)) != -1) {
+			//	String strFileContents = new String(contents, 0, bytesRead);
+			//	System.out.print(strFileContents);
+			//}
+		}
+	}
+
+
 	private static String _dt_begin;
 	private static final OptionParser _opt_parser = new OptionParser() {{
 		accepts("help", "Show this help message");
