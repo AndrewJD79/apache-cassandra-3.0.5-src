@@ -17,8 +17,7 @@
  */
 package org.apache.cassandra.service.pager;
 
-import org.apache.cassandra.utils.AbstractIterator;
-
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
 import org.apache.cassandra.db.filter.DataLimits;
@@ -26,6 +25,7 @@ import org.apache.cassandra.db.partitions.*;
 import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.exceptions.RequestExecutionException;
 import org.apache.cassandra.service.ClientState;
+import org.apache.cassandra.utils.AbstractIterator;
 
 /**
  * Pager over a list of ReadCommand.
@@ -121,10 +121,10 @@ public class MultiPartitionPager implements QueryPager
     @SuppressWarnings("resource") // iter closed via countingIter
     public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
-        return fetchPage(false, pageSize, consistency, clientState);
+        return fetchPage(AcornKsOptions.Others(), pageSize, consistency, clientState);
     }
     @SuppressWarnings("resource") // iter closed via countingIter
-    public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+    public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
         // TODO: I think the same filtering on target DCs needs to be made here.
         // Look into the other side of the code.

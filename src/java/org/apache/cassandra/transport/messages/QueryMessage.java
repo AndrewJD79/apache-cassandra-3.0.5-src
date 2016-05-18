@@ -22,6 +22,7 @@ import java.util.UUID;
 import com.google.common.collect.ImmutableMap;
 
 import io.netty.buffer.ByteBuf;
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.QueryOptions;
 import org.apache.cassandra.exceptions.RequestExecutionException;
@@ -116,22 +117,9 @@ public class QueryMessage extends Message.Request
             // Looks like all queries, including system queries like this, go
             // through here.
             //   SELECT * FROM system_schema.keyspaces
-            final String acorn_ks_regex = String.format(".* %s.*_pr\\..*", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
 
-            // I will need something like AcornKeyspaceType
-            //
-            //   Keyspace          Read scope regardless of CL
-            //                               Write scope          Does a read update local attr popularity?
-            //                                                         Does a write update local attr popularity?
-            //   acorn.*_pr        DC local  DC local             Yes  Yes
-            //   acorn.*_obj_loc   DC local  Eventually global    No   No
-            //   acorn.*_attr_pop  DC local  Eventually global    No   No
-            //   acorn.*_sync      DC local  Eventually global    No   No
-            //
-            //   others            follow Cassandra default model
-
-            boolean acorn_pr = query.matches(acorn_ks_regex);
-            if (acorn_pr) {
+            AcornKsOptions ako = AcornKsOptions.BuildFromQuery(query);
+            if (ako.IsAcorn()) {
                 // state is of type org.apache.cassandra.service.QueryState
                 // options is of type org.apache.cassandra.cql3.QueryOptions$DefaultQueryOptions
                 // getCustomPayload()=null
@@ -162,10 +150,10 @@ public class QueryMessage extends Message.Request
                         , query
                         , options.getConsistency());
             }
-            Message.Response response = ClientState.getCQLQueryHandler().process(acorn_pr, query, state, options, getCustomPayload());
+            Message.Response response = ClientState.getCQLQueryHandler().process(ako, query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
 
-            //if (acorn_pr) {
+            //if (ako.IsAcorn()) {
             //    //logger.warn("Acorn: response={} {}", response, response.getClass().getName());
             //    if (response.getClass().equals(ResultMessage.Rows.class)) {
             //        ResultMessage.Rows r = (ResultMessage.Rows) response;

@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.service.pager;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.*;
 import org.apache.cassandra.db.partitions.*;
@@ -59,9 +60,9 @@ public abstract class AbstractQueryPager implements QueryPager
 
     public PartitionIterator fetchPage(int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
-        return fetchPage(false, pageSize, consistency, clientState);
+        return fetchPage(AcornKsOptions.Others(), pageSize, consistency, clientState);
     }
-    public PartitionIterator fetchPage(boolean acorn_pr, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
+    public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException
     {
         if (isExhausted())
             return EmptyIterators.partition();
@@ -70,7 +71,7 @@ public abstract class AbstractQueryPager implements QueryPager
         Pager pager = new Pager(limits.forPaging(pageSize), command.nowInSec());
 
         ReadCommand rc = nextPageReadCommand(pageSize);
-        return Transformation.apply(rc.execute(acorn_pr, consistency, clientState), pager);
+        return Transformation.apply(rc.execute(ako, consistency, clientState), pager);
     }
 
     public PartitionIterator fetchPageInternal(int pageSize, ReadOrderGroup orderGroup) throws RequestValidationException, RequestExecutionException

@@ -21,6 +21,7 @@ import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
+import org.apache.cassandra.utils.FBUtilities;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +40,9 @@ public class AttrPopMonitor implements Runnable {
         _thread.start();
     }
 
-    private static String acornKsPrefix;
-    private static String localDataCenter;
-    private static String localDataCenterCql;
+    private static String acornKsPrefix = null;
+    private static String localDataCenter = null;
+    private static String localDataCenterCql = null;
 
     // Popularity count per attribute item
     private Map<String, Integer> popCntUser = new TreeMap<String, Integer>();
@@ -119,14 +120,14 @@ public class AttrPopMonitor implements Runnable {
 
     // Note: Play with popularity detection threshould. Hope I have some time
     // for this.
-    public static void SetPopular(AcornObjIdAttributes aoa, String acornKsPrefix_, String localDataCenter_) {
+    public static void SetPopular(AcornObjIdAttributes aoa, String acornKsPrefix_) {
         try {
             // The parameters acornKsPrefix and localDataCenter are supposed to
             // be the same every time.
             if (acornKsPrefix == null)
                 acornKsPrefix = acornKsPrefix_;
             if (localDataCenter == null) {
-                localDataCenter = localDataCenter_;
+                localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
                 localDataCenterCql = localDataCenter.replace("-", "_");
             }
 
@@ -138,18 +139,15 @@ public class AttrPopMonitor implements Runnable {
         }
     }
 
-    public static void SetPopular(AcornAttributes aa, String acornKsPrefix_, String localDataCenter_) {
+    public static void SetPopular(AcornAttributes aa, String acornKsPrefix_) {
         try {
-            // The parameters acornKsPrefix and localDataCenter are supposed to
-            // be the same every time.
             if (acornKsPrefix == null)
                 acornKsPrefix = acornKsPrefix_;
             if (localDataCenter == null) {
-                localDataCenter = localDataCenter_;
+                localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
                 localDataCenterCql = localDataCenter.replace("-", "_");
             }
 
-            // Enqueue the request
             if (! aa.Empty())
                 reqQ.put(new Req(aa.user, aa.topics));
         } catch (InterruptedException e) {
@@ -292,8 +290,7 @@ public class AttrPopMonitor implements Runnable {
         if (! qh.getClass().equals(QueryProcessor.class))
             throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
         QueryProcessor qp = (QueryProcessor) qh;
-        final boolean acorn = true;
-        qp.process(acorn, q.toString(), state, options);
+        qp.process(AcornKsOptions.DcLocal(), q.toString(), state, options);
 
         popUsersPrev = popUsersCur;
         popTopicsPrev = popTopicsCur;

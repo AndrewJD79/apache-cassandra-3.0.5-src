@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import com.google.common.collect.Iterables;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.filter.*;
@@ -160,11 +161,11 @@ public class PartitionRangeReadCommand extends ReadCommand
 
     public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return execute(false, consistency, clientState);
+        return execute(AcornKsOptions.Others(), consistency, clientState);
     }
-    public PartitionIterator execute(boolean acorn_pr, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
+    public PartitionIterator execute(AcornKsOptions ako, ConsistencyLevel consistency, ClientState clientState) throws RequestExecutionException
     {
-        return StorageProxy.getRangeSlice(acorn_pr, this, consistency);
+        return StorageProxy.getRangeSlice(ako, this, consistency);
     }
 
     public QueryPager getPager(PagingState pagingState, int protocolVersion)

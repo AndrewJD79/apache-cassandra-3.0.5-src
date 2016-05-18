@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.acorn.AcornAttributes;
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.acorn.AttrPopMonitor;
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
@@ -197,9 +198,9 @@ public class SelectStatement implements CQLStatement
 
     public ResultMessage.Rows execute(QueryState state, QueryOptions options) throws RequestExecutionException, RequestValidationException
     {
-        return execute(false, state, options);
+        return execute(AcornKsOptions.Others(), state, options);
     }
-    public ResultMessage.Rows execute(boolean acorn_pr, QueryState state, QueryOptions options) throws RequestExecutionException, RequestValidationException
+    public ResultMessage.Rows execute(AcornKsOptions ako, QueryState state, QueryOptions options) throws RequestExecutionException, RequestValidationException
     {
         ConsistencyLevel cl = options.getConsistency();
         checkNotNull(cl, "Invalid empty consistency level");
@@ -216,7 +217,7 @@ public class SelectStatement implements CQLStatement
             return execute(query, options, state, nowInSec, userLimit);
 
         QueryPager pager = query.getPager(options.getPagingState(), options.getProtocolVersion());
-        return execute(acorn_pr, Pager.forDistributedQuery(pager, cl, state.getClientState()), options, pageSize, nowInSec, userLimit);
+        return execute(ako, Pager.forDistributedQuery(pager, cl, state.getClientState()), options, pageSize, nowInSec, userLimit);
     }
 
     private int getPageSize(QueryOptions options)
@@ -289,7 +290,7 @@ public class SelectStatement implements CQLStatement
         }
 
         public abstract PartitionIterator fetchPage(int pageSize);
-        public abstract PartitionIterator fetchPage(boolean acorn_pr, int pageSize);
+        public abstract PartitionIterator fetchPage(AcornKsOptions ako, int pageSize);
 
         public static class NormalPager extends Pager
         {
@@ -305,11 +306,11 @@ public class SelectStatement implements CQLStatement
 
             public PartitionIterator fetchPage(int pageSize)
             {
-                return fetchPage(false, pageSize);
+                return fetchPage(AcornKsOptions.Others(), pageSize);
             }
-            public PartitionIterator fetchPage(boolean acorn_pr, int pageSize)
+            public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize)
             {
-                //if (acorn_pr)
+                //if (ako.IsAcorn())
                 //    logger.warn("Acorn: pager={} {}", pager.getClass().getName());
 
                 // org.apache.cassandra.cql3.statements.SelectStatement$Pager$NormalPager.fetchPage(SelectStatement.java:310)
@@ -339,7 +340,7 @@ public class SelectStatement implements CQLStatement
                 // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
                 // java.lang.Thread.run(Thread.java:745)
 
-                return pager.fetchPage(acorn_pr, pageSize, consistency, clientState);
+                return pager.fetchPage(ako, pageSize, consistency, clientState);
             }
         }
 
@@ -355,9 +356,9 @@ public class SelectStatement implements CQLStatement
 
             public PartitionIterator fetchPage(int pageSize)
             {
-                return fetchPage(false, pageSize);
+                return fetchPage(AcornKsOptions.Others(), pageSize);
             }
-            public PartitionIterator fetchPage(boolean acorn_pr, int pageSize)
+            public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize)
             {
                 return pager.fetchPageInternal(pageSize, orderGroup);
             }
@@ -370,9 +371,9 @@ public class SelectStatement implements CQLStatement
                                        int nowInSec,
                                        int userLimit) throws RequestValidationException, RequestExecutionException
     {
-        return execute(false, pager, options, pageSize, nowInSec, userLimit);
+        return execute(AcornKsOptions.Others(), pager, options, pageSize, nowInSec, userLimit);
     }
-    private ResultMessage.Rows execute(boolean acorn_pr,
+    private ResultMessage.Rows execute(AcornKsOptions ako,
                                        Pager pager,
                                        QueryOptions options,
                                        int pageSize,
@@ -397,7 +398,7 @@ public class SelectStatement implements CQLStatement
         // java.lang.Thread.run(Thread.java:745)
 
         if (selection.isAggregate())
-            return pageAggregateQuery(acorn_pr, pager, options, pageSize, nowInSec);
+            return pageAggregateQuery(ako, pager, options, pageSize, nowInSec);
 
         // We can't properly do post-query ordering if we page (see #6722)
         checkFalse(needsPostQueryOrdering(),
@@ -405,7 +406,7 @@ public class SelectStatement implements CQLStatement
                 + " you must either remove the ORDER BY or the IN and sort client side, or disable paging for this query");
 
         ResultMessage.Rows msg;
-        try (PartitionIterator page = pager.fetchPage(acorn_pr, pageSize))
+        try (PartitionIterator page = pager.fetchPage(ako, pageSize))
         {
             msg = processResults(page, options, nowInSec, userLimit);
         }
@@ -415,58 +416,51 @@ public class SelectStatement implements CQLStatement
         if (!pager.isExhausted())
             msg.result.metadata.setHasMorePages(pager.state());
 
-        if (acorn_pr) {
-            // If the keyspace is acorn.*_pr, make the attributes popular in
-            // the local datacenter.
-            final String acornKsRegex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
-            final String acornKsPrefix = keyspace().substring(0, keyspace().length() - 3);
-            final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddress());
+        if (ako.IsPartialRep()) {
+            ResultSet rs = msg.result;
+            ResultSet.ResultMetadata rm = rs.metadata;
+            if (rm.names == null)
+                throw new RuntimeException("Unexpected: rs.names == null");
 
-            if (keyspace().matches(acornKsRegex)) {
-                ResultSet rs = msg.result;
-                ResultSet.ResultMetadata rm = rs.metadata;
-                if (rm.names == null)
-                    throw new RuntimeException("Unexpected: rs.names == null");
+            if (rm.flags.contains(ResultSet.Flag.HAS_MORE_PAGES))
+                throw new RuntimeException("Unexpected");
 
-                if (rm.flags.contains(ResultSet.Flag.HAS_MORE_PAGES))
-                    throw new RuntimeException("Unexpected");
+            for (List<ByteBuffer> row : rs.rows)
+            {
+                String user = null;
+                List<String> topics = null;
 
-                for (List<ByteBuffer> row : rs.rows)
+                for (int i = 0; i < row.size(); i++)
                 {
-                    String user = null;
-                    List<String> topics = null;
+                    String colName = rm.names.get(i).name.toString();
+                    ByteBuffer colValue = row.get(i);
+                    if (colValue == null)
+                        continue;
 
-                    for (int i = 0; i < row.size(); i++)
-                    {
-                        String colName = rm.names.get(i).name.toString();
-                        ByteBuffer colValue = row.get(i);
-                        if (colValue == null)
-                            continue;
-
-                        if (colName.equals("user")) {
-                            user = rm.names.get(i).type.getString(colValue);
-                        } else if (colName.equals("topics")) {
-                            // E.g., ["tennis-160516-164741", "uga-160516-164741"]
-                            if (! rm.names.get(i).type.getClass().equals(SetType.class))
-                                throw new RuntimeException(String.format("Unexpected: rm.names.get(%d).type.getClass()=%s"
-                                            , i, rm.names.get(i).type.getClass().getName()));
-                            SetType type = (SetType) rm.names.get(i).type;
-                            topics = type.toListOfStrings(colValue, Server.CURRENT_VERSION);
-                        }
-                        // Reading from colValue seems to change the internal pointer
-                        colValue.rewind();
+                    if (colName.equals("user")) {
+                        user = rm.names.get(i).type.getString(colValue);
+                    } else if (colName.equals("topics")) {
+                        // E.g., ["tennis-160516-164741", "uga-160516-164741"]
+                        if (! rm.names.get(i).type.getClass().equals(SetType.class))
+                            throw new RuntimeException(String.format("Unexpected: rm.names.get(%d).type.getClass()=%s"
+                                        , i, rm.names.get(i).type.getClass().getName()));
+                        SetType type = (SetType) rm.names.get(i).type;
+                        topics = type.toListOfStrings(colValue, Server.CURRENT_VERSION);
                     }
-                    AcornAttributes acornAttrs = new AcornAttributes(user, topics);
-                    //logger.warn("Acorn: acornAttrs={}", acornAttrs);
-                    AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix, localDataCenter);
+                    // Reading from colValue seems to change the internal pointer
+                    colValue.rewind();
                 }
+                AcornAttributes acornAttrs = new AcornAttributes(user, topics);
+                //logger.warn("Acorn: acornAttrs={}", acornAttrs);
+                final String acornKsPrefix = keyspace().substring(0, keyspace().length() - 3);
+                AttrPopMonitor.SetPopular(acornAttrs, acornKsPrefix);
             }
         }
 
         return msg;
     }
 
-    private ResultMessage.Rows pageAggregateQuery(boolean acorn, Pager pager, QueryOptions options, int pageSize, int nowInSec)
+    private ResultMessage.Rows pageAggregateQuery(AcornKsOptions ako, Pager pager, QueryOptions options, int pageSize, int nowInSec)
     throws RequestValidationException, RequestExecutionException
     {
         if (!restrictions.hasPartitionKeyRestrictions())
@@ -509,9 +503,8 @@ public class SelectStatement implements CQLStatement
             //  org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:105)
             //  java.lang.Thread.run(Thread.java:745)
             //
-            // Suppress warnings for Acorn queries. Doesn't suppress warns from
-            // "acorn.*_regular" tables, which happens only when testing.
-            if (! acorn) {
+            // Suppress warnings for Acorn queries.
+            if (! ako.IsAcorn()) {
                 logger.warn("Aggregation query used on multiple partition keys (IN restriction)");
                 ClientWarn.instance.warn("Aggregation query used on multiple partition keys (IN restriction)");
             }
@@ -520,11 +513,11 @@ public class SelectStatement implements CQLStatement
         Selection.ResultSetBuilder result = selection.resultSetBuilder(parameters.isJson);
         while (!pager.isExhausted())
         {
-            if (acorn) {
+            if (ako.IsAcorn()) {
                 if (! pager.getClass().equals(SelectStatement.Pager.NormalPager.class))
                     throw new RuntimeException(String.format("Unexpected: pager.getClass()=%s", pager.getClass().getName()));
                 SelectStatement.Pager.NormalPager spn = (SelectStatement.Pager.NormalPager) pager;
-                try (PartitionIterator iter = spn.fetchPage(acorn, pageSize))
+                try (PartitionIterator iter = spn.fetchPage(ako, pageSize))
                 {
                     while (iter.hasNext())
                     {

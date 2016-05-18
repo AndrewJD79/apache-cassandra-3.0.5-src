@@ -20,6 +20,7 @@ package org.apache.cassandra.cql3;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.cql3.statements.BatchStatement;
 import org.apache.cassandra.cql3.statements.ParsedStatement;
 import org.apache.cassandra.exceptions.RequestExecutionException;
@@ -35,7 +36,7 @@ public interface QueryHandler
                           QueryOptions options,
                           Map<String, ByteBuffer> customPayload) throws RequestExecutionException, RequestValidationException;
 
-    ResultMessage process(boolean acorn_pr,
+    ResultMessage process(AcornKsOptions ako,
                           String query,
                           QueryState state,
                           QueryOptions options,

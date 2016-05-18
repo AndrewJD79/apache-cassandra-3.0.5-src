@@ -36,6 +36,7 @@ import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.googlecode.concurrentlinkedhashmap.EntryWeigher;
 import com.googlecode.concurrentlinkedhashmap.EvictionListener;
 import org.antlr.runtime.*;
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.concurrent.ScheduledExecutors;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.Schema;
@@ -199,9 +200,9 @@ public class QueryProcessor implements QueryHandler
     public ResultMessage processStatement(CQLStatement statement, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
-        return processStatement(false, statement, queryState, options);
+        return processStatement(AcornKsOptions.Others(), statement, queryState, options);
     }
-    public ResultMessage processStatement(boolean acorn_pr, CQLStatement statement, QueryState queryState, QueryOptions options)
+    public ResultMessage processStatement(AcornKsOptions ako, CQLStatement statement, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
         logger.trace("Process {} @CL.{}", statement, options.getConsistency());
@@ -210,9 +211,9 @@ public class QueryProcessor implements QueryHandler
         statement.validate(clientState);
 
         ResultMessage result = null;
-        if (acorn_pr && statement.getClass().equals(SelectStatement.class)) {
+        if (ako.IsAcorn() && statement.getClass().equals(SelectStatement.class)) {
             SelectStatement ss = (SelectStatement) statement;
-            result = ss.execute(acorn_pr, queryState, options);
+            result = ss.execute(ako, queryState, options);
         } else {
             result = statement.execute(queryState, options);
         }
@@ -232,24 +233,24 @@ public class QueryProcessor implements QueryHandler
                                  Map<String, ByteBuffer> customPayload)
                                          throws RequestExecutionException, RequestValidationException
     {
-        return process(false, query, state, options, customPayload);
+        return process(AcornKsOptions.Others(), query, state, options, customPayload);
     }
-    public ResultMessage process(boolean acorn_pr,
+    public ResultMessage process(AcornKsOptions ako,
                                  String query,
                                  QueryState state,
                                  QueryOptions options,
                                  Map<String, ByteBuffer> customPayload)
                                          throws RequestExecutionException, RequestValidationException
     {
-        return process(acorn_pr, query, state, options);
+        return process(ako, query, state, options);
     }
 
     public ResultMessage process(String queryString, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
-        return process(false, queryString, queryState, options);
+        return process(AcornKsOptions.Others(), queryString, queryState, options);
     }
-    public ResultMessage process(boolean acorn_pr, String queryString, QueryState queryState, QueryOptions options)
+    public ResultMessage process(AcornKsOptions ako, String queryString, QueryState queryState, QueryOptions options)
     throws RequestExecutionException, RequestValidationException
     {
         ParsedStatement.Prepared p = getStatement(queryString, queryState.getClientState());
@@ -261,7 +262,7 @@ public class QueryProcessor implements QueryHandler
         if (!queryState.getClientState().isInternal)
             metrics.regularStatementsExecuted.inc();
 
-        return processStatement(acorn_pr, prepared, queryState, options);
+        return processStatement(ako, prepared, queryState, options);
     }
 
     public static ParsedStatement.Prepared parseStatement(String queryStr, QueryState queryState) throws RequestValidationException

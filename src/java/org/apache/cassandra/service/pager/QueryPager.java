@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.service.pager;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.EmptyIterators;
 import org.apache.cassandra.db.ReadOrderGroup;
@@ -88,7 +89,7 @@ public interface QueryPager
      * {@code consistency} is a serial consistency.
      * @return the page of result.
      */
-    public PartitionIterator fetchPage(boolean acorn, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException;
+    public PartitionIterator fetchPage(AcornKsOptions ako, int pageSize, ConsistencyLevel consistency, ClientState clientState) throws RequestValidationException, RequestExecutionException;
 
     /**
      * Starts a new read operation.

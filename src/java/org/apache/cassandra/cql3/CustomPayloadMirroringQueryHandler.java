@@ -20,6 +20,7 @@ package org.apache.cassandra.cql3;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.cql3.statements.BatchStatement;
 import org.apache.cassandra.cql3.statements.ParsedStatement;
 import org.apache.cassandra.service.QueryState;
@@ -40,9 +41,9 @@ public class CustomPayloadMirroringQueryHandler implements QueryHandler
                                  QueryOptions options,
                                  Map<String, ByteBuffer> customPayload)
     {
-        return process(false, query, state, options, customPayload);
+        return process(AcornKsOptions.Others(), query, state, options, customPayload);
     }
-    public ResultMessage process(boolean acorn_pr,
+    public ResultMessage process(AcornKsOptions ako,
                                  String query,
                                  QueryState state,
                                  QueryOptions options,

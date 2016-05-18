@@ -37,6 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.acorn.AcornKsOptions;
 import org.apache.cassandra.acorn.AcornObjIdAttributes;
 import org.apache.cassandra.acorn.AcornObjLoc;
 import org.apache.cassandra.acorn.AttrPopMonitor;
@@ -618,16 +619,16 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
-        // Is the mutation on acorn.*_pr keyspace?
-        boolean acorn_pr = false;
+        // Here we classify only acorn.*_pr and others.
+        AcornKsOptions ako = AcornKsOptions.Others();
         if (cnt_acorn > 0) {
             if (cnt_others > 0) {
                 throw new RuntimeException(String.format("Unexpected: cnt_acorn=%d cnt_others=%d", cnt_acorn, cnt_others));
             } else {
-                acorn_pr = true;
+                ako = AcornKsOptions.PartialRep();
             }
         }
-        //if (acorn_pr) {
+        //if (ako.IsAcorn()) {
         //    logger.warn("Acorn: mutations={} consistency_level={} localDataCenter={}",
         //            mutations, consistency_level, localDataCenter);
         //}
@@ -648,18 +649,18 @@ public class StorageProxy implements StorageProxyMBean
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
 
                     AcornObjIdAttributes acornOiAttrs = null;
-                    if (acorn_pr) {
+                    if (ako.IsPartialRep()) {
                         Mutation m = (Mutation) mutation;
                         acornOiAttrs = m.getAcornObjIdAttributes();
                         //logger.warn("Acorn: acornOiAttrs={}", acornOiAttrs);
                     }
 
-                    responseHandlers.add(performWrite(acorn_pr, acornOiAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    responseHandlers.add(performWrite(ako, acornOiAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
 
-                    if (acorn_pr) {
+                    if (ako.IsPartialRep()) {
                         // Asynchronously make attributes popular in the local
                         // datacenter in a separate thread
-                        AttrPopMonitor.SetPopular(acornOiAttrs, acornKsPrefix, localDataCenter);
+                        AttrPopMonitor.SetPopular(acornOiAttrs, acornKsPrefix);
 
                         // Asynchronously record the object location
                         AcornObjLoc.Add(acornOiAttrs, acornKsPrefix, localDataCenter);
@@ -1098,11 +1099,11 @@ public class StorageProxy implements StorageProxyMBean
                                                             WriteType writeType)
     throws UnavailableException, OverloadedException
     {
-        return performWrite(false, null, mutation, consistency_level, localDataCenter, performer, callback, writeType);
+        return performWrite(AcornKsOptions.Others(), null, mutation, consistency_level, localDataCenter, performer, callback, writeType);
     }
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
-                                                            boolean acorn_pr,
+                                                            AcornKsOptions ako,
                                                             AcornObjIdAttributes acornOiAttrs,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
@@ -1119,7 +1120,7 @@ public class StorageProxy implements StorageProxyMBean
         List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, tk);
         Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
 
-        if (acorn_pr) {
+        if (ako.IsPartialRep()) {
             final String acorn_ks_regex = String.format("%s.*_pr$", DatabaseDescriptor.getAcornOptions().keyspace_prefix);
             if (! keyspaceName.matches(acorn_ks_regex))
                 throw new RuntimeException(String.format("Unexpected: keyspaceName=%s", keyspaceName));
@@ -1171,7 +1172,7 @@ public class StorageProxy implements StorageProxyMBean
                     // However, I'm concerned about the number of messages
                     // (especially cross-DC ones). Leave it for now. Suppress the
                     // warning for acorn queries.
-                    Message.Response response = qp.process(acorn_pr, q, state, options);
+                    Message.Response response = qp.process(ako, q, state, options);
 
                     if (! response.getClass().equals(ResultMessage.Rows.class))
                         throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
@@ -1192,7 +1193,7 @@ public class StorageProxy implements StorageProxyMBean
                     String q = String.format("select count(topic) from %s.%s_topic where topic in (%s);"
                             , ks_attr_pop, dcCql, topicsCql);
                     //logger.warn("Acorn: q={}", q);
-                    Message.Response response = qp.process(acorn_pr, q, state, options);
+                    Message.Response response = qp.process(ako, q, state, options);
 
                     if (! response.getClass().equals(ResultMessage.Rows.class))
                         throw new RuntimeException(String.format("Unexpected: response.getClass()=%s", response.getClass().getName()));
