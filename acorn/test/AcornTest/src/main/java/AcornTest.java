@@ -75,18 +75,6 @@ public class AcornTest {
 //		System.out.printf("\n");
 //	}
 //
-//	private static void TestRegularInsertSelect()
-//		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.ExecutionBarrier(_tid);
-//		System.out.printf("TestRegularInsertSelect\n");
-//		if (Conf.dc.equals("DC0")) {
-//			Cass.Insert(_tid);
-//		}
-//		_SelectLocalUntil(_tid, 1);
-//
-//		_tid ++;
-//	}
-//
 //	private static void _SelectLocal(int tid, int exp_v) {
 //		System.out.printf("  SelectLocal ");
 //		System.out.flush();
@@ -107,32 +95,6 @@ public class AcornTest {
 //			System.out.printf("    INTERESTING!!! got %d. expected %d.\n", r, exp_v);
 //	}
 //
-//	private static void TestAsyncFetchOnDemand()
-//		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.ExecutionBarrier(_tid);
-//		System.out.printf("TestAsyncFetchOnDemand\n");
-//		if (Conf.dc.equals("DC0")) {
-//			Cass.InsertToDC0(_tid);
-//			_SelectLocalUntil(_tid, 1);
-//		} else if (Conf.dc.equals("DC1")) {
-//			_SelectLocal(_tid, 0);
-//
-//			// wait 1 sec to see if DC0 propagate the insert by mistake
-//			Thread.sleep(1000);
-//			_SelectLocal(_tid, 0);
-//
-//			long bt = System.currentTimeMillis();
-//			// Rarely, it fetches new data from the src DC. I guess, when the two DCs
-//			// are too close and the local DC is loaded. So getting 1 may not be an error.
-//			_SelectAsyncFetchOnDemand(_tid, 0);
-//			_SelectLocalUntil(_tid, 1);
-//			long et = System.currentTimeMillis();
-//			System.out.printf("    got new data in %d ms from AcornTest\n", et - bt);
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//		_tid ++;
-//	}
-//
 //	private static void _SelectSyncFetchOnDemand(int tid, int exp_v) {
 //		System.out.printf("  SelectSyncFetchOnDemand ");
 //		System.out.flush();
@@ -144,26 +106,6 @@ public class AcornTest {
 //			throw new RuntimeException(String.format("got %d. expected %d.", r, exp_v));
 //	}
 //
-//	private static void TestSyncFetchOnDemand()
-//		throws java.lang.InterruptedException, UnknownHostException {
-//		Cass.ExecutionBarrier(_tid);
-//		System.out.printf("TestSyncFetchOnDemand\n");
-//		if (Conf.dc.equals("DC0")) {
-//			Cass.InsertToDC0(_tid);
-//			_SelectLocalUntil(_tid, 1);
-//		} else if (Conf.dc.equals("DC1")) {
-//			_SelectLocal(_tid, 0);
-//
-//			// wait 1 sec to see if DC0 propagate the insert by mistake
-//			Thread.sleep(1000);
-//			_SelectLocal(_tid, 0);
-//
-//			_SelectSyncFetchOnDemand(_tid, 1);
-//			_SelectLocal(_tid, 1);
-//		} else
-//			throw new RuntimeException("unknown dc: " + Conf.dc);
-//		_tid ++;
-//	}
 
 	public static void main(String[] args) throws Exception {
 		try {
@@ -188,10 +130,6 @@ public class AcornTest {
 			TestFetchOnDemand();
 
 			// TODO: clean up
-			//TestSyncFetchOnDemand();
-			//TestAsyncFetchOnDemand();
-			//TestRegularInsertSelect();
-
 			// this takes a really long time. ?? TODO: what is it? Need to remind.
 			//TestReadAfterWrite();
 
