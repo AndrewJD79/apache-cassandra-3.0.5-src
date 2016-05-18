@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 class YoutubeData {
-
 	public static void Load() throws Exception {
 		String fn = String.format("%s/%s"
 				, Conf.acornYoutubeOptions.dn_data
@@ -23,9 +22,11 @@ class YoutubeData {
 				allReqs.add(new Req(bis));
 
 			Cons.P("Loaded %d", allReqs.size());
-			// Takes 906 ms to read a 68MB file.
+			// Takes 906 ms to read a 68MB file. About 600 ms with a warm cache.
 			//   /home/ubuntu/work/acorn-data/150505-104600-tweets
 			//   Total number of read and write requests: 556609
+			//
+			// 12 sec for the full file with a warn cache.
 		}
 	}
 

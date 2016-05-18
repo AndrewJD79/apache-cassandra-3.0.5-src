@@ -34,7 +34,7 @@ def RsyncSrcToUsWest1():
 		# Make sure you sync only source files. Syncing build result confuses the
 		# build system.
 		cmd = "cd ~/work/acorn/acorn/clients/youtube" \
-				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml src" \
+				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
 				" %s:work/acorn/acorn/clients/youtube/" % ip
 		Util.RunSubp(cmd, shell = True)
 
