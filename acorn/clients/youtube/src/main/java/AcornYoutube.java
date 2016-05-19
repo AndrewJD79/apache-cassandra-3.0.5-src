@@ -82,7 +82,7 @@ public class AcornYoutube {
 	}
 
 	private static void RunFullReplication() throws Exception {
-		// Agree on a future time.
+		// Agree on the future, start time.
 		// - Issue an execution barrier and measure the time from the east.
 		// - East post a reasonable future time and everyone polls the value.
 		//   - If the value is in a reasonable future, like at least 100 ms in the
@@ -97,22 +97,22 @@ public class AcornYoutube {
 			Cons.P("maxLapTime=%d ms", maxLapTime);
 
 			// System.currentTimeMillis() is the time from 1970 in UTC. Good!
-			long future;
+			long startTime;
 			if (Cass.LocalDC().equals("us-east")) {
 				long now = System.currentTimeMillis();
-				future = now + maxLapTime * 5;
-				Cass.WriteStartTime(future);
+				startTime = now + maxLapTime * 5;
+				Cass.WriteStartTime(startTime);
 			} else {
-				future = Cass.ReadStartTimeUntilSucceed();
+				startTime = Cass.ReadStartTimeUntilSucceed();
 			}
-			Cons.P("future=%d", future);
+			Cons.P("startTime=%d", startTime);
 
-			{
-				long now = System.currentTimeMillis();
-				long diff = future - now;
-				Thread.sleep(diff);
-				Cons.P("slept for %d ms. now=%d", diff, System.currentTimeMillis());
-			}
+			long toSleep = startTime - System.currentTimeMillis();
+			if (toSleep > 0)
+				Thread.sleep(toSleep);
+			else if (toSleep < 0)
+				throw new RuntimeException(String.format("Unexpected: toSleep=%d", toSleep));
+			Cons.P("slept for %d ms. now=%d", toSleep, System.currentTimeMillis());
 		}
 
 		for (YoutubeData.Req r: YoutubeData.allReqs) {

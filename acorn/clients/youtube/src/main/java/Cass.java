@@ -579,20 +579,19 @@ class Cass {
 				q = String.format("select barrier_id from %s.t0 where barrier_id='%s-%s-%d';" ,
 						_ks_exe_barrier, peer_dc, Conf.ExpID(), _barrier_id);
 				s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-				int cnt = 0;
+				int sleepCnt = 0;
 				while (true) {
 					ResultSet rs = _GetSession().execute(s);
 					List<Row> rows = rs.all();
 					if (rows.size() == 0) {
-						if (cnt == 0) {
-							System.out.printf(" ");
-						}
-						if (cnt % 10 == 9) {
+						if (sleepCnt % 10 == 9) {
+							if (sleepCnt == 9)
+								System.out.printf(" ");
 							System.out.printf(".");
 							System.out.flush();
 						}
 						Thread.sleep(10);
-						cnt ++;
+						sleepCnt ++;
 					} else if (rows.size() == 1) {
 						lapTime = System.currentTimeMillis() - bt;
 						break;
@@ -635,24 +634,24 @@ class Cass {
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Getting start time:");
 			long bt = System.currentTimeMillis();
-			int cnt = 0;
+			int cntSleep = 0;
 			while (true) {
 				ResultSet rs = _GetSession().execute(s);
 				List<Row> rows = rs.all();
 				if (rows.size() == 0) {
-					if (cnt == 0)
-						System.out.print(" ");
-					if (cnt % 10 == 9) {
+					if (cntSleep % 10 == 9) {
+						if (cntSleep == 9)
+							System.out.print(" ");
 						System.out.print(".");
 						System.out.flush();
 					}
 					Thread.sleep(10);
-					cnt ++;
+					cntSleep ++;
 				} else if (rows.size() == 1) {
 					Row r = rows.get(0);
 					String v = r.getString("value");
 					//Cons.P("v=%s", v);
-					System.out.printf(" %s\n", v);
+					System.out.printf(" took %d ms\n", System.currentTimeMillis() - bt);
 					return Long.parseLong(v);
 				} else {
 					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
