@@ -3,6 +3,8 @@ import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.List;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
@@ -28,7 +30,7 @@ class YoutubeData {
 				// Load the req only when the local DC is the closest DC from the
 				// request.
 				if (DC.IsLocalDcTheClosestToReq(r))
-					allReqs.add(r);
+					allReqs.put(r);
 			}
 
 			Cons.P("Loaded %d requests", allReqs.size());
@@ -79,6 +81,8 @@ class YoutubeData {
 
 			// http://stackoverflow.com/questions/5878952/cast-int-to-enum-in-java
 			type = Type.values()[_ReadInt(bis)];
+			if (type != Type.W && type != Type.R)
+				throw new RuntimeException(String.format("Unexpected: type=%s", type));
 			//Cons.P("type=%s", type);
 		}
 
@@ -87,7 +91,8 @@ class YoutubeData {
 			return ReflectionToStringBuilder.toString(this);
 		}
 	}
-	public static List<Req> allReqs = new ArrayList<Req>();
+	// A thread-safe blocking queue
+	public static BlockingQueue<Req> allReqs = new LinkedBlockingQueue<Req>();
 
 	private static int _ReadInt(BufferedInputStream bis) throws Exception {
 		// 32-bit int

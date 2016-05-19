@@ -2,8 +2,10 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -28,8 +30,7 @@ public class AcornYoutube {
 					try {
 						Cass.Init();
 					} catch (Exception e) {
-						System.err.println("Exception: " + e.getMessage());
-						e.printStackTrace();
+						System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
 						System.exit(1);
 					}
 				}
@@ -42,8 +43,7 @@ public class AcornYoutube {
 						// This needs to be after DC.Init(), but can be overlapped with Cass.Init().
 						YoutubeData.Load();
 					} catch (Exception e) {
-						System.err.println("Exception: " + e.getMessage());
-						e.printStackTrace();
+						System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
 						System.exit(1);
 					}
 				}
@@ -62,8 +62,7 @@ public class AcornYoutube {
 			// this experiment.
 			System.exit(0);
 		} catch (Exception e) {
-			System.err.println("Exception: " + e.getMessage());
-			e.printStackTrace();
+			System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
 			System.exit(1);
 		}
 	}
@@ -84,11 +83,80 @@ public class AcornYoutube {
 	private static void RunFullReplication() throws Exception {
 		_AgreeOnStartTime();
 
-		for (YoutubeData.Req r: YoutubeData.allReqs) {
-			// TODO
-			//simulationTime = SimTime.ToSimulatedTime(r.simulatedTime);
+		int numThreads = 100;
+		Cons.P("Making requests with %d threads ...", numThreads);
+
+		// TODO ProgMon.Start();
+
+		// Start all requester threads
+		List<Thread> reqThreads = new ArrayList<Thread>();
+		for (int i = 0; i < numThreads; i ++) {
+			Thread t = new Thread(new ReqThread());
+			t.start();
+			reqThreads.add(t);
+		}
+
+		for (Thread t: reqThreads)
+			t.join();
+
+		// TODO ProgMon.Stop();
+	}
+
+	private static class ReqThread implements Runnable {
+		public void run() {
+			try {
+				while (true) {
+					YoutubeData.Req r = YoutubeData.allReqs.poll(0, TimeUnit.NANOSECONDS);
+					if (r == null)
+						break;
+					//Cons.P(String.format("%s tid=%d", r, Thread.currentThread().getId()));
+
+					if (r.type == YoutubeData.Req.Type.W) {
+						SimTime.SleepUntilSimulatedTime(r);
+						// TODO dbCli.DbWriteMeasureTime(r);
+					} else {
+						SimTime.SleepUntilSimulatedTime(r);
+						// TODO dbCli.DbReadMeasureTime(r);
+					}
+				}
+			} catch (Exception e) {
+				// Better stop the process all together here.
+				//   com.datastax.driver.core.exceptions.NoHostAvailableException is an example.
+				System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
+				System.exit(1);
+			}
 		}
 	}
+
+	/////////////////////
+
+	// TODO
+	//protected void DbReadMeasureTime(Op op) throws InterruptedException {
+	//	long begin = System.nanoTime();
+	//	DbRead(op);
+	//	long end = System.nanoTime();
+	//	LatMon.Read(end - begin);
+	//}
+
+	//protected void DbWriteMeasureTime(Op op) throws InterruptedException {
+	//	long begin = System.nanoTime();
+	//	DbWrite(op);
+	//	long end = System.nanoTime();
+	//	LatMon.Write(end - begin);
+	//}
+
+	//protected void DbWrite(Op op) throws InterruptedException {
+	//	// Simulate a write
+	//	Thread.sleep(10);
+	//}
+
+	//protected void DbRead(Op op) throws InterruptedException {
+	//	// Simulate a read, which is slower than write
+	//	Thread.sleep(20);
+	//}
+
+
+	/////////////////////////////////////////
 
 	private static void _AgreeOnStartTime() throws Exception {
 		// Agree on the future, start time.
