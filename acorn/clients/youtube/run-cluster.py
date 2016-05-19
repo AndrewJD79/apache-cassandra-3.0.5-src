@@ -14,8 +14,14 @@ import Util
 import AcornUtil
 
 
-def GetUsWest1PubIp():
+def GetRemoteDcPubIps():
+	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	curRegion = curAz[:-1]
+	#Cons.P(curAz)
+	#Cons.P(curRegion)
+
 	fn = "%s/.run/dc-ip-map" % os.path.dirname(os.path.realpath(__file__))
+	ips = []
 	with open(fn) as fo:
 		for line in fo.readlines():
 			t = line.strip().split(" ")
@@ -23,20 +29,34 @@ def GetUsWest1PubIp():
 				raise RuntimeError("Unexpected format [%s]s" % line)
 			dc = t[0]
 			ip = t[1]
-			if dc == "us-west-1":
-				return ip
+			if dc != curRegion:
+				ips.append(ip)
+	return ips
 
 
-def RsyncSrcToUsWest1():
-	with Cons.MeasureTime("rsync src to us-west-1 ..."):
-		ip = GetUsWest1PubIp()
-		#Cons.P(ip)
-		# Make sure you sync only source files. Syncing build result confuses the
-		# build system.
-		cmd = "cd ~/work/acorn/acorn/clients/youtube" \
-				" && rsync -av -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
-				" %s:work/acorn/acorn/clients/youtube/" % ip
-		Util.RunSubp(cmd, shell = True)
+def RsyncSrcToRemoteDcs():
+	with Cons.MeasureTime("rsync src to remote DCs ..."):
+		remotePubIps = GetRemoteDcPubIps()
+		Cons.P(remotePubIps)
+
+		threads = []
+		for rIp in remotePubIps:
+			t = threading.Thread(target=ThreadRsync, args=[rIp])
+			t.start()
+			threads.append(t)
+
+		for t in threads:
+			t.join()
+
+
+def ThreadRsync(ip):
+	#Cons.P(ip)
+	# Make sure you sync only source files. Syncing build result confuses the
+	# build system.
+	cmd = "cd ~/work/acorn/acorn/clients/youtube" \
+			" && rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
+			" %s:work/acorn/acorn/clients/youtube/" % ip
+	Util.RunSubp(cmd, shell = True, print_cmd = False)
 
 
 def main(argv):
@@ -54,7 +74,7 @@ def main(argv):
 
 	AcornUtil.GenHostfiles()
 
-	RsyncSrcToUsWest1()
+	RsyncSrcToRemoteDcs()
 
 	Cons.P("Exp id: %s" % exp_id)
 
