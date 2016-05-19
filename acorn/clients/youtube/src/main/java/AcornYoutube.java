@@ -1,9 +1,13 @@
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.TreeSet;
 import javax.xml.bind.DatatypeConverter;
 
@@ -78,7 +82,38 @@ public class AcornYoutube {
 	}
 
 	private static void RunFullReplication() throws Exception {
-		Cass.ExecutionBarrier();
+		// Agree on a future time.
+		// - Issue an execution barrier and measure the time from the east.
+		// - East post a reasonable future time and everyone polls the value.
+		//   - If the value is in a reasonable future, like at least 100 ms in the
+		//     future, then go.
+		//   - Otherwise, throw an exception.
+		try (Cons.MT _ = new Cons.MT("Agreeing on the start time ...")) {
+			// This, the first one, could take long. Depending on the last operation.
+			Cass.ExecutionBarrier();
+			// From the second one, it osilates with 2 nodes. With more than 2,
+			// it won't be as big.
+			long maxLapTime = Math.max(Cass.ExecutionBarrier(), Cass.ExecutionBarrier());
+			Cons.P("maxLapTime=%d ms", maxLapTime);
+
+			if (Cass.LocalDC().equals("us-east")) {
+				Calendar now = Calendar.getInstance();
+				SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HH:mm:ss.SSS");
+				sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+				Calendar future = (Calendar) now.clone();
+				future.add(Calendar.MILLISECOND, (int) (maxLapTime * 10));
+				Cons.P("now=%s future=%s", sdf.format(now.getTime()), sdf.format(future.getTime()));
+
+				Cass.WriteStartTime(future);
+			}
+
+		}
+
+
+
+		for (YoutubeData.Req r: YoutubeData.allReqs) {
+		}
 	}
 
 //	static class ObjIDFactory {

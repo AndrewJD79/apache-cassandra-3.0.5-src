@@ -87,7 +87,7 @@ class YoutubeData {
 			return ReflectionToStringBuilder.toString(this);
 		}
 	}
-	private static List<Req> allReqs = new ArrayList<Req>();
+	public static List<Req> allReqs = new ArrayList<Req>();
 
 	private static int _ReadInt(BufferedInputStream bis) throws Exception {
 		// 32-bit int

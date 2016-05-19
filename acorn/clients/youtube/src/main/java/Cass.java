@@ -38,7 +38,8 @@ class Cass {
 	private static String _ks_attr_pop = null;
 	// Object location keyspace.
 	private static String _ks_obj_loc  = null;
-	private static String _ks_sync = null;
+	private static String _ks_exe_barrier = null;
+	private static String _ks_exp_meta = null;
 
 	// For comparison
 	private static String _ks_regular = null;
@@ -48,11 +49,12 @@ class Cass {
 			_WaitUntilYouSeeAllDCs();
 
 			String ks_prefix = "acorn";
-			_ks_pr = ks_prefix + "_pr";
-			_ks_attr_pop = ks_prefix + "_attr_pop";
-			_ks_obj_loc  = ks_prefix + "_obj_loc";
-			_ks_sync = ks_prefix + "_sync";
-			_ks_regular = ks_prefix + "_regular";
+			_ks_pr          = ks_prefix + "_pr";
+			_ks_attr_pop    = ks_prefix + "_attr_pop";
+			_ks_obj_loc     = ks_prefix + "_obj_loc";
+			_ks_exe_barrier = ks_prefix + "_exe_barrier";
+			_ks_exp_meta    = ks_prefix + "_exp_meta";
+			_ks_regular     = ks_prefix + "_regular";
 		}
 	}
 
@@ -218,16 +220,30 @@ class Cass {
 					_GetSession().execute(s);
 				}
 
-				// Sync keyspace for testing purpose.
+				// Execution barrier keyspace
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
-							, _ks_sync, q_dcs);
+							, _ks_exe_barrier, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					q = String.format("CREATE TABLE %s.t0 (sync_id text, PRIMARY KEY (sync_id));"
-							, _ks_sync);
+					q = String.format("CREATE TABLE %s.t0 (barrier_id text, PRIMARY KEY (barrier_id));"
+							, _ks_exe_barrier);
+					s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_GetSession().execute(s);
+				}
+
+				// Experiment metadata keyspace
+				{
+					q = String.format("CREATE KEYSPACE %s WITH replication = {"
+							+ " 'class' : 'NetworkTopologyStrategy'%s};"
+							, _ks_exp_meta, q_dcs);
+					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+					_GetSession().execute(s);
+
+					q = String.format("CREATE TABLE %s.t0 (key text, value text, PRIMARY KEY (key));"
+							, _ks_exp_meta);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 				}
@@ -257,13 +273,6 @@ class Cass {
 				throw e;
 			}
 		}
-
-		// Note: Agreeing on a future time.
-		// - Issue an execution barrier and measure the time from the east.
-		// - East post a reasonable future time and everyone polls the value.
-		//   - If the value is in a reasonable future, like at least 100 ms in the
-		//     future, then go.
-		//   - Otherwise, throw an exception.
 	}
 
 	public static void WaitForSchemaCreation() throws Exception {
@@ -546,44 +555,49 @@ class Cass {
 	static private int _barrier_id = 0;
 
 	// Wait until everyone gets here
-	static public void ExecutionBarrier() throws Exception {
+	static public long ExecutionBarrier() throws Exception {
 		String q = null;
+		long lapTime = 0;
 		try {
 			Cons.Pnnl("Execution barrier");
 			long bt = System.currentTimeMillis();
 
-			// Write us-(local_dc)-(exp_id)-(sync_id) with CL One. CL doesn't matter it
+			// Write us-(local_dc)-(exp_id)-(barrier_id) with CL One. CL doesn't matter it
 			// will propagate eventually.
-			q = String.format("Insert into %s.t0 (sync_id) values ('%s-%s-%d');" ,
-					_ks_sync, LocalDC(), Conf.ExpID(), _barrier_id);
+			q = String.format("Insert into %s.t0 (barrier_id) values ('%s-%s-%d');" ,
+					_ks_exe_barrier, LocalDC(), Conf.ExpID(), _barrier_id);
 			Statement s = new SimpleStatement(q);
 			_GetSession().execute(s);
 
-			// Keep reading us-(remote_dc)-(exp_id)-(sync_id) with CL LOCAL_ONE until
+			// Keep reading us-(remote_dc)-(exp_id)-(barrier_id) with CL LOCAL_ONE until
 			// it sees the message from the other side. This doesn't need to be
 			// parallelized.
 			for (String peer_dc: _remoteDCs) {
-				q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
-						_ks_sync, peer_dc, Conf.ExpID(), _barrier_id);
+				q = String.format("select barrier_id from %s.t0 where barrier_id='%s-%s-%d';" ,
+						_ks_exe_barrier, peer_dc, Conf.ExpID(), _barrier_id);
 				s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-				boolean first = true;
+				int cnt = 0;
 				while (true) {
 					ResultSet rs = _GetSession().execute(s);
 					List<Row> rows = rs.all();
 					if (rows.size() == 0) {
-						if (first) {
+						if (cnt == 0) {
 							System.out.printf(" ");
-							first = false;
 						}
-						System.out.printf(".");
-						System.out.flush();
-						Thread.sleep(100);
+						if (cnt % 10 == 9) {
+							System.out.printf(".");
+							System.out.flush();
+						}
+						Thread.sleep(10);
+						cnt ++;
 					} else if (rows.size() == 1) {
+						lapTime = System.currentTimeMillis() - bt;
 						break;
 					} else
 						throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 
-					if (System.currentTimeMillis() - bt > 10000) {
+					lapTime = System.currentTimeMillis() - bt;
+					if (lapTime > 10000) {
 						System.out.printf("\n");
 						throw new RuntimeException("Execution barrier wait timed out :(");
 					}
@@ -597,6 +611,7 @@ class Cass {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
 		}
+		return lapTime;
 	}
 
 	// TODO: clean up
