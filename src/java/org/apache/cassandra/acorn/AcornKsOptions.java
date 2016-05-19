@@ -8,15 +8,15 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 // passed around because a) it's what's possible with the current Cassandra
 // implementation, b) you want to minimize the expensive regex matches.
 //
-// Keyspace          Read_scope_regardless_of_CL
-//                             Write_scope          Does_a_read_update_local_attr_popularity?
-//                                                       Does_a_write_update_local_attr_popularity?
-// acorn.*_pr        DC local  DC local             Yes  Yes
-// acorn.*_obj_loc   DC local  Eventually global    No   No
-// acorn.*_attr_pop  DC local  Eventually global    No   No
-// acorn.*_sync      DC local  Eventually global    No   No
+// Keyspace             Read_scope_regardless_of_CL
+//                                Write_scope          Does_a_read_update_local_attr_popularity?
+//                                                          Does_a_write_update_local_attr_popularity?
+// acorn.*_pr           DC local  DC local             Yes  Yes
+// acorn.*_obj_loc      DC local  Eventually global    No   No
+// acorn.*_attr_pop     DC local  Eventually global    No   No
+// acorn.*_exe_barrier  DC local  Eventually global    No   No
 //
-// others            follow Cassandra default model
+// others               follow Cassandra default model
 //
 // There are similar classes, but No name collisons.
 //   config/AcornOptions and acorn/AcornKsOptions
@@ -32,7 +32,7 @@ public class AcornKsOptions {
 
     private enum KsType {
         PARTIAL_REP,
-        ACORN_OTHERS,   // Covers acorn.*_obj_loc, acorn.*_attr_pop, acorn.*_sync
+        ACORN_OTHERS,   // Covers acorn.*_obj_loc, acorn.*_attr_pop, acorn.*_exe_barrier
         OTHERS
     }
     private KsType ksType = KsType.OTHERS;
