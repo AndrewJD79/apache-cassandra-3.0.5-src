@@ -17,11 +17,37 @@ public class AcornYoutube {
 
 			DC.Init();
 
-			//Cass.Init();
+			// Overlap Cass.Init() and YouTube.Load() to save time. Cons.P()s are
+			// messed up, but not a big deal.
+			Thread tCassInit = new Thread() {
+				public void run() {
+					try {
+						Cass.Init();
+					} catch (Exception e) {
+						System.err.println("Exception: " + e.getMessage());
+						e.printStackTrace();
+						System.exit(1);
+					}
+				}
+			};
+			tCassInit.start();
 
-			// Need to be called after DC.Init(). Can be overlapped with Cassandra
-			// init.
-			YoutubeData.Load();
+			Thread tYoutubeDataLoad = new Thread() {
+				public void run() {
+					try {
+						// This needs to be after DC.Init(), but can be overlapped with Cass.Init().
+						YoutubeData.Load();
+					} catch (Exception e) {
+						System.err.println("Exception: " + e.getMessage());
+						e.printStackTrace();
+						System.exit(1);
+					}
+				}
+			};
+			tYoutubeDataLoad.start();
+
+			tCassInit.join();
+			tYoutubeDataLoad.join();
 
 			System.exit(0);
 
