@@ -23,7 +23,7 @@ class ProgMon {
 				String fmt = "%7d %13s %13s"
 					+ " %5.1f %6.0f %6.0f"
 					+ " %8.3f %8.3f"
-					+ " %4d"
+					+ " %5d"
 					+ " %6d %8d"
 					+ " %6d %8d"
 					;

@@ -17,11 +17,13 @@ simulation_time_dur_in_ms: 10000
 
 num_threads: 1000
 
-youtube_extra_data_size: 4096
+youtube_extra_data_size: 8192
 
 read_req_delay_in_simulation_time_in_ms: 1500
 
 # For testing. The number is in global. Set to -1 for unlimited.
-max_requests: 20000
+#   tweets-010 has 556609 requests.
+max_requests: 100000
+#max_requests: -1
 
 prog_mon_report_interval_in_ms: 1000
