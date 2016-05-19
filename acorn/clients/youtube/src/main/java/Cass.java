@@ -480,15 +480,23 @@ class Cass {
 	static private Map<String, ClusterSession> _mapDcSession = new TreeMap<String, ClusterSession>();
 
 	static private Session _GetSession(String dc) throws Exception {
-		//Cons.P(dc);
-		ClusterSession cs = _GetDcCassSessionStartsWith(dc);
+		// Cassandra Ec2Snitch thinks us-west-1 as us-west and us-west-2 as
+		// us-west-2. https://issues.apache.org/jira/browse/CASSANDRA-4026
+		String dcEc2Snitch = null;
+		if (dc.endsWith("-1")) {
+			dcEc2Snitch = dc.substring(0, dc.length() - 2);
+		} else {
+			dcEc2Snitch = dc;
+		}
+
+		ClusterSession cs = _mapDcSession.get(dcEc2Snitch);
 		if (cs == null) {
 			// The default LoadBalancingPolicy is DCAwareRoundRobinPolicy, which
 			// round-robins over the nodes of the local data center, which is exactly
 			// what you want in this project.
 			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/DCAwareRoundRobinPolicy.html
 			Cluster c = new Cluster.Builder()
-				.addContactPoints(_GetDcPubIp(dc))
+				.addContactPoints(_GetDcPubIp(dcEc2Snitch))
 				// It says,
 				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /54.177.212.255:9042 added
 				//   [main] INFO com.datastax.driver.core.Cluster - New Cassandra host /127.0.0.1:9042 added
@@ -510,21 +518,11 @@ class Cass {
 			//Metadata metadata = c.getMetadata();
 			//Cons.P("Connected to cluster '%s'.", metadata.getClusterName());
 
-			_mapDcSession.put(dc, new ClusterSession(c, s));
+			_mapDcSession.put(dcEc2Snitch, new ClusterSession(c, s));
 			return s;
 		} else {
 			return cs.s;
 		}
-	}
-
-	static private ClusterSession _GetDcCassSessionStartsWith(String dc) {
-		for (Map.Entry<String, ClusterSession> e : _mapDcSession.entrySet()) {
-			String k = e.getKey();
-			ClusterSession v = e.getValue();
-			if (k.startsWith(dc))
-				return v;
-		}
-		return null;
 	}
 
 	static private String _availabilityZone = null;
@@ -552,7 +550,7 @@ class Cass {
 	static private Map<String, String> _mapDcPubIp = new TreeMap<String, String>();
 
 	static private String _GetDcPubIp(String dc) throws Exception {
-		String ip = _GetDcPubIpStartsWith(dc);
+		String ip = _mapDcPubIp.get(dc);
 		if (ip == null) {
 			File fn_jar = new File(AcornYoutube.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
 			// /mnt/local-ssd0/work/apache-cassandra-3.0.5-src/acorn/test/AcornYoutube/target/AcornYoutube-0.1.jar
@@ -566,25 +564,20 @@ class Cass {
 					String[] t = line.split("\\s+");
 					if (t.length !=2)
 						throw new RuntimeException(String.format("Unexpcted format [%s]", line));
-					_mapDcPubIp.put(t[0], t[1]);
+
+					// DC name to what Ec2Snitch thinks
+					String dcEc2Snitch = t[0];
+					if (dcEc2Snitch.endsWith("-1"))
+						dcEc2Snitch = dcEc2Snitch.substring(0, dcEc2Snitch.length() - 2);
+					_mapDcPubIp.put(dcEc2Snitch, t[1]);
 				}
 			}
 
-			ip = _GetDcPubIpStartsWith(dc);
+			ip = _mapDcPubIp.get(dc);
 			if (ip == null)
 				throw new RuntimeException(String.format("No pub ip found for dc %s", dc));
 		}
 		return ip;
-	}
-
-	static private String _GetDcPubIpStartsWith(String dc) {
-		for (Map.Entry<String, String> e : _mapDcPubIp.entrySet()) {
-			String k = e.getKey();
-			String v = e.getValue();
-			if (k.startsWith(dc))
-				return v;
-		}
-		return null;
 	}
 
 	static public String GetObjLoc(String objId) throws Exception {
