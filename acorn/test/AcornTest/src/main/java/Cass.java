@@ -246,13 +246,12 @@ class Cass {
 			}
 		}
 
-		// Note: global sync can be implemented by east writing something with CL
-		// ALL and everyone, including east itself, keeps reading the value with CL
-		// LOCAL_ONE until it sees the value.
-		//
-		// Note: agreeing on a future time can be implemented similarily. east
-		// posting a near future time with CL ALL and make sure the time is well in
-		// the future (like 1 sec after).
+		// Note: Agreeing on a future time.
+		// - Issue an execution barrier and measure the time from the east.
+		// - East post a reasonable future time and everyone polls the value.
+		//   - If the value is in a reasonable future, like at least 100 ms in the
+		//     future, then go.
+		//   - Otherwise, throw an exception.
 	}
 
 	public static void WaitForSchemaCreation() throws Exception {
