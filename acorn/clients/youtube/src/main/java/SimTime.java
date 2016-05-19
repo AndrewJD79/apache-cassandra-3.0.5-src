@@ -60,7 +60,10 @@ public class SimTime
 
 	// TODO: make these configurable
 	private static long _simulationTimeDur = 6000;
-	private static double _simulatedTimeDur = 5 * 365.25 * 24 * 3600 * 1000;
+	//private static double _simulatedTimeDur = 5 * 365.25 * 24 * 3600 * 1000;
+	//
+	// TODO: for testing. Limit the number of request and shorted the simulated time.
+	private static double _simulatedTimeDur = 563.5669213 * 24 * 3600 * 1000;
 
 	public static long ToSimulationTime(long simulatedTime) {
 		// simulationTime - startSimulationTimeMs : _simulationTimeDur

@@ -30,10 +30,15 @@ class YoutubeData {
 
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
-				//if (i == 0) {
-				//	// Start simulated time is probably 2010-08-01
+				//if (i == 0)
 				//	Cons.P(r);
-				//}
+
+				// For testing. TODO: make it configurable.
+				if (i == 10000) {
+					//Cons.P(r);
+					// 2012-02-15 13:36:22
+					break;
+				}
 
 				// Load the req only when the local DC is the closest DC from the
 				// request.

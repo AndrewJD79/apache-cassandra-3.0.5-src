@@ -17,18 +17,18 @@ class ProgMon {
 		public void run() {
 			// Monitor the progress by the number of requested writes / all writes.
 			try {
-				int wr_prev = 0;
+				int w_prev = 0;
+				int r_prev = 0;
 				String fmt = "%7d %13s %13s"
-					+ " %7d"
-					+ " %5.1f %6.0f"
+					+ " %5.1f %6.0f %6.0f"
 					+ " %6d %8d"
 					+ " %6d %8d"
 					+ " %4d %4d"
 					;
 				Cons.P(Util.BuildHeader(fmt, 0
 							, "simulation_time_dur_ms", "simulation_time", "simulated_time"
-							, "num_wr_requested"
-							, "percent_completed", "req_per_sec"
+							, "percent_completed"
+							, "num_w_per_sec", "num_r_per_sec"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
 							, "write_latency_ms", "read_latency_ms"
@@ -40,7 +40,9 @@ class ProgMon {
 					if (_stopRequested)
 						break;
 
-					int wr = _writeRequested.get() + _readRequested.get();
+					int w = _writeRequested.get();
+					int r = _readRequested.get();
+					int wr = w + r;
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -57,9 +59,9 @@ class ProgMon {
 
 					Cons.P(fmt
 								, curTime - SimTime.GetStartSimulationTime(), simulationTimeStr, simulatedTimeStr
-								, wr
 								, 100.0 * wr / YoutubeData.NumReqs()
-								, 1000.0 * (wr - wr_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								, latency.avgWriteTime / 1000000, latency.avgReadTime / 1000000
@@ -67,13 +69,43 @@ class ProgMon {
 					if (wr == YoutubeData.NumReqs())
 						break;
 
-					wr_prev = wr;
+					w_prev = w;
+					r_prev = r;
 					_extraSleepRunningOnTimeCnt.set(0);
 					_extraSleepRunningOnTimeSum.set(0);
 					_extraSleepRunningBehindCnt.set(0);
 					_extraSleepRunningBehindSum.set(0);
 
 					//System.out.flush();
+				}
+
+				{
+					int w = _writeRequested.get();
+					int r = _readRequested.get();
+					int wr = w + r;
+
+					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
+					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
+						0 : (_extraSleepRunningOnTimeSum.get() / extraSleepRunningOnTimeCnt);
+					int extraSleepRunningBehindCnt = _extraSleepRunningBehindCnt.get();
+					long extraSleepRunningBehindAvg = (extraSleepRunningBehindCnt == 0) ?
+						0 : (_extraSleepRunningBehindSum.get() / extraSleepRunningBehindCnt);
+					LatMon.Result latency = LatMon.GetAndReset();
+
+					long curTime = System.currentTimeMillis();
+					SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmmss");
+					String simulationTimeStr = sdf.format(new Date(curTime));
+					String simulatedTimeStr = sdf.format(new Date(SimTime.ToSimulatedTime(curTime)));
+
+					Cons.P(fmt
+								, curTime - SimTime.GetStartSimulationTime(), simulationTimeStr, simulatedTimeStr
+								, 100.0 * wr / YoutubeData.NumReqs()
+								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
+								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
+								, latency.avgWriteTime / 1000000, latency.avgReadTime / 1000000
+								);
 				}
 
 				// Overall stat
