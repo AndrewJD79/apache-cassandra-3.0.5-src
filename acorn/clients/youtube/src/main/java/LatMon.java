@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 // Latency (response time. time to get a whole record, not the first byte.)
-// monitor
+// monitor. Unit is nanosecond.
 
 class LatMon {
 	private static List<Long> _writeTimes = new ArrayList();

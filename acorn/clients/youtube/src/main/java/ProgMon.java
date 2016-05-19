@@ -21,17 +21,17 @@ class ProgMon {
 				int r_prev = 0;
 				String fmt = "%7d %13s %13s"
 					+ " %5.1f %6.0f %6.0f"
+					+ " %8.3f %8.3f"
 					+ " %6d %8d"
 					+ " %6d %8d"
-					+ " %4d %4d"
 					;
 				Cons.P(Util.BuildHeader(fmt, 0
 							, "simulation_time_dur_ms", "simulation_time", "simulated_time"
 							, "percent_completed"
 							, "num_w_per_sec", "num_r_per_sec"
+							, "write_latency_ms", "read_latency_ms"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
-							, "write_latency_ms", "read_latency_ms"
 							));
 				while (true) {
 					synchronized (this) {
@@ -62,9 +62,9 @@ class ProgMon {
 								, 100.0 * wr / YoutubeData.NumReqs()
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
-								, latency.avgWriteTime / 1000000, latency.avgReadTime / 1000000
 								);
 					if (wr == YoutubeData.NumReqs())
 						break;
@@ -102,9 +102,9 @@ class ProgMon {
 								, 100.0 * wr / YoutubeData.NumReqs()
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
+								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
-								, latency.avgWriteTime / 1000000, latency.avgReadTime / 1000000
 								);
 				}
 
@@ -123,28 +123,28 @@ class ProgMon {
 				LatMon.Stat rStat = LatMon.GetReadStat();
 				Cons.P("#");
 				Cons.P("# Write latency:");
-				Cons.P("#   avg=%6.3f min=%5.3f max=%4d 50=%4d 90=%4d 95=%4d 99=%4d 995=%4d 999=%4d"
+				Cons.P("#   avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
 							, wStat.avg  / 1000000.0
 							, wStat.min  / 1000000.0
-							, wStat.max  / 1000000
-							, wStat._50  / 1000000
-							, wStat._90  / 1000000
-							, wStat._95  / 1000000
-							, wStat._99  / 1000000
-							, wStat._995 / 1000000
-							, wStat._999 / 1000000
+							, wStat.max  / 1000000.0
+							, wStat._50  / 1000000.0
+							, wStat._90  / 1000000.0
+							, wStat._95  / 1000000.0
+							, wStat._99  / 1000000.0
+							, wStat._995 / 1000000.0
+							, wStat._999 / 1000000.0
 							);
 				Cons.P("# Read latency:");
-				Cons.P("#   avg=%6.3f min=%5.3f max=%4d 50=%4d 90=%4d 95=%4d 99=%4d 995=%4d 999=%4d"
+				Cons.P("#   avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
 							, rStat.avg  / 1000000.0
 							, rStat.min  / 1000000.0
-							, rStat.max  / 1000000
-							, rStat._50  / 1000000
-							, rStat._90  / 1000000
-							, rStat._95  / 1000000
-							, rStat._99  / 1000000
-							, rStat._995 / 1000000
-							, rStat._999 / 1000000
+							, rStat.max  / 1000000.0
+							, rStat._50  / 1000000.0
+							, rStat._90  / 1000000.0
+							, rStat._95  / 1000000.0
+							, rStat._99  / 1000000.0
+							, rStat._995 / 1000000.0
+							, rStat._999 / 1000000.0
 							);
 			} catch (Exception e) {
 				System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
