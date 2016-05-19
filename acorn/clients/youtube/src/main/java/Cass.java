@@ -11,10 +11,12 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -327,6 +329,38 @@ class Cass {
 		}
 	}
 
+	// TODO: configurable
+	private static int youTubeExtraDataSize = 4000;
+
+	private static PreparedStatement _ps0 = null;
+	private static Object _ps0_sync = new Object();
+
+	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
+		try {
+			byte[] b = new byte[youTubeExtraDataSize];
+			Random rand = ThreadLocalRandom.current();
+			rand.nextBytes(b);
+			ByteBuffer extraData = ByteBuffer.wrap(b);
+
+			// Make once and reuse
+			synchronized (_ps0_sync) {
+				if (_ps0 == null) {
+					_ps0 = _GetSession().prepare(
+							String.format("insert into %s.t0 (video_id, uid, topics, extra_data) values (?,?,?,?)", _ks_regular));
+				}
+			}
+
+			BoundStatement bs = new BoundStatement(_ps0);
+			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s]", e);
+			throw e;
+		}
+	}
+
+	public static void WriteYoutubeRegular(YoutubeData.Req r) throws Exception {
+	}
+
 	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) throws Exception {
 		String q = null;
 		try {
@@ -439,6 +473,9 @@ class Cass {
 				//
 				// It might not mean which nodes this client connects to.
 				.build();
+
+			// Session instances are thread-safe and usually a single instance is enough per application.
+			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Session.html
 			Session s = c.connect();
 			//Metadata metadata = c.getMetadata();
 			//Cons.P("Connected to cluster '%s'.", metadata.getClusterName());
@@ -520,8 +557,6 @@ class Cass {
 		return null;
 	}
 
-	static private Random _rand = new Random();
-
 	static public String GetObjLoc(String objId) throws Exception {
 		String q = String.format("select obj_id, locations from %s.obj_loc where obj_id='%s'"
 				, _ks_obj_loc, objId);
@@ -537,7 +572,7 @@ class Cass {
 				int locSize = locs.size();
 				if (locSize == 0)
 					throw new RuntimeException(String.format("Unexpected: no location for object %s", objId));
-				int rand = _rand.nextInt(locSize);
+				int rand = (ThreadLocalRandom.current()).nextInt(locSize);
 				int i = 0;
 				for (String l: locs) {
 					if (i == rand)

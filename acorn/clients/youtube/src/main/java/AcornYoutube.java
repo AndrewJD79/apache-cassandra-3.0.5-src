@@ -128,28 +128,22 @@ public class AcornYoutube {
 		}
 	}
 
-	private static void DbReadMeasureTime(YoutubeData.Req r) throws InterruptedException {
+	private static void DbReadMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		// For testing
-		// TODO
-		Thread.sleep(2);
+		Cass.ReadYoutubeRegular(r);
 		long end = System.nanoTime();
+		// Note: These 2 can be merged, when you have some time left.
 		LatMon.Read(end - begin);
 		ProgMon.Read();
 	}
 
-	private static void DbWriteMeasureTime(YoutubeData.Req r) throws InterruptedException {
+	private static void DbWriteMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		// For testing
-		// TODO
-		Thread.sleep(1);
+		Cass.WriteYoutubeRegular(r);
 		long end = System.nanoTime();
-		// TODO: These 2 can be merged?
 		LatMon.Write(end - begin);
 		ProgMon.Write();
 	}
-
-	/////////////////////////////////////////
 
 	private static void _AgreeOnStartTime() throws Exception {
 		// Agree on the future, start time.
