@@ -336,29 +336,40 @@ class Cass {
 	private static Object _ps0_sync = new Object();
 
 	public static void WriteYoutubeRegular(YoutubeData.Req r) throws Exception {
-		try {
-			byte[] b = new byte[youTubeExtraDataSize];
-			Random rand = ThreadLocalRandom.current();
-			rand.nextBytes(b);
-			ByteBuffer extraData = ByteBuffer.wrap(b);
+		byte[] b = new byte[youTubeExtraDataSize];
+		Random rand = ThreadLocalRandom.current();
+		rand.nextBytes(b);
+		ByteBuffer extraData = ByteBuffer.wrap(b);
 
-			// Make once and reuse
-			synchronized (_ps0_sync) {
-				if (_ps0 == null) {
-					_ps0 = _GetSession().prepare(
-							String.format("insert into %s.t0 (video_id, uid, topics, extra_data) values (?,?,?,?)", _ks_regular));
-				}
+		// Make once and reuse
+		synchronized (_ps0_sync) {
+			if (_ps0 == null) {
+				_ps0 = _GetSession().prepare(
+						String.format("INSERT INTO %s.t0 (video_id, uid, topics, extra_data) VALUES (?,?,?,?)", _ks_regular));
 			}
-
-			BoundStatement bs = new BoundStatement(_ps0);
-			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
-		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-			Cons.P("Exception=[%s]", e);
-			throw e;
 		}
+
+		BoundStatement bs = new BoundStatement(_ps0);
+		_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
 	}
 
 	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
+		// Note: Must do select * to have all attributes processed inside Cassandra
+		// server. Doesn't matter for non acorn.*_pr keyspaces.
+		String q = String.format("SELECT * from %s.t0 WHERE video_id='%s'", _ks_regular, r.vid);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			ResultSet rs = _GetSession().execute(s);
+			List<Row> rows = rs.all();
+			if (rows.size() == 0) {
+				// TODO: report to ProgMon
+				System.out.printf("@");
+				System.out.flush();
+			}
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
 	}
 
 	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) throws Exception {
