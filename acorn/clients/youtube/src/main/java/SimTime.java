@@ -7,19 +7,23 @@ import java.util.TimeZone;
 public class SimTime
 {
 	private static long startSimulationTimeMs = -1;
-	private static long startSimulatedTimeMs = -1;
 
-	static {
-		try {
-			DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			Date d = df.parse("2010-08-01 00:00:00");
-			//Cons.P(d);
-			startSimulatedTimeMs = d.getTime();
-			//Cons.P(startSimulatedTimeMs);
-		} catch (Exception e) {
-			System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
-			System.exit(1);
-		}
+	private static long startSimulatedTimeMs = -1;
+	private static long endSimulatedTimeMs;
+	private static long simulatedTimeDurMs;
+
+	public static void Init(YoutubeData.Req lastReq) throws Exception {
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		Date d = df.parse("2010-08-01 00:00:00");
+		//Cons.P(d);
+		startSimulatedTimeMs = d.getTime();
+		//Cons.P(startSimulatedTimeMs);
+
+		// Force calculation of the simulated time in ms
+		lastReq.GetSimulatedTime();
+		endSimulatedTimeMs = lastReq.simulatedTime;
+
+		simulatedTimeDurMs = endSimulatedTimeMs - startSimulatedTimeMs;
 	}
 
 	public static void SetStartSimulationTime(long startSimulationTime_) {
@@ -58,32 +62,29 @@ public class SimTime
 		}
 	}
 
-	// For testing, you can limit the number of request and shorted the simulated time.
-	private static double _simulatedTimeDur = Conf.acornYoutubeOptions.simulated_time_dur_in_year * 365.25 * 24 * 3600 * 1000;
-
 	private static long _simulationTimeDur = Conf.acornYoutubeOptions.simulation_time_dur_in_ms;
 
 	public static long ToSimulationTime(long simulatedTime) {
 		// simulationTime - startSimulationTimeMs : _simulationTimeDur
-		// 	= simulatedTime - startSimulatedTimeMs : _simulatedTimeDur
+		// 	= simulatedTime - startSimulatedTimeMs : simulatedTimeDurMs
 		//
 		// simulationTime =
-		// (_simulationTimeDur * (simulatedTime - startSimulatedTimeMs)) /_simulatedTimeDur + startSimulationTimeMs
+		// (_simulationTimeDur * (simulatedTime - startSimulatedTimeMs)) / simulatedTimeDurMs + startSimulationTimeMs
 
-		return (long) (((double) _simulationTimeDur * (simulatedTime - startSimulatedTimeMs)) /_simulatedTimeDur + startSimulationTimeMs);
+		return (long) (((double) _simulationTimeDur * (simulatedTime - startSimulatedTimeMs)) / simulatedTimeDurMs + startSimulationTimeMs);
 	}
 
 	public static long ToSimulatedTime(long simulationTime) {
 		// simulationTime - startSimulationTimeMs : _simulationTimeDur
-		// 	= simulatedTime - startSimulatedTimeMs : _simulatedTimeDur
+		// 	= simulatedTime - startSimulatedTimeMs : simulatedTimeDurMs
 		//
-		// simulatedTime = (simulationTime - startSimulationTimeMs) * _simulatedTimeDur / _simulationTimeDur + startSimulatedTimeMs
-		return (long) (((double) simulationTime - startSimulationTimeMs) * _simulatedTimeDur / _simulationTimeDur + startSimulatedTimeMs);
+		// simulatedTime = (simulationTime - startSimulationTimeMs) * simulatedTimeDurMs / _simulationTimeDur + startSimulatedTimeMs
+		return (long) (((double) simulationTime - startSimulationTimeMs) * simulatedTimeDurMs / _simulationTimeDur + startSimulatedTimeMs);
 	}
 
 	public static long ToSimulatedTimeInterval(long simulationTimeInterval) {
 		// simulationTimeInterval : _simulationTimeDur
-		// 	= simulatedTimeInterval : _simulatedTimeDur
-		return (long) ((double) simulationTimeInterval * _simulatedTimeDur / _simulationTimeDur);
+		// 	= simulatedTimeInterval : simulatedTimeDurMs
+		return (long) ((double) simulationTimeInterval * simulatedTimeDurMs / _simulationTimeDur);
 	}
 }

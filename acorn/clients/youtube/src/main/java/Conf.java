@@ -115,7 +115,6 @@ class Conf {
 		public String fn_users;
 		public String fn_youtube_reqs;
 		public Map<String, DC.Coord> mapDcCoord = new TreeMap<String, DC.Coord>();
-		public double simulated_time_dur_in_year;
 		public long simulation_time_dur_in_ms;
 		public int num_threads;
 		public int youtube_extra_data_size;
@@ -140,7 +139,6 @@ class Conf {
 				double lati = Double.parseDouble(t[1]);
 				mapDcCoord.put(k, new DC.Coord(longi, lati));
 			}
-			simulated_time_dur_in_year = (double) m.get("simulated_time_dur_in_year");
 			simulation_time_dur_in_ms = (int) m.get("simulation_time_dur_in_ms");
 			num_threads = (int) m.get("num_threads");
 			youtube_extra_data_size = (int) m.get("youtube_extra_data_size");

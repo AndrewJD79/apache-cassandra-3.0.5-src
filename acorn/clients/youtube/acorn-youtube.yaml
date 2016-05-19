@@ -13,10 +13,7 @@ dc_coordinates:
   us-west-1: -121.741798, 37.178699
   us-west-2: -119.688004, 45.869598
 
-simulated_time_dur_in_year: 1.54296213908282
-#simulated_time_dur_in_year: 5
-
-simulation_time_dur_in_ms: 8000
+simulation_time_dur_in_ms: 10000
 
 num_threads: 1000
 
@@ -25,6 +22,6 @@ youtube_extra_data_size: 4096
 read_req_delay_in_simulation_time_in_ms: 1500
 
 # For testing. The number is in global. Set to -1 for unlimited.
-max_requests: 10000
+max_requests: 20000
 
 prog_mon_report_interval_in_ms: 1000

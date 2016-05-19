@@ -28,8 +28,10 @@ class YoutubeData {
 			long numTweets = _ReadLong(bis);
 			Cons.P("Total number of read and write requests: %d", numTweets);
 
+			Req lastReq = null;
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
+				lastReq = r;
 				//if (i == 0)
 				//	Cons.P(r);
 
@@ -45,6 +47,7 @@ class YoutubeData {
 				if (DC.IsLocalDcTheClosestToReq(r))
 					allReqs.put(r);
 			}
+			SimTime.Init(lastReq);
 
 			// Delay read request time by like 1.5 sec in simulation time into the
 			// future so that they are actually read by remote datacenters.
