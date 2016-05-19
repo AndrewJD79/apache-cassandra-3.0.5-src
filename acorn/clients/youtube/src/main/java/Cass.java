@@ -335,7 +335,7 @@ class Cass {
 	private static PreparedStatement _ps0 = null;
 	private static Object _ps0_sync = new Object();
 
-	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
+	public static void WriteYoutubeRegular(YoutubeData.Req r) throws Exception {
 		try {
 			byte[] b = new byte[youTubeExtraDataSize];
 			Random rand = ThreadLocalRandom.current();
@@ -358,7 +358,7 @@ class Cass {
 		}
 	}
 
-	public static void WriteYoutubeRegular(YoutubeData.Req r) throws Exception {
+	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
 	}
 
 	static public void InsertRecordPartial(String obj_id, String user, Set<String> topics) throws Exception {
