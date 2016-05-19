@@ -372,14 +372,11 @@ class Cass {
 		}
 	}
 
-	// TODO: configurable
-	private static int youTubeExtraDataSize = 4000;
-
 	private static PreparedStatement _ps0 = null;
 	private static Object _ps0_sync = new Object();
 
 	public static void WriteYoutubeRegular(YoutubeData.Req r) throws Exception {
-		byte[] b = new byte[youTubeExtraDataSize];
+		byte[] b = new byte[Conf.acornYoutubeOptions.youtube_extra_data_size];
 		Random rand = ThreadLocalRandom.current();
 		rand.nextBytes(b);
 		ByteBuffer extraData = ByteBuffer.wrap(b);

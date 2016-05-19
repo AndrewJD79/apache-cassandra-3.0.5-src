@@ -33,8 +33,8 @@ class YoutubeData {
 				//if (i == 0)
 				//	Cons.P(r);
 
-				// For testing. TODO: make it configurable.
-				if (i == 10000) {
+				// Limit the number of requests. Useful for debugging.
+				if (i == Conf.acornYoutubeOptions.max_requests) {
 					//Cons.P(r);
 					// 2012-02-15 13:36:22
 					break;
@@ -46,9 +46,9 @@ class YoutubeData {
 					allReqs.put(r);
 			}
 
-			// Push request time of reads by 1.5 sec in simulation time into the future.
-			// TODO: configurable
-			long simulatedTimeInterval = SimTime.ToSimulatedTimeInterval(1500);
+			// Delay read request time by like 1.5 sec in simulation time into the
+			// future so that they are actually read by remote datacenters.
+			long simulatedTimeInterval = SimTime.ToSimulatedTimeInterval(Conf.acornYoutubeOptions.read_req_delay_in_simulation_time_in_ms);
 			long lastReadSimulatedTime = -1;
 			for (Req r: allReqs) {
 				// Force calculation. Should be good for the jitter.

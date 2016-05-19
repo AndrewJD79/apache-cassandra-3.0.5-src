@@ -18,7 +18,7 @@ import com.datastax.driver.core.*;
 public class AcornYoutube {
 	public static void main(String[] args) throws Exception {
 		try {
-			Conf.ParseArgs(args);
+			Conf.Init(args);
 
 			DC.Init();
 
@@ -82,8 +82,7 @@ public class AcornYoutube {
 	private static void RunFullReplication() throws Exception {
 		_AgreeOnStartTime();
 
-		// TODO: make it configurable
-		int numThreads = 1000;
+		int numThreads = Conf.acornYoutubeOptions.num_threads;
 		Cons.P("Making requests with %d threads ...", numThreads);
 
 		ProgMon.Start();

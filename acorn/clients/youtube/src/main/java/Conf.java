@@ -26,7 +26,7 @@ class Conf {
 		_opt_parser.printHelpOn(System.out);
 	}
 
-	public static void ParseArgs(String[] args) throws Exception {
+	public static void Init(String[] args) throws Exception {
 		OptionSet options = _opt_parser.parse(args);
 		if (options.has("help")) {
 			_PrintHelp(args);
@@ -89,6 +89,7 @@ class Conf {
 			if (! (root instanceof Map))
 				throw new RuntimeException(String.format("Unexpected: root.getClass()=%s", root.getClass().getName()));
 			acornYoutubeOptions = new AcornYoutubeOptions((Map) root);
+			Cons.P(acornYoutubeOptions);
 		}
 	}
 
@@ -114,6 +115,12 @@ class Conf {
 		public String fn_users;
 		public String fn_youtube_reqs;
 		public Map<String, DC.Coord> mapDcCoord = new TreeMap<String, DC.Coord>();
+		public double simulated_time_dur_in_year;
+		public long simulation_time_dur_in_ms;
+		public int num_threads;
+		public int youtube_extra_data_size;
+		public long read_req_delay_in_simulation_time_in_ms;
+		public long max_requests;
 		public long prog_mon_report_interval_in_ms;
 
 		AcornYoutubeOptions(Map m) {
@@ -133,6 +140,12 @@ class Conf {
 				double lati = Double.parseDouble(t[1]);
 				mapDcCoord.put(k, new DC.Coord(longi, lati));
 			}
+			simulated_time_dur_in_year = (double) m.get("simulated_time_dur_in_year");
+			simulation_time_dur_in_ms = (int) m.get("simulation_time_dur_in_ms");
+			num_threads = (int) m.get("num_threads");
+			youtube_extra_data_size = (int) m.get("youtube_extra_data_size");
+			read_req_delay_in_simulation_time_in_ms = (int) m.get("read_req_delay_in_simulation_time_in_ms");
+			max_requests = (int) m.get("max_requests");
 			prog_mon_report_interval_in_ms = (int) m.get("prog_mon_report_interval_in_ms");
 		}
 
