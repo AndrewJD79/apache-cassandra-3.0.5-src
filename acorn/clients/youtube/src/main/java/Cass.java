@@ -109,11 +109,35 @@ class Cass {
 			for (String rDc: _remoteDCs)
 				_allDCs.add(rDc);
 
-			// Prepare remote sessions for later. It takes about 800 ms. Can be
-			// threaded to save time, if needed.
+			// Prepare remote sessions in parallel for later. It takes about 800 ms
+			// per each.
 			try (Cons.MT _1 = new Cons.MT("Prepareing remote sessions ...")) {
-				for (String rDc: _remoteDCs)
-					_GetSession(rDc);
+				List<Thread> threads = new ArrayList<Thread>();
+				for (String rDc: _remoteDCs) {
+					Thread t = new Thread(new ThreadGetSession(rDc));
+					t.start();
+					threads.add(t);
+				}
+				for (Thread t: threads)
+					t.join();
+			}
+		}
+	}
+
+	private static class ThreadGetSession implements Runnable
+	{
+		private String dc;
+
+		ThreadGetSession(String dc) {
+			this.dc = dc;
+		}
+
+		public void run() {
+			try {
+				_GetSession(dc);
+			} catch (Exception e) {
+				System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
+				System.exit(1);
 			}
 		}
 	}
