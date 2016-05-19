@@ -78,7 +78,7 @@ public class AcornYoutube {
 	}
 
 	private static void RunFullReplication() throws Exception {
-
+		Cass.ExecutionBarrier();
 	}
 
 //	static class ObjIDFactory {

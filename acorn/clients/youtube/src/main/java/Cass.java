@@ -28,8 +28,8 @@ class Cass {
 	// What Cassandra Ec2Snitch returns
 	private static String _localDc = null;
 
-	private static List<String> _remote_dcs = null;
-	private static List<String> _all_dcs = null;
+	private static List<String> _remoteDCs = null;
+	private static List<String> _allDCs = null;
 
 	// Partial replication
 	private static String _ks_pr = null;
@@ -91,22 +91,22 @@ class Cass {
 				Thread.sleep(100);
 			}
 
-			_remote_dcs = new ArrayList<String>();
+			_remoteDCs = new ArrayList<String>();
 			for (Row r: rows)
-				_remote_dcs.add(r.getString("data_center"));
-			for (String rDc: _remote_dcs)
+				_remoteDCs.add(r.getString("data_center"));
+			for (String rDc: _remoteDCs)
 				System.out.printf(" %s", rDc);
 			System.out.printf("\n");
 
-			_all_dcs = new ArrayList<String>();
-			_all_dcs.add(_localDc);
-			for (String rDc: _remote_dcs)
-				_all_dcs.add(rDc);
+			_allDCs = new ArrayList<String>();
+			_allDCs.add(_localDc);
+			for (String rDc: _remoteDCs)
+				_allDCs.add(rDc);
 
 			// Prepare remote sessions for later. It takes about 800 ms. Can be
 			// threaded to save time, if needed.
 			try (Cons.MT _1 = new Cons.MT("Prepareing remote sessions ...")) {
-				for (String rDc: _remote_dcs)
+				for (String rDc: _remoteDCs)
 					_GetSession(rDc);
 			}
 		}
@@ -155,7 +155,7 @@ class Cass {
 			try {
 				// Prepare datacenter query string
 				StringBuilder q_dcs = new StringBuilder();
-				for (String r: _all_dcs)
+				for (String r: _allDCs)
 					q_dcs.append(String.format(", '%s' : 1", r));
 
 				// Object keyspace
@@ -191,7 +191,7 @@ class Cass {
 					_GetSession().execute(s);
 
 					// These are periodically updated (broadcasted). Cassandra doesn't like "-".
-					for (String dc: _all_dcs) {
+					for (String dc: _allDCs) {
 						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
 								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
@@ -545,7 +545,7 @@ class Cass {
 
 	static private int _barrier_id = 0;
 
-	// Wait until east and west gets here
+	// Wait until everyone gets here
 	static public void ExecutionBarrier() throws Exception {
 		String q = null;
 		try {
@@ -560,36 +560,33 @@ class Cass {
 			_GetSession().execute(s);
 
 			// Keep reading us-(remote_dc)-(exp_id)-(sync_id) with CL LOCAL_ONE until
-			// it sees the message from the other side.
-			String peer_dc;
-			if (LocalDC().equals("us-east")) {
-				peer_dc = "us-west";
-			} else {
-				peer_dc = "us-east";
-			}
-			q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
-					_ks_sync, peer_dc, Conf.ExpID(), _barrier_id);
-			s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-			boolean first = true;
-			while (true) {
-				ResultSet rs = _GetSession().execute(s);
-				List<Row> rows = rs.all();
-				if (rows.size() == 0) {
-					if (first) {
-						System.out.printf(" ");
-						first = false;
-					}
-					System.out.printf(".");
-					System.out.flush();
-					Thread.sleep(100);
-				} else if (rows.size() == 1) {
-					break;
-				} else
-					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+			// it sees the message from the other side. This doesn't need to be
+			// parallelized.
+			for (String peer_dc: _remoteDCs) {
+				q = String.format("select sync_id from %s.t0 where sync_id='%s-%s-%d';" ,
+						_ks_sync, peer_dc, Conf.ExpID(), _barrier_id);
+				s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+				boolean first = true;
+				while (true) {
+					ResultSet rs = _GetSession().execute(s);
+					List<Row> rows = rs.all();
+					if (rows.size() == 0) {
+						if (first) {
+							System.out.printf(" ");
+							first = false;
+						}
+						System.out.printf(".");
+						System.out.flush();
+						Thread.sleep(100);
+					} else if (rows.size() == 1) {
+						break;
+					} else
+						throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 
-				if (System.currentTimeMillis() - bt > 10000) {
-					System.out.printf("\n");
-					throw new RuntimeException("Execution barrier wait timed out :(");
+					if (System.currentTimeMillis() - bt > 10000) {
+						System.out.printf("\n");
+						throw new RuntimeException("Execution barrier wait timed out :(");
+					}
 				}
 			}
 
