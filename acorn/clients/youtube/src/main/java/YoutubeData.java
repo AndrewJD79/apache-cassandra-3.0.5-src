@@ -2,9 +2,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
@@ -26,8 +30,10 @@ class YoutubeData {
 
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
-				//if (i == 0)
+				//if (i == 0) {
+				//	// Start simulated time is probably 2010-08-01
 				//	Cons.P(r);
+				//}
 
 				// Load the req only when the local DC is the closest DC from the
 				// request.
@@ -55,7 +61,9 @@ class YoutubeData {
 		// User ID. Video uploader is constructed from uid.
 		long uid;
 
+		// In the format of 2010-08-16 01:47:12
 		String createdAt;
+
 		double geoLati;
 		double geoLongi;
 		// YouTube video ID
@@ -63,6 +71,9 @@ class YoutubeData {
 		// Video uploader
 		long videoUploader;
 		List<String> topics;
+
+		// This is calculated from createdAt when requested
+		long simulatedTime = -1;
 
 		enum Type {
 			NA, // Not assigned yet
@@ -91,6 +102,19 @@ class YoutubeData {
 			if (type != Type.W && type != Type.R)
 				throw new RuntimeException(String.format("Unexpected: type=%s", type));
 			//Cons.P("type=%s", type);
+		}
+
+
+		public long GetSimulatedTime() throws Exception {
+			if (simulatedTime != -1)
+				return simulatedTime;
+
+			// SimpleDateFormat is not thread safe. Oh well.
+			// http://stackoverflow.com/questions/10411944/java-text-simpledateformat-not-thread-safe
+			DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			Date d = df.parse(createdAt);
+			simulatedTime = d.getTime();
+			return simulatedTime;
 		}
 
 		@Override

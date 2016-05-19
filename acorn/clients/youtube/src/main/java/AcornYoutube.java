@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -83,7 +82,8 @@ public class AcornYoutube {
 	private static void RunFullReplication() throws Exception {
 		_AgreeOnStartTime();
 
-		int numThreads = 100;
+		// TODO: make it configurable
+		int numThreads = 1000;
 		Cons.P("Making requests with %d threads ...", numThreads);
 
 		ProgMon.Start();
@@ -130,8 +130,9 @@ public class AcornYoutube {
 
 	private static void DbReadMeasureTime(YoutubeData.Req r) throws InterruptedException {
 		long begin = System.nanoTime();
+		// For testing
 		// TODO
-		Thread.sleep(20);
+		Thread.sleep(2);
 		long end = System.nanoTime();
 		LatMon.Read(end - begin);
 		ProgMon.Read();
@@ -139,10 +140,11 @@ public class AcornYoutube {
 
 	private static void DbWriteMeasureTime(YoutubeData.Req r) throws InterruptedException {
 		long begin = System.nanoTime();
+		// For testing
 		// TODO
-		Thread.sleep(10);
+		Thread.sleep(1);
 		long end = System.nanoTime();
-		// TODO: these 2 can be merged?
+		// TODO: These 2 can be merged?
 		LatMon.Write(end - begin);
 		ProgMon.Write();
 	}
