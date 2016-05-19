@@ -10,6 +10,8 @@ import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 class YoutubeData {
+	public static long numReqs = -1;
+
 	public static void Load() throws Exception {
 		String fn = String.format("%s/%s"
 				, Conf.acornYoutubeOptions.dn_data
@@ -33,13 +35,18 @@ class YoutubeData {
 					allReqs.put(r);
 			}
 
-			Cons.P("Loaded %d requests", allReqs.size());
+			numReqs = allReqs.size();
+			Cons.P("Loaded %d requests", numReqs);
 			// Takes 906 ms to read a 68MB file. About 600 ms with a warm cache.
 			//   /home/ubuntu/work/acorn-data/150505-104600-tweets
 			//   Total number of read and write requests: 556609
 			//
 			// 12 sec for the full file with a warn cache.
 		}
+	}
+
+	public static long NumReqs() {
+		return numReqs;
 	}
 
 	static class Req {

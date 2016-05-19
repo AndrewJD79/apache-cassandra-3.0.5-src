@@ -114,6 +114,7 @@ class Conf {
 		public String fn_users;
 		public String fn_youtube_reqs;
 		public Map<String, DC.Coord> mapDcCoord = new TreeMap<String, DC.Coord>();
+		public long prog_mon_report_interval_in_ms;
 
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
@@ -132,6 +133,7 @@ class Conf {
 				double lati = Double.parseDouble(t[1]);
 				mapDcCoord.put(k, new DC.Coord(longi, lati));
 			}
+			prog_mon_report_interval_in_ms = (int) m.get("prog_mon_report_interval_in_ms");
 		}
 
 		@Override

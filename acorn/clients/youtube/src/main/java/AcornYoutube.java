@@ -86,7 +86,7 @@ public class AcornYoutube {
 		int numThreads = 100;
 		Cons.P("Making requests with %d threads ...", numThreads);
 
-		// TODO ProgMon.Start();
+		ProgMon.Start();
 
 		// Start all requester threads
 		List<Thread> reqThreads = new ArrayList<Thread>();
@@ -99,7 +99,7 @@ public class AcornYoutube {
 		for (Thread t: reqThreads)
 			t.join();
 
-		// TODO ProgMon.Stop();
+		ProgMon.Stop();
 	}
 
 	private static class ReqThread implements Runnable {
@@ -113,10 +113,10 @@ public class AcornYoutube {
 
 					if (r.type == YoutubeData.Req.Type.W) {
 						SimTime.SleepUntilSimulatedTime(r);
-						// TODO dbCli.DbWriteMeasureTime(r);
+						DbWriteMeasureTime(r);
 					} else {
 						SimTime.SleepUntilSimulatedTime(r);
-						// TODO dbCli.DbReadMeasureTime(r);
+						DbReadMeasureTime(r);
 					}
 				}
 			} catch (Exception e) {
@@ -128,33 +128,24 @@ public class AcornYoutube {
 		}
 	}
 
-	/////////////////////
+	private static void DbReadMeasureTime(YoutubeData.Req r) throws InterruptedException {
+		long begin = System.nanoTime();
+		// TODO
+		Thread.sleep(20);
+		long end = System.nanoTime();
+		LatMon.Read(end - begin);
+		ProgMon.Read();
+	}
 
-	// TODO
-	//protected void DbReadMeasureTime(Op op) throws InterruptedException {
-	//	long begin = System.nanoTime();
-	//	DbRead(op);
-	//	long end = System.nanoTime();
-	//	LatMon.Read(end - begin);
-	//}
-
-	//protected void DbWriteMeasureTime(Op op) throws InterruptedException {
-	//	long begin = System.nanoTime();
-	//	DbWrite(op);
-	//	long end = System.nanoTime();
-	//	LatMon.Write(end - begin);
-	//}
-
-	//protected void DbWrite(Op op) throws InterruptedException {
-	//	// Simulate a write
-	//	Thread.sleep(10);
-	//}
-
-	//protected void DbRead(Op op) throws InterruptedException {
-	//	// Simulate a read, which is slower than write
-	//	Thread.sleep(20);
-	//}
-
+	private static void DbWriteMeasureTime(YoutubeData.Req r) throws InterruptedException {
+		long begin = System.nanoTime();
+		// TODO
+		Thread.sleep(10);
+		long end = System.nanoTime();
+		// TODO: these 2 can be merged?
+		LatMon.Write(end - begin);
+		ProgMon.Write();
+	}
 
 	/////////////////////////////////////////
 
@@ -182,7 +173,7 @@ public class AcornYoutube {
 			} else {
 				startTime = Cass.ReadStartTimeUntilSucceed();
 			}
-			SimTime.SetStartTime(startTime);
+			SimTime.SetStartSimulationTime(startTime);
 		}
 	}
 

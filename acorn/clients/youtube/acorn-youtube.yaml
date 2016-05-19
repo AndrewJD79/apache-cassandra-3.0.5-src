@@ -11,3 +11,5 @@ dc_coordinates:
   # Longitude, latitude
   us-east-1: -77.539001, 39.018002
   us-west-1: -121.741798, 37.178699
+
+prog_mon_report_interval_in_ms: 1000
