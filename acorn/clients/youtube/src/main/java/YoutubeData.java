@@ -31,7 +31,7 @@ class YoutubeData {
 					allReqs.add(r);
 			}
 
-			Cons.P("Loaded %d", allReqs.size());
+			Cons.P("Loaded %d requests", allReqs.size());
 			// Takes 906 ms to read a 68MB file. About 600 ms with a warm cache.
 			//   /home/ubuntu/work/acorn-data/150505-104600-tweets
 			//   Total number of read and write requests: 556609

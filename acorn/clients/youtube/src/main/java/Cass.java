@@ -118,7 +118,7 @@ class Cass {
 
 	public static boolean SchemaExist() throws Exception {
 		// Check if the created table, that is created last, exists
-		String q = String.format("select c0 from %s.t0 limit 1", _ks_regular);
+		String q = String.format("select * from %s.t0 limit 1", _ks_regular);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			_GetSession().execute(s);
@@ -149,7 +149,7 @@ class Cass {
 		try (Cons.MT _ = new Cons.MT("Creating schema ...")) {
 			String q = null;
 			// It takes about exactly the same time with ALL and LOCAL_ONE. I wonder
-			// it's always ALL implicitly.
+			// it's always ALL implicitly for keyspace and table creation queries.
 			//ConsistencyLevel cl = ConsistencyLevel.ALL;
 			ConsistencyLevel cl = ConsistencyLevel.LOCAL_ONE;
 			try {
@@ -168,12 +168,16 @@ class Cass {
 					// It shouldn't already exist. The keyspace name is supposed to be
 					// unique for each run. No need to catch AlreadyExistsException.
 
+					// A minimal schema to prove the concept.
 					q = String.format("CREATE TABLE %s.t0"
-							+ " (obj_id text"
-							+ ", user text, topics set<text>"	// attributes
-							+ ", PRIMARY KEY (obj_id)"				// Primary key is mandatory
+							+ " (video_id text"			// YouTube video id. Primary key
+							+ ", uid bigint"				// Attribute user. The uploader of the video.
+							+ ", topics set<text>"	// Attribute topics
+							+ ", extra_data blob"		// Extra data to make the record size configurable
+							+ ", PRIMARY KEY (video_id)"	// Primary key is mandatory
 							+ ");",
 							_ks_pr);
+
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 				}
@@ -208,8 +212,6 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
 					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
 							, _ks_obj_loc);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
@@ -224,15 +226,14 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
 					q = String.format("CREATE TABLE %s.t0 (sync_id text, PRIMARY KEY (sync_id));"
 							, _ks_sync);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 				}
 
-				// A regular keyspace for comparison
+				// A regular keyspace for comparison. Useful for a full replication
+				// experiment.
 				{
 					q = String.format("CREATE KEYSPACE %s WITH replication = {"
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
@@ -240,10 +241,14 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
-					q = String.format("CREATE TABLE %s.t0 (c0 text, c1 blob, PRIMARY KEY (c0));"
-							, _ks_regular);
+					q = String.format("CREATE TABLE %s.t0"
+							+ " (video_id text"			// YouTube video id. Primary key
+							+ ", uid bigint"				// Attribute user. The uploader of the video.
+							+ ", topics set<text>"	// Attribute topics
+							+ ", extra_data blob"		// Extra data to make the record size configurable
+							+ ", PRIMARY KEY (video_id)"	// Primary key is mandatory
+							+ ");",
+							_ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 				}
@@ -253,20 +258,19 @@ class Cass {
 			}
 		}
 
-		// Note: global sync can be implemented by east writing something with CL
-		// ALL and everyone, including east itself, keeps reading the value with CL
-		// LOCAL_ONE until it sees the value.
-		//
-		// Note: agreeing on a future time can be implemented similarily. east
-		// posting a near future time with CL ALL and make sure the time is well in
-		// the future (like 1 sec after).
+		// Note: Agreeing on a future time.
+		// - Issue an execution barrier and measure the time from the east.
+		// - East post a reasonable future time and everyone polls the value.
+		//   - If the value is in a reasonable future, like at least 100 ms in the
+		//     future, then go.
+		//   - Otherwise, throw an exception.
 	}
 
 	public static void WaitForSchemaCreation() throws Exception {
 		try (Cons.MT _ = new Cons.MT("Waiting for the schema creation ...")) {
 			// Select data from the last created table with a CL LOCAL_ONE until
 			// there is no exception.
-			String q = String.format("select c0 from %s.t0 limit 1", _ks_regular);
+			String q = String.format("select * from %s.t0 limit 1", _ks_regular);
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking:");
 			boolean first = true;
@@ -598,55 +602,56 @@ class Cass {
 		}
 	}
 
-	static public void InsertRandomToRegular(String obj_id, int recSize) throws Exception {
-		try {
-			// http://ac31004.blogspot.com/2014/03/saving-image-in-cassandra-blob-field.html
+	// TODO: clean up
+	//static public void InsertRandomToRegular(String obj_id, int recSize) throws Exception {
+	//	try {
+	//		// http://ac31004.blogspot.com/2014/03/saving-image-in-cassandra-blob-field.html
 
-			// http://stackoverflow.com/questions/5683206/how-to-create-an-array-of-20-random-bytes
-			byte[] b = new byte[recSize];
-			_rand.nextBytes(b);
-			ByteBuffer bb = ByteBuffer.wrap(b);
+	//		// http://stackoverflow.com/questions/5683206/how-to-create-an-array-of-20-random-bytes
+	//		byte[] b = new byte[recSize];
+	//		_rand.nextBytes(b);
+	//		ByteBuffer bb = ByteBuffer.wrap(b);
 
-			PreparedStatement ps = _GetSession().prepare(
-					String.format("insert into %s.t0 (c0, c1) values (?,?)", _ks_regular));
-			BoundStatement bs = new BoundStatement(ps);
-			_GetSession().execute(bs.bind(obj_id, bb));
-		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-			Cons.P("Exception=[%s]", e);
-			throw e;
-		}
-	}
+	//		PreparedStatement ps = _GetSession().prepare(
+	//				String.format("insert into %s.t0 (c0, c1) values (?,?)", _ks_regular));
+	//		BoundStatement bs = new BoundStatement(ps);
+	//		_GetSession().execute(bs.bind(obj_id, bb));
+	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//		Cons.P("Exception=[%s]", e);
+	//		throw e;
+	//	}
+	//}
 
-	static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) throws Exception {
-		String q = String.format("select * from %s.t0 where c0='%s'"
-				, _ks_regular, obj_id);
-		try {
-			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-			ResultSet rs = _GetSession().execute(s);
-			List<Row> rows = rs.all();
-			if (rows.size() != 1)
-				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-			return rows;
-		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-			Cons.P("Exception=[%s] query=[%s]", e, q);
-			throw e;
-		}
-	}
+	//static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) throws Exception {
+	//	String q = String.format("select * from %s.t0 where c0='%s'"
+	//			, _ks_regular, obj_id);
+	//	try {
+	//		Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+	//		ResultSet rs = _GetSession().execute(s);
+	//		List<Row> rows = rs.all();
+	//		if (rows.size() != 1)
+	//			throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+	//		return rows;
+	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//		Cons.P("Exception=[%s] query=[%s]", e, q);
+	//		throw e;
+	//	}
+	//}
 
-	static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) throws Exception {
-		String q = String.format("select count(*) from %s.t0 where c0 in ('%s', '%s')"
-				, _ks_regular, objId0, objId1);
-		try {
-			Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-			ResultSet rs = _GetSession().execute(s);
-			List<Row> rows = rs.all();
-			if (rows.size() != 1)
-				throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-			Row r = rows.get(0);
-			return r.getLong(0);
-		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-			Cons.P("Exception=[%s] query=[%s]", e, q);
-			throw e;
-		}
-	}
+	//static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) throws Exception {
+	//	String q = String.format("select count(*) from %s.t0 where c0 in ('%s', '%s')"
+	//			, _ks_regular, objId0, objId1);
+	//	try {
+	//		Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
+	//		ResultSet rs = _GetSession().execute(s);
+	//		List<Row> rows = rs.all();
+	//		if (rows.size() != 1)
+	//			throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
+	//		Row r = rows.get(0);
+	//		return r.getLong(0);
+	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//		Cons.P("Exception=[%s] query=[%s]", e, q);
+	//		throw e;
+	//	}
+	//}
 }
