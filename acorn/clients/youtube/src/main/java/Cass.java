@@ -404,11 +404,8 @@ class Cass {
 		try {
 			ResultSet rs = _GetSession().execute(s);
 			List<Row> rows = rs.all();
-			if (rows.size() == 0) {
-				// TODO: report to ProgMon
-				System.out.printf("@");
-				System.out.flush();
-			}
+			if (rows.size() == 0)
+				ProgMon.ReadMiss();
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
@@ -748,57 +745,4 @@ class Cass {
 			throw e;
 		}
 	}
-
-	// TODO: clean up
-	//static public void InsertRandomToRegular(String obj_id, int recSize) throws Exception {
-	//	try {
-	//		// http://ac31004.blogspot.com/2014/03/saving-image-in-cassandra-blob-field.html
-
-	//		// http://stackoverflow.com/questions/5683206/how-to-create-an-array-of-20-random-bytes
-	//		byte[] b = new byte[recSize];
-	//		_rand.nextBytes(b);
-	//		ByteBuffer bb = ByteBuffer.wrap(b);
-
-	//		PreparedStatement ps = _GetSession().prepare(
-	//				String.format("insert into %s.t0 (c0, c1) values (?,?)", _ks_regular));
-	//		BoundStatement bs = new BoundStatement(ps);
-	//		_GetSession().execute(bs.bind(obj_id, bb));
-	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
-	//		Cons.P("Exception=[%s]", e);
-	//		throw e;
-	//	}
-	//}
-
-	//static public List<Row> SelectFromRegular(ConsistencyLevel cl, String obj_id) throws Exception {
-	//	String q = String.format("select * from %s.t0 where c0='%s'"
-	//			, _ks_regular, obj_id);
-	//	try {
-	//		Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-	//		ResultSet rs = _GetSession().execute(s);
-	//		List<Row> rows = rs.all();
-	//		if (rows.size() != 1)
-	//			throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-	//		return rows;
-	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
-	//		Cons.P("Exception=[%s] query=[%s]", e, q);
-	//		throw e;
-	//	}
-	//}
-
-	//static public long SelectCountFromRegular(ConsistencyLevel cl, String objId0, String objId1) throws Exception {
-	//	String q = String.format("select count(*) from %s.t0 where c0 in ('%s', '%s')"
-	//			, _ks_regular, objId0, objId1);
-	//	try {
-	//		Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-	//		ResultSet rs = _GetSession().execute(s);
-	//		List<Row> rows = rs.all();
-	//		if (rows.size() != 1)
-	//			throw new RuntimeException(String.format("Unexpcted: rows.size()=%d", rows.size()));
-	//		Row r = rows.get(0);
-	//		return r.getLong(0);
-	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
-	//		Cons.P("Exception=[%s] query=[%s]", e, q);
-	//		throw e;
-	//	}
-	//}
 }

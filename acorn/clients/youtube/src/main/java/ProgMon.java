@@ -19,9 +19,11 @@ class ProgMon {
 			try {
 				int w_prev = 0;
 				int r_prev = 0;
+				int rm_prev = 0;
 				String fmt = "%7d %13s %13s"
 					+ " %5.1f %6.0f %6.0f"
 					+ " %8.3f %8.3f"
+					+ " %4d"
 					+ " %6d %8d"
 					+ " %6d %8d"
 					;
@@ -30,6 +32,7 @@ class ProgMon {
 							, "percent_completed"
 							, "num_w_per_sec", "num_r_per_sec"
 							, "write_latency_ms", "read_latency_ms"
+							, "read_misses"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
 							));
@@ -43,6 +46,7 @@ class ProgMon {
 					int w = _writeRequested.get();
 					int r = _readRequested.get();
 					int wr = w + r;
+					int rm = _readMisses.get();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -63,6 +67,7 @@ class ProgMon {
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
+								, rm - rm_prev
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -71,6 +76,7 @@ class ProgMon {
 
 					w_prev = w;
 					r_prev = r;
+					rm_prev = rm;
 					_extraSleepRunningOnTimeCnt.set(0);
 					_extraSleepRunningOnTimeSum.set(0);
 					_extraSleepRunningBehindCnt.set(0);
@@ -83,6 +89,7 @@ class ProgMon {
 					int w = _writeRequested.get();
 					int r = _readRequested.get();
 					int wr = w + r;
+					int rm = _readMisses.get();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -103,6 +110,7 @@ class ProgMon {
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
+								, rm - rm_prev
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -114,10 +122,12 @@ class ProgMon {
 
 				int w = _writeRequested.get();
 				int r = _readRequested.get();
+				int rm = _readMisses.get();
 				Cons.P("#");
-				Cons.P("# # of writes: %d", w);
-				Cons.P("# # of reads : %d", r);
-				Cons.P("# # reads / write: %f", ((double)r)/w);
+				Cons.P("# writes: %d", w);
+				Cons.P("# reads : %d", r);
+				Cons.P("# reads / write: %f", ((double)r)/w);
+				Cons.P("# read misses: %d", rm);
 
 				LatMon.Stat wStat = LatMon.GetWriteStat();
 				LatMon.Stat rStat = LatMon.GetReadStat();
@@ -170,6 +180,7 @@ class ProgMon {
 
 	private static AtomicInteger _writeRequested = new AtomicInteger(0);
 	private static AtomicInteger _readRequested = new AtomicInteger(0);
+	private static AtomicInteger _readMisses = new AtomicInteger(0);
 
 	public static void Write() {
 		_writeRequested.incrementAndGet();
@@ -177,6 +188,10 @@ class ProgMon {
 
 	public static void Read() {
 		_readRequested.incrementAndGet();
+	}
+
+	public static void ReadMiss() {
+		_readMisses.incrementAndGet();
 	}
 
 	public static void SimulatorRunningOnTime(long extraSleep) {
