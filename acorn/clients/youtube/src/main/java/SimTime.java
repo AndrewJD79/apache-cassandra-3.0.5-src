@@ -82,4 +82,10 @@ public class SimTime
 		// simulatedTime = (simulationTime - startSimulationTimeMs) * _simulatedTimeDur / _simulationTimeDur + startSimulatedTimeMs
 		return (long) (((double) simulationTime - startSimulationTimeMs) * _simulatedTimeDur / _simulationTimeDur + startSimulatedTimeMs);
 	}
+
+	public static long ToSimulatedTimeInterval(long simulationTimeInterval) {
+		// simulationTimeInterval : _simulationTimeDur
+		// 	= simulatedTimeInterval : _simulatedTimeDur
+		return (long) ((double) simulationTimeInterval * _simulatedTimeDur / _simulationTimeDur);
+	}
 }

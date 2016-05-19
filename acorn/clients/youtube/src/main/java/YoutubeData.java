@@ -46,6 +46,25 @@ class YoutubeData {
 					allReqs.put(r);
 			}
 
+			// Push request time of reads by 1.5 sec in simulation time into the future.
+			// TODO: configurable
+			long simulatedTimeInterval = SimTime.ToSimulatedTimeInterval(1500);
+			long lastReadSimulatedTime = -1;
+			for (Req r: allReqs) {
+				// Force calculation. Should be good for the jitter.
+				r.GetSimulatedTime();
+
+				if (r.type == Req.Type.W)
+					continue;
+
+				r.simulatedTime += simulatedTimeInterval;
+				lastReadSimulatedTime = r.simulatedTime;
+			}
+
+			// Check the last read simulated time
+			Cons.P("lastReadSimulatedTime=%d %s", lastReadSimulatedTime
+					, (new SimpleDateFormat("yyMMdd-HHmmss")).format(new Date(lastReadSimulatedTime)));
+
 			numReqs = allReqs.size();
 			Cons.P("Loaded %d requests", numReqs);
 			// Takes 906 ms to read a 68MB file. About 600 ms with a warm cache.
@@ -108,7 +127,6 @@ class YoutubeData {
 				throw new RuntimeException(String.format("Unexpected: type=%s", type));
 			//Cons.P("type=%s", type);
 		}
-
 
 		public long GetSimulatedTime() throws Exception {
 			if (simulatedTime != -1)
