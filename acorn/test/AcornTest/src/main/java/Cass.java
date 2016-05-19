@@ -201,8 +201,6 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
 					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
 							, _ks_obj_loc);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
@@ -217,8 +215,6 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
 					q = String.format("CREATE TABLE %s.t0 (sync_id text, PRIMARY KEY (sync_id));"
 							, _ks_sync);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
@@ -233,8 +229,6 @@ class Cass {
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
 					_GetSession().execute(s);
 
-					// The CLs of the operations on this table determines the consistency
-					// model of the applications.
 					q = String.format("CREATE TABLE %s.t0 (c0 text, c1 blob, PRIMARY KEY (c0));"
 							, _ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
