@@ -82,6 +82,15 @@ public class AcornYoutube {
 	}
 
 	private static void RunFullReplication() throws Exception {
+		_AgreeOnStartTime();
+
+		for (YoutubeData.Req r: YoutubeData.allReqs) {
+			// TODO
+			//simulationTime = SimTime.ToSimulatedTime(r.simulatedTime);
+		}
+	}
+
+	private static void _AgreeOnStartTime() throws Exception {
 		// Agree on the future, start time.
 		// - Issue an execution barrier and measure the time from the east.
 		// - East post a reasonable future time and everyone polls the value.
@@ -105,17 +114,7 @@ public class AcornYoutube {
 			} else {
 				startTime = Cass.ReadStartTimeUntilSucceed();
 			}
-			Cons.P("startTime=%d", startTime);
-
-			long toSleep = startTime - System.currentTimeMillis();
-			if (toSleep > 0)
-				Thread.sleep(toSleep);
-			else if (toSleep < 0)
-				throw new RuntimeException(String.format("Unexpected: toSleep=%d", toSleep));
-			Cons.P("slept for %d ms. now=%d", toSleep, System.currentTimeMillis());
-		}
-
-		for (YoutubeData.Req r: YoutubeData.allReqs) {
+			SimTime.SetStartTime(startTime);
 		}
 	}
 
