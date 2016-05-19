@@ -287,6 +287,8 @@ class Cass {
 			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 			Cons.Pnnl("Checking:");
 			boolean first = true;
+			// Count the # of NoHostAvailableException(s)
+			int nhaeCnt = 0;
 			while (true) {
 				try {
 					_GetSession().execute(s);
@@ -315,13 +317,27 @@ class Cass {
 					System.out.flush();
 					Thread.sleep(100);
 				} catch (com.datastax.driver.core.exceptions.DriverException e) {
-					// It happened once when the test was first run. See if it happens again.
+					// This repeats. Not very often though.
 					//
 					// Datastax java driver message: WARN com.datastax.driver.core.RequestHandler - /54.177.190.122:9042 replied with server error (java.lang.IllegalArgumentException: Unknown CF 7dff11a0-1c6d-11e6-ad95-19553343aa25), defuncting connection.
 					//
 					// com.datastax.driver.core.exceptions.NoHostAvailableException: All host(s) tried for query failed (tried: /54.177.190.122:9042 (com.datastax.driver.core.exceptions.ServerError: An unexpected error occurred server side on /54.177.190.122:9042: java.lang.IllegalArgumentException: Unknown CF 7dff11a0-1c6d-11e6-ad95-19553343aa25))
-					Cons.P("Exception=[%s] query=[%s]", e, q);
-					throw e;
+
+					boolean ok = false;
+					if (e instanceof NoHostAvailableException) {
+						nhaeCnt ++;
+						if (nhaeCnt < 10) {
+							ok = true;
+							System.out.printf("h");
+							System.out.flush();
+							Thread.sleep(100);
+						}
+					}
+
+					if (ok == false) {
+						Cons.P("Exception=[%s] query=[%s]", e, q);
+						throw e;
+					}
 				}
 			}
 			System.out.printf(" exists\n");
