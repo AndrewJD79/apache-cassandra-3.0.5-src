@@ -17,11 +17,13 @@ public class AcornYoutube {
 
 			DC.Init();
 
-			Cass.Init();
-			System.exit(0);
+			//Cass.Init();
 
-			// Could be overlapped with Cassandra init
+			// Need to be called after DC.Init(). Can be overlapped with Cassandra
+			// init.
 			YoutubeData.Load();
+
+			System.exit(0);
 
 
 

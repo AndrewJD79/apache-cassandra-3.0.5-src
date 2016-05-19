@@ -28,7 +28,7 @@ class YoutubeData {
 				// Load the req only when the local DC is the closest DC from the
 				// request.
 				if (DC.IsLocalDcTheClosestToReq(r))
-						allReqs.add(r);
+					allReqs.add(r);
 			}
 
 			Cons.P("Loaded %d", allReqs.size());
