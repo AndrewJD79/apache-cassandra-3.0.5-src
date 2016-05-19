@@ -8,12 +8,15 @@ import java.lang.InterruptedException;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -612,6 +615,58 @@ class Cass {
 			throw e;
 		}
 		return lapTime;
+	}
+
+	static public void WriteStartTime(long startTime) throws Exception {
+		String k = String.format("starttime-%s", Conf.ExpID());
+		String v = Long.toString(startTime);
+
+		PreparedStatement ps = _GetSession().prepare(
+				String.format("insert into %s.t0 (key, value) values (?,?)", _ks_exp_meta));
+		BoundStatement bs = new BoundStatement(ps);
+		_GetSession().execute(bs.bind(k, v));
+	}
+
+	static public long ReadStartTimeUntilSucceed() throws Exception {
+		String k = String.format("starttime-%s", Conf.ExpID());
+		String q = String.format("select * from %s.t0 where key='%s'"
+				, _ks_exp_meta, k);
+		try {
+			Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+			Cons.Pnnl("Getting start time:");
+			long bt = System.currentTimeMillis();
+			int cnt = 0;
+			while (true) {
+				ResultSet rs = _GetSession().execute(s);
+				List<Row> rows = rs.all();
+				if (rows.size() == 0) {
+					if (cnt == 0)
+						System.out.print(" ");
+					if (cnt % 10 == 9) {
+						System.out.print(".");
+						System.out.flush();
+					}
+					Thread.sleep(10);
+					cnt ++;
+				} else if (rows.size() == 1) {
+					Row r = rows.get(0);
+					String v = r.getString("value");
+					//Cons.P("v=%s", v);
+					System.out.printf(" %s\n", v);
+					return Long.parseLong(v);
+				} else {
+					throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+				}
+
+				if (System.currentTimeMillis() - bt > 2000) {
+					System.out.printf("\n");
+					throw new RuntimeException("Time out :(");
+				}
+			}
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
 	}
 
 	// TODO: clean up

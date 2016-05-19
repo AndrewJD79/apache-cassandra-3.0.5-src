@@ -96,21 +96,24 @@ public class AcornYoutube {
 			long maxLapTime = Math.max(Cass.ExecutionBarrier(), Cass.ExecutionBarrier());
 			Cons.P("maxLapTime=%d ms", maxLapTime);
 
+			// System.currentTimeMillis() is the time from 1970 in UTC. Good!
+			long future;
 			if (Cass.LocalDC().equals("us-east")) {
-				Calendar now = Calendar.getInstance();
-				SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HH:mm:ss.SSS");
-				sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-
-				Calendar future = (Calendar) now.clone();
-				future.add(Calendar.MILLISECOND, (int) (maxLapTime * 10));
-				Cons.P("now=%s future=%s", sdf.format(now.getTime()), sdf.format(future.getTime()));
-
+				long now = System.currentTimeMillis();
+				future = now + maxLapTime * 5;
 				Cass.WriteStartTime(future);
+			} else {
+				future = Cass.ReadStartTimeUntilSucceed();
 			}
+			Cons.P("future=%d", future);
 
+			{
+				long now = System.currentTimeMillis();
+				long diff = future - now;
+				Thread.sleep(diff);
+				Cons.P("slept for %d ms. now=%d", diff, System.currentTimeMillis());
+			}
 		}
-
-
 
 		for (YoutubeData.Req r: YoutubeData.allReqs) {
 		}
