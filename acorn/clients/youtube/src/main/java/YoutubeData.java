@@ -22,8 +22,8 @@ class YoutubeData {
 
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
-				if (i == 0)
-					Cons.P(r);
+				//if (i == 0)
+				//	Cons.P(r);
 
 				// Load the req only when the local DC is the closest DC from the
 				// request.
