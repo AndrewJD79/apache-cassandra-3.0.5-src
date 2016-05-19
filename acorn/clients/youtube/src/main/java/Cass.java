@@ -322,6 +322,9 @@ class Cass {
 					// Datastax java driver message: WARN com.datastax.driver.core.RequestHandler - /54.177.190.122:9042 replied with server error (java.lang.IllegalArgumentException: Unknown CF 7dff11a0-1c6d-11e6-ad95-19553343aa25), defuncting connection.
 					//
 					// com.datastax.driver.core.exceptions.NoHostAvailableException: All host(s) tried for query failed (tried: /54.177.190.122:9042 (com.datastax.driver.core.exceptions.ServerError: An unexpected error occurred server side on /54.177.190.122:9042: java.lang.IllegalArgumentException: Unknown CF 7dff11a0-1c6d-11e6-ad95-19553343aa25))
+					//
+					// I might have to reconnect, instead of just retrying. Let's see how
+					// it goes next time.
 
 					boolean ok = false;
 					if (e instanceof NoHostAvailableException) {
