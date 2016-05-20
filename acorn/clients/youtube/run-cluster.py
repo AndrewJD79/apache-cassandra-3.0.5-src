@@ -119,7 +119,7 @@ def main(argv):
 		fo.write("cat .run/pssh-out/%s/* | grep -E \"" \
 				"# writes              :" \
 				"|# reads               :" \
-				"|# fetch on demand(s)  :" \
+				"|# fetch on demand\\(s\\)  :" \
 				"|# read misses - DC loc:" \
 				"|# read misses - Obj   :" \
 				"|# write timeouts      :" \
