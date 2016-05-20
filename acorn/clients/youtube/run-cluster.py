@@ -113,11 +113,21 @@ def main(argv):
 	Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
 			" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
 
-	Cons.P("Run this for a quick summary:\n" \
-			"  cat .run/pssh-out/%s/* | grep -E \"  # writes: " \
-			"|  # reads :|  # read misses:|      Local DC: | # write timeouts:" \
-			"|#   avg=\"" \
-			% exp_id)
+	# Make a quick check tool
+	fn = "%s/.run/check-last-run.sh" % os.path.dirname(os.path.realpath(__file__))
+	with file(fn, "w") as fo:
+		fo.write("cat .run/pssh-out/%s/* | grep -E \"" \
+				"|# writes              :" \
+				"|# reads               :" \
+				"|# read misses - DC loc:" \
+				"|# read misses - Obj   :" \
+				"|# write timeouts:" \
+				"|      Local DC:" \
+				"|#   avg=\"" \
+				% exp_id)
+
+	Util.RunSubp("chmod +x %s" % fn);
+	Cons.P("For a quick summary, run .run/check-last-run.sh\n")
 
 
 def _RunSubp(cmd):

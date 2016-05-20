@@ -80,20 +80,20 @@ public class AcornYoutube {
 	}
 
 	private static void MakeRequest() throws Exception {
-		_AgreeOnStartTime();
-
 		int numThreads = Conf.acornYoutubeOptions.num_threads;
-		Cons.P("Making requests with %d threads ...", numThreads);
-
-		ProgMon.Start();
-
-		// Start all requester threads
 		List<Thread> reqThreads = new ArrayList<Thread>();
 		for (int i = 0; i < numThreads; i ++) {
 			Thread t = new Thread(new ReqThread());
-			t.start();
 			reqThreads.add(t);
 		}
+
+		_AgreeOnStartTime();
+
+		ProgMon.Start();
+
+		Cons.P("Making requests ...");
+		for (Thread t: reqThreads)
+			t.start();
 
 		for (Thread t: reqThreads)
 			t.join();
@@ -191,15 +191,16 @@ public class AcornYoutube {
 		// Get a DC where the object is
 		String dc = Cass.GetObjLoc(r.vid);
 		if (dc == null) {
-			ProgMon.ReadMiss();
+			ProgMon.ReadMissDc();
 			return;
 		}
 
+		// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
+		// keyspace are asynchronous.
+		Thread.sleep(2000);
 		rows = Cass.ReadYoutubePartial(r, dc);
 		if (rows.size() == 0) {
-			// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
-			// keyspace are asynchronous.
-			ProgMon.ReadMiss();
+			ProgMon.ReadMissObj();
 			return;
 		}
 		Row row = rows.get(0);

@@ -395,18 +395,20 @@ class Cass {
 		}
 
 		BoundStatement bs = new BoundStatement(_ps0);
-		try{
-			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
-		} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
-			// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
-			// Possibile explanations:
-			// - EBS gets rate-limited.
-			// - Cassandra gets overloaded. RX becomes almost like 100MB/sec.
-			// http://www.datastax.com/dev/blog/cassandra-error-handling-done-right
-			//
-			// Just report and don't bother retrying. A late write won't help reads
-			// on the object.
-			ProgMon.WriteTimeout();
+		while (true) {
+			try{
+				_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+				return;
+			} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
+				// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
+				// Possibile explanations:
+				// - EBS gets rate-limited.
+				// - Cassandra gets overloaded. RX becomes almost like 100MB/sec.
+				// http://www.datastax.com/dev/blog/cassandra-error-handling-done-right
+				//
+				// Report and retry.
+				ProgMon.WriteTimeout();
+			}
 		}
 	}
 
@@ -416,10 +418,14 @@ class Cass {
 		String q = String.format("SELECT * from %s.t0 WHERE video_id='%s'", _ks_regular, r.vid);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
-			ResultSet rs = _GetSession().execute(s);
-			List<Row> rows = rs.all();
-			if (rows.size() == 0)
-				ProgMon.ReadMiss();
+			while (true) {
+				ResultSet rs = _GetSession().execute(s);
+				List<Row> rows = rs.all();
+				if (rows.size() == 1)
+					return;
+				// Hope it doesn't get stuck forever. If it happens, report retry count
+				// and make it time out.
+			}
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
