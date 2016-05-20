@@ -183,6 +183,8 @@ public class AcornYoutube {
 
 	private static void _FetchOnDemand(YoutubeData.Req r) throws Exception {
 		List<Row> rows = Cass.ReadYoutubePartial(r);
+		if (rows == null)
+			return;
 		if (rows.size() == 1)
 			return;
 		if (rows.size() != 0)
@@ -197,8 +199,10 @@ public class AcornYoutube {
 
 		// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
 		// keyspace are asynchronous.
-		Thread.sleep(2000);
+		//Thread.sleep(2000);
 		rows = Cass.ReadYoutubePartial(r, dc);
+		if (rows == null)
+			return;
 		if (rows.size() == 0) {
 			ProgMon.ReadMissObj();
 			return;

@@ -492,6 +492,9 @@ class Cass {
 			}
 			List<Row> rows = rs.all();
 			return rows;
+		} catch (com.datastax.driver.core.exceptions.NoHostAvailableException e) {
+			ProgMon.ReadTimeout();
+			return null;
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;

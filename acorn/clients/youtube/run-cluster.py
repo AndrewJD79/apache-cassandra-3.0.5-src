@@ -121,7 +121,8 @@ def main(argv):
 				"|# reads               :" \
 				"|# read misses - DC loc:" \
 				"|# read misses - Obj   :" \
-				"|# write timeouts:" \
+				"|# write timeouts      :" \
+				"|# read timeouts       :" \
 				"|      Local DC:" \
 				"|#   avg=\"" \
 				% exp_id)

@@ -22,11 +22,12 @@ class ProgMon {
 				int rmDc_prev = 0;
 				int rmObj_prev = 0;
 				int wt_prev = 0;
+				int rt_prev = 0;
 				String fmt = "%7d %13s %13s"
 					+ " %5.1f %6.0f %6.0f"
 					+ " %8.3f %8.3f"
 					+ " %5d %5d"
-					+ " %5d"
+					+ " %5d %5d"
 					+ " %9d %9d"
 					+ " %6d %8d"
 					+ " %6d %8d"
@@ -37,7 +38,7 @@ class ProgMon {
 							, "num_w_per_sec", "num_r_per_sec"
 							, "write_latency_ms", "read_latency_ms"
 							, "read_misses_dc", "read_misses_obj"
-							, "write_timeouts"
+							, "write_timeouts", "read_timeouts"
 							, "eth0_rx", "eth0_tx"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
@@ -55,8 +56,9 @@ class ProgMon {
 					int rmDc = _readMissesDc.get();
 					int rmObj = _readMissesObj.get();
 					int wt = _writeTimeouts.get();
+					int rt = _readTimeouts.get();
 
-					Util.RxTx rt = XDcTrafficMon.Get();
+					Util.RxTx xDcTraffic = XDcTrafficMon.Get();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -79,7 +81,8 @@ class ProgMon {
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, rmDc - rmDc_prev, rmObj - rmObj_prev
 								, wt - wt_prev
-								, rt.rx, rt.tx
+								, rt - rt_prev
+								, xDcTraffic.rx, xDcTraffic.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -91,6 +94,7 @@ class ProgMon {
 					rmDc_prev = rmDc;
 					rmObj_prev = rmObj;
 					wt_prev = wt;
+					rt_prev = rt;
 					_extraSleepRunningOnTimeCnt.set(0);
 					_extraSleepRunningOnTimeSum.set(0);
 					_extraSleepRunningBehindCnt.set(0);
@@ -106,8 +110,9 @@ class ProgMon {
 					int rmDc = _readMissesDc.get();
 					int rmObj = _readMissesObj.get();
 					int wt = _writeTimeouts.get();
+					int rt = _readTimeouts.get();
 
-					Util.RxTx rt = XDcTrafficMon.Get();
+					Util.RxTx xDcTraffic = XDcTrafficMon.Get();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -130,7 +135,8 @@ class ProgMon {
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, rmDc - rmDc_prev, rmObj - rmObj_prev
 								, wt - wt_prev
-								, rt.rx, rt.tx
+								, rt - rt_prev
+								, xDcTraffic.rx, xDcTraffic.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -145,13 +151,15 @@ class ProgMon {
 				int rmDc = _readMissesDc.get();
 				int rmObj = _readMissesObj.get();
 				int wt = _writeTimeouts.get();
+				int rt = _readTimeouts.get();
 				Cons.P("#");
 				Cons.P("# writes              : %6d", w);
 				Cons.P("# reads               : %6d", r);
 				Cons.P("# reads / write       : %6.3f", ((double)r)/w);
 				Cons.P("# read misses - DC loc: %6d", rmDc);
 				Cons.P("# read misses - Obj   : %6d", rmDc);
-				Cons.P("# write timeouts: %d", wt);
+				Cons.P("# write timeouts      : %d", wt);
+				Cons.P("# read timeouts       : %d", rt);
 
 				LatMon.Stat wStat = LatMon.GetWriteStat();
 				LatMon.Stat rStat = LatMon.GetReadStat();
@@ -209,6 +217,7 @@ class ProgMon {
 	private static AtomicInteger _readMissesDc = new AtomicInteger(0);
 	private static AtomicInteger _readMissesObj = new AtomicInteger(0);
 	private static AtomicInteger _writeTimeouts = new AtomicInteger(0);
+	private static AtomicInteger _readTimeouts = new AtomicInteger(0);
 
 	public static void Write() {
 		_writeRequested.incrementAndGet();
@@ -228,6 +237,10 @@ class ProgMon {
 
 	public static void WriteTimeout() {
 		_writeTimeouts.incrementAndGet();
+	}
+
+	public static void ReadTimeout() {
+		_readTimeouts.incrementAndGet();
 	}
 
 	public static void SimulatorRunningOnTime(long extraSleep) {
