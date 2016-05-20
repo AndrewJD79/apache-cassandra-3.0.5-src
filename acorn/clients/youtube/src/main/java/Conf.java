@@ -81,6 +81,7 @@ class Conf {
 			if (! (o instanceof Map))
 				throw new RuntimeException(String.format("Unexpected: o.getClass()=%s", o.getClass().getName()));
 			acornOptions = new AcornOptions((Map) o);
+			Cons.P(acornOptions);
 		}
 
 		{
