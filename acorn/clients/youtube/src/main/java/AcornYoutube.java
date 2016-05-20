@@ -199,7 +199,6 @@ public class AcornYoutube {
 
 		// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
 		// keyspace are asynchronous.
-		//Thread.sleep(2000);
 		rows = Cass.ReadYoutubePartial(r, dc);
 		if (rows == null)
 			return;
@@ -213,6 +212,8 @@ public class AcornYoutube {
 		Set<String> topics = row.getSet("topics", String.class);
 		ByteBuffer extraData = row.getBytes("extra_data");
 		Cass.WriteYoutubePartial(vid, videoUploader, topics, extraData);
+
+		ProgMon.FetchOnDemand();
 	}
 
 //	static class ObjIDFactory {

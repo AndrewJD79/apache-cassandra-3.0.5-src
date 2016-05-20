@@ -19,6 +19,7 @@ class ProgMon {
 			try {
 				int w_prev = 0;
 				int r_prev = 0;
+				int fod_prev = 0;
 				int rmDc_prev = 0;
 				int rmObj_prev = 0;
 				int wt_prev = 0;
@@ -26,6 +27,7 @@ class ProgMon {
 				String fmt = "%7d %13s %13s"
 					+ " %5.1f %6.0f %6.0f"
 					+ " %8.3f %8.3f"
+					+ " %5d"
 					+ " %5d %5d"
 					+ " %5d %5d"
 					+ " %9d %9d"
@@ -34,9 +36,9 @@ class ProgMon {
 					;
 				Cons.P(Util.BuildHeader(fmt, 0
 							, "simulation_time_dur_ms", "simulation_time", "simulated_time"
-							, "percent_completed"
-							, "num_w_per_sec", "num_r_per_sec"
+							, "percent_completed", "num_w_per_sec", "num_r_per_sec"
 							, "write_latency_ms", "read_latency_ms"
+							, "fetch_on_demands"
 							, "read_misses_dc", "read_misses_obj"
 							, "write_timeouts", "read_timeouts"
 							, "eth0_rx", "eth0_tx"
@@ -53,6 +55,7 @@ class ProgMon {
 					int w = _writeRequested.get();
 					int r = _readRequested.get();
 					int wr = w + r;
+					int fod = _fetchOnDemand.get();
 					int rmDc = _readMissesDc.get();
 					int rmObj = _readMissesObj.get();
 					int wt = _writeTimeouts.get();
@@ -79,6 +82,7 @@ class ProgMon {
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
+								, fod - fod_prev
 								, rmDc - rmDc_prev, rmObj - rmObj_prev
 								, wt - wt_prev
 								, rt - rt_prev
@@ -91,6 +95,7 @@ class ProgMon {
 
 					w_prev = w;
 					r_prev = r;
+					fod_prev = fod;
 					rmDc_prev = rmDc;
 					rmObj_prev = rmObj;
 					wt_prev = wt;
@@ -107,6 +112,7 @@ class ProgMon {
 					int w = _writeRequested.get();
 					int r = _readRequested.get();
 					int wr = w + r;
+					int fod = _fetchOnDemand.get();
 					int rmDc = _readMissesDc.get();
 					int rmObj = _readMissesObj.get();
 					int wt = _writeTimeouts.get();
@@ -133,6 +139,7 @@ class ProgMon {
 								, 1000.0 * (w - w_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
+								, fod - fod_prev
 								, rmDc - rmDc_prev, rmObj - rmObj_prev
 								, wt - wt_prev
 								, rt - rt_prev
@@ -148,6 +155,7 @@ class ProgMon {
 
 				int w = _writeRequested.get();
 				int r = _readRequested.get();
+				int fod = _fetchOnDemand.get();
 				int rmDc = _readMissesDc.get();
 				int rmObj = _readMissesObj.get();
 				int wt = _writeTimeouts.get();
@@ -156,10 +164,11 @@ class ProgMon {
 				Cons.P("# writes              : %6d", w);
 				Cons.P("# reads               : %6d", r);
 				Cons.P("# reads / write       : %6.3f", ((double)r)/w);
+				Cons.P("# fetch on demand(s)  : %6d", fod);
 				Cons.P("# read misses - DC loc: %6d", rmDc);
 				Cons.P("# read misses - Obj   : %6d", rmDc);
-				Cons.P("# write timeouts      : %d", wt);
-				Cons.P("# read timeouts       : %d", rt);
+				Cons.P("# write timeouts      : %6d", wt);
+				Cons.P("# read timeouts       : %6d", rt);
 
 				LatMon.Stat wStat = LatMon.GetWriteStat();
 				LatMon.Stat rStat = LatMon.GetReadStat();
@@ -214,6 +223,7 @@ class ProgMon {
 
 	private static AtomicInteger _writeRequested = new AtomicInteger(0);
 	private static AtomicInteger _readRequested = new AtomicInteger(0);
+	private static AtomicInteger _fetchOnDemand = new AtomicInteger(0);
 	private static AtomicInteger _readMissesDc = new AtomicInteger(0);
 	private static AtomicInteger _readMissesObj = new AtomicInteger(0);
 	private static AtomicInteger _writeTimeouts = new AtomicInteger(0);
@@ -225,6 +235,10 @@ class ProgMon {
 
 	public static void Read() {
 		_readRequested.incrementAndGet();
+	}
+
+	public static void FetchOnDemand() {
+		_fetchOnDemand.incrementAndGet();
 	}
 
 	public static void ReadMissDc() {
