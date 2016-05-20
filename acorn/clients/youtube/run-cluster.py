@@ -143,7 +143,8 @@ def main(argv):
 				% exp_id)
 
 	Util.RunSubp("chmod +x %s" % fn);
-	Cons.P("For a quick summary, run .run/check-last-run.sh\n")
+	Cons.P("Run For a quick summary, run\n" \
+			"  .run/check-last-run.sh\n")
 
 
 def _RunSubp(cmd):

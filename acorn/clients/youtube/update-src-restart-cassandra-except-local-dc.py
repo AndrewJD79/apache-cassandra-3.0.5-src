@@ -18,8 +18,9 @@ def main(argv):
 	AcornUtil.GenHostfiles()
 
 	RunPssh("\"(cd /home/ubuntu/work/acorn" \
-			" && git checkout -- acorn" \
+			" && git checkout -- acorn conf" \
 			" && git pull" \
+			" && /home/ubuntu/work/acorn-tools/cass/edit-cassandra-yaml.py" \
 			" && ant" \
 			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
 			")\"")
