@@ -130,7 +130,7 @@ public class AcornYoutube {
 	private static void DbWriteMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
 
-		if (Conf.acornYoutubeOptions.replication_type.equals("regular")) {
+		if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
 			Cass.WriteYoutubeRegular(r);
 		} else {
 			Cass.WriteYoutubePartial(r);
@@ -143,7 +143,7 @@ public class AcornYoutube {
 
 	private static void DbReadMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		if (Conf.acornYoutubeOptions.replication_type.equals("regular")) {
+		if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
 			Cass.ReadYoutubeRegular(r);
 		} else {
 			_FetchOnDemand(r);
