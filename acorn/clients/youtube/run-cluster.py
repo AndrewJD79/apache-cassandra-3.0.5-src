@@ -125,7 +125,9 @@ def main(argv):
 				"|# write timeouts      :" \
 				"|# read timeouts       :" \
 				"|      Local DC:" \
-				"|#   avg=\"" \
+				"|# Write latency:" \
+				"|# Read latency :" \
+				"\"" \
 				% exp_id)
 
 	Util.RunSubp("chmod +x %s" % fn);

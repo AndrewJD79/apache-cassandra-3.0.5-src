@@ -173,8 +173,7 @@ class ProgMon {
 				LatMon.Stat wStat = LatMon.GetWriteStat();
 				LatMon.Stat rStat = LatMon.GetReadStat();
 				Cons.P("#");
-				Cons.P("# Write latency:");
-				Cons.P("#   avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
+				Cons.P("# Write latency: avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
 							, wStat.avg  / 1000000.0
 							, wStat.min  / 1000000.0
 							, wStat.max  / 1000000.0
@@ -185,8 +184,7 @@ class ProgMon {
 							, wStat._995 / 1000000.0
 							, wStat._999 / 1000000.0
 							);
-				Cons.P("# Read latency:");
-				Cons.P("#   avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
+				Cons.P("# Read latency : avg=%8.3f min=%8.3f max=%8.3f 50=%8.3f 90=%8.3f 95=%8.3f 99=%8.3f 995=%8.3f 999=%8.3f"
 							, rStat.avg  / 1000000.0
 							, rStat.min  / 1000000.0
 							, rStat.max  / 1000000.0
