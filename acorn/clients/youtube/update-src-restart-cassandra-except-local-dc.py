@@ -22,7 +22,7 @@ def main(argv):
 			" && cd /home/ubuntu/work/acorn" \
 			" && git checkout -- acorn conf" \
 			" && git pull" \
-			" && /home/ubuntu/work/acorn-tools/cass/edit-cassandra-yaml.py" \
+			" && /home/ubuntu/work/acorn-tools/ec2/edit-cassandra-yaml.py" \
 			" && ant" \
 			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
 			")\"")
