@@ -54,7 +54,7 @@ public class AcornYoutube {
 
 			CreateSchema();
 
-			RunFullReplication();
+			MakeRequest();
 
 			// Seems like leftover Cassandra cluster and session objects prevent the
 			// process from terminating. Force quit. Don't think it's a big deal for
@@ -79,7 +79,7 @@ public class AcornYoutube {
 		Cass.WaitForSchemaCreation();
 	}
 
-	private static void RunFullReplication() throws Exception {
+	private static void MakeRequest() throws Exception {
 		_AgreeOnStartTime();
 
 		int numThreads = Conf.acornYoutubeOptions.num_threads;
@@ -129,7 +129,12 @@ public class AcornYoutube {
 
 	private static void DbWriteMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		Cass.WriteYoutubeRegular(r);
+
+		if (Conf.acornYoutubeOptions.replication_type.equals("regular")) {
+			Cass.WriteYoutubeRegular(r);
+		} else {
+			Cass.WriteYoutubePartial(r);
+		}
 		long end = System.nanoTime();
 		// Note: These 2 can be merged, when you have some time left.
 		LatMon.Write(end - begin);
@@ -138,7 +143,11 @@ public class AcornYoutube {
 
 	private static void DbReadMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		Cass.ReadYoutubeRegular(r);
+		if (Conf.acornYoutubeOptions.replication_type.equals("regular")) {
+			Cass.ReadYoutubeRegular(r);
+		} else {
+			Cass.ReadYoutubePartial(r);
+		}
 		long end = System.nanoTime();
 		LatMon.Read(end - begin);
 		ProgMon.Read();

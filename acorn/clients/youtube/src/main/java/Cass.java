@@ -384,11 +384,13 @@ class Cass {
 		rand.nextBytes(b);
 		ByteBuffer extraData = ByteBuffer.wrap(b);
 
-		// Make once and reuse
-		synchronized (_ps0_sync) {
-			if (_ps0 == null) {
-				_ps0 = _GetSession().prepare(
-						String.format("INSERT INTO %s.t0 (video_id, uid, topics, extra_data) VALUES (?,?,?,?)", _ks_regular));
+		// Make once and reuse. Like test and test and set.
+		if (_ps0 == null) {
+			synchronized (_ps0_sync) {
+				if (_ps0 == null) {
+					_ps0 = _GetSession().prepare(
+							String.format("INSERT INTO %s.t0 (video_id, uid, topics, extra_data) VALUES (?,?,?,?)", _ks_regular));
+				}
 			}
 		}
 
@@ -412,6 +414,57 @@ class Cass {
 		// Note: Must do select * to have all attributes processed inside Cassandra
 		// server. Doesn't matter for non acorn.*_pr keyspaces.
 		String q = String.format("SELECT * from %s.t0 WHERE video_id='%s'", _ks_regular, r.vid);
+		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+		try {
+			ResultSet rs = _GetSession().execute(s);
+			List<Row> rows = rs.all();
+			if (rows.size() == 0)
+				ProgMon.ReadMiss();
+		} catch (com.datastax.driver.core.exceptions.DriverException e) {
+			Cons.P("Exception=[%s] query=[%s]", e, q);
+			throw e;
+		}
+	}
+
+	private static PreparedStatement _ps1 = null;
+	private static Object _ps1_sync = new Object();
+
+	public static void WriteYoutubePartial(YoutubeData.Req r) throws Exception {
+		byte[] b = new byte[Conf.acornYoutubeOptions.youtube_extra_data_size];
+		Random rand = ThreadLocalRandom.current();
+		rand.nextBytes(b);
+		ByteBuffer extraData = ByteBuffer.wrap(b);
+
+		// Make once and reuse. Like test and test and set.
+		if (_ps1 == null) {
+			synchronized (_ps1_sync) {
+				if (_ps1 == null) {
+					_ps1 = _GetSession().prepare(
+							String.format("INSERT INTO %s.t0 (video_id, uid, topics, extra_data) VALUES (?,?,?,?)", _ks_pr));
+				}
+			}
+		}
+
+		BoundStatement bs = new BoundStatement(_ps1);
+		try{
+			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+		} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
+			// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
+			// Possibile explanations:
+			// - EBS gets rate-limited.
+			// - Cassandra gets overloaded. RX becomes almost like 100MB/sec.
+			// http://www.datastax.com/dev/blog/cassandra-error-handling-done-right
+			//
+			// Just report and don't bother retrying. A late write won't help reads
+			// on the object.
+			ProgMon.WriteTimeout();
+		}
+	}
+
+	public static void ReadYoutubePartial(YoutubeData.Req r) throws Exception {
+		// Note: Must do select * to have all attributes processed inside Cassandra
+		// server. Doesn't matter for non acorn.*_pr keyspaces.
+		String q = String.format("SELECT * from %s.t0 WHERE video_id='%s'", _ks_pr, r.vid);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			ResultSet rs = _GetSession().execute(s);

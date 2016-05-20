@@ -122,11 +122,11 @@ class Conf {
 		public long read_req_delay_in_simulation_time_in_ms;
 		public long max_requests;
 		public long prog_mon_report_interval_in_ms;
+		public String replication_type;
 
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
 			fn_users = (String) m.get("fn_users");
-			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
 			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
 			for (Map.Entry<String, String> e: ((Map<String, String>) m.get("dc_coordinates")).entrySet()) {
 				String k = e.getKey();
@@ -146,6 +146,7 @@ class Conf {
 			read_req_delay_in_simulation_time_in_ms = (int) m.get("read_req_delay_in_simulation_time_in_ms");
 			max_requests = (int) m.get("max_requests");
 			prog_mon_report_interval_in_ms = (int) m.get("prog_mon_report_interval_in_ms");
+			replication_type = (String) m.get("replication_type");
 		}
 
 		@Override
