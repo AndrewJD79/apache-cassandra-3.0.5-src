@@ -74,10 +74,30 @@ prog_mon_report_interval_in_ms: 1000
 #youtube_extra_data_size: 512
 #read_req_delay_in_simulation_time_in_ms: 5000
 
-# TODO: move on to the partial
+# Full
+# 160520-193423
+#fn_youtube_reqs: tweets-010
+#max_requests: -1
+#simulation_time_dur_in_ms: 320000
+#youtube_extra_data_size: 512
+#read_req_delay_in_simulation_time_in_ms: 5000
+#replication_type: full
+
+# Partial
+#fn_youtube_reqs: tweets-010
+#max_requests: -1
+#simulation_time_dur_in_ms: 320000
+#youtube_extra_data_size: 512
+#read_req_delay_in_simulation_time_in_ms: 5000
+#replication_type: partial
+
+# Full timescale experiment. Full
+# 160520-193423
 fn_youtube_reqs: tweets-010
 max_requests: -1
-simulation_time_dur_in_ms: 320000
-youtube_extra_data_size: 512
+# 30.5 mins
+simulation_time_dur_in_ms: 1826250
+# Bigger data size in proportioin to the longer experiment time.
+youtube_extra_data_size: 2922
 read_req_delay_in_simulation_time_in_ms: 5000
 replication_type: full
