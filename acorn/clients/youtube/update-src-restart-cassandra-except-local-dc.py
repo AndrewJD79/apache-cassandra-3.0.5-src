@@ -17,7 +17,9 @@ _exp_id = "update-src-restart-cassandra-except-local-dc"
 def main(argv):
 	AcornUtil.GenHostfiles()
 
-	RunPssh("\"(cd /home/ubuntu/work/acorn" \
+	RunPssh("\"(cd /home/ubuntu/work/acorn-tools" \
+			" && git pull" \
+			" && cd /home/ubuntu/work/acorn" \
 			" && git checkout -- acorn conf" \
 			" && git pull" \
 			" && /home/ubuntu/work/acorn-tools/cass/edit-cassandra-yaml.py" \
