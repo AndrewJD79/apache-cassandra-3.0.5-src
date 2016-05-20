@@ -5,6 +5,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.Map;
@@ -205,6 +206,8 @@ public class AttrPopMonitor implements Runnable {
         if (curBcEpoch == prevBcEpoch)
             return;
 
+        long beginTime = System.currentTimeMillis();
+
         // Build popUsersCur and popTopicsCur. Attribute items will be added in
         // the natural (sorted) order
         Set<String> popUsersCur = new TreeSet<String>();
@@ -261,39 +264,89 @@ public class AttrPopMonitor implements Runnable {
         // This early return doesn't change prevBcEpoch and makes the next
         // broadcast in popularity change more responsive without paying any
         // extra broadcast cost. Good.
-        if (popUsersAdded.size() == 0 && popUsersDeleted.size() == 0
-                && popTopicsAdded.size() == 0 && popTopicsDeleted.size() == 0)
+        int numDiffs = popUsersAdded.size() + popUsersDeleted.size()
+            + popTopicsAdded.size() + popTopicsDeleted.size();
+        if (numDiffs == 0)
             return;
 
-        StringBuilder q = new StringBuilder();
-        q.append("BEGIN BATCH");
-        for (String u: popUsersAdded)
-            q.append(String.format(" INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s');"
-                        , acornKsPrefix, localDataCenterCql, u));
-        for (String u: popUsersDeleted)
-            q.append(String.format(" DELETE FROM %s_attr_pop.%s_user where user_id = '%s';"
-                        , acornKsPrefix, localDataCenterCql, u));
-        for (String t: popTopicsAdded)
-            q.append(String.format(" INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s');"
-                        , acornKsPrefix, localDataCenterCql, t));
-        for (String t: popTopicsDeleted)
-            q.append(String.format(" DELETE FROM %s_attr_pop.%s_topic where topic = '%s';"
-                        , acornKsPrefix, localDataCenterCql, t));
-        q.append(" APPLY BATCH");
-        logger.warn("Acorn: q={}", q.toString());
+        // Chunking in 5000 queries is recommended by
+        // https://github.com/jorgebay/node-cassandra-cql/issues/68, although
+        // Datastax says 65535.
+        // https://docs.datastax.com/en/cql/3.1/cql/cql_reference/refLimits.html
+        //
+        // pop(Users|Topics)(Added|Deleted) are modified during this, which is okay.
+        //
+        // Each statememt is like 65b long. Chunk by 1000 elements, which is
+        // 65KB long.
+        final int maxNumS = 1000;
 
-        QueryState state = QueryState.forInternalCalls();
-        // Use CL LOCAL_ONE. It will eventually be propagated.
-        QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+        while (true) {
+            // Number of statements
+            int numS = 0;
 
-        QueryHandler qh = ClientState.getCQLQueryHandler();
-        if (! qh.getClass().equals(QueryProcessor.class))
-            throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
-        QueryProcessor qp = (QueryProcessor) qh;
-        qp.process(AcornKsOptions.AcornOthers(), q.toString(), state, options);
+            StringBuilder q = new StringBuilder();
+            q.append("BEGIN UNLOGGED BATCH");
+            for (Iterator<String> i = popUsersAdded.iterator(); i.hasNext(); ) {
+                q.append(String.format("; INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s')"
+                            , acornKsPrefix, localDataCenterCql, i.next()));
+                i.remove();
+                numS ++;
+                if (numS == maxNumS) break;
+            }
+            if (numS < maxNumS) {
+                for (Iterator<String> i = popUsersDeleted.iterator(); i.hasNext(); ) {
+                    q.append(String.format("; DELETE FROM %s_attr_pop.%s_user where user_id = '%s'"
+                                , acornKsPrefix, localDataCenterCql, i.next()));
+                    i.remove();
+                    numS ++;
+                    if (numS == maxNumS) break;
+                }
+            }
+            if (numS < maxNumS) {
+                for (Iterator<String> i = popTopicsAdded.iterator(); i.hasNext(); ) {
+                    q.append(String.format("; INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s')"
+                                , acornKsPrefix, localDataCenterCql, i.next()));
+                    i.remove();
+                    numS ++;
+                    if (numS == maxNumS) break;
+                }
+            }
+            if (numS < maxNumS) {
+                for (Iterator<String> i = popTopicsDeleted.iterator(); i.hasNext(); ) {
+                    q.append(String.format("; DELETE FROM %s_attr_pop.%s_topic where topic = '%s'"
+                                , acornKsPrefix, localDataCenterCql, i.next()));
+                    i.remove();
+                    numS ++;
+                    if (numS == maxNumS) break;
+                }
+            }
+            q.append("; APPLY BATCH;");
+            // TODO: comment out after making sure
+            logger.warn("Acorn: q={}", q.toString());
+
+            QueryState state = QueryState.forInternalCalls();
+            // Use CL LOCAL_ONE. It will eventually be propagated.
+            QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
+
+            QueryHandler qh = ClientState.getCQLQueryHandler();
+            if (! qh.getClass().equals(QueryProcessor.class))
+                throw new RuntimeException(String.format("Unexpected: qh.getClass()=%s", qh.getClass().getName()));
+            QueryProcessor qp = (QueryProcessor) qh;
+            qp.process(AcornKsOptions.AcornOthers(), q.toString(), state, options);
+
+            if (popUsersAdded.size() == 0 && popUsersDeleted.size() == 0
+                    && popTopicsAdded.size() == 0 && popTopicsDeleted.size() == 0)
+                break;
+        }
 
         popUsersPrev = popUsersCur;
         popTopicsPrev = popTopicsCur;
         prevBcEpoch = curBcEpoch;
+
+        // Log if this takes too long like more than 100 ms.
+        long lapTime = System.currentTimeMillis() - beginTime;
+        if (lapTime > 100) {
+            logger.warn("Acorn: popularity propagation with {} changes took {} ms", numDiffs, lapTime);
+        }
     }
 }
