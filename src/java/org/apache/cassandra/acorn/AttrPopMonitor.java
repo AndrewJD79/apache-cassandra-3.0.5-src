@@ -285,9 +285,9 @@ public class AttrPopMonitor implements Runnable {
             int numS = 0;
 
             StringBuilder q = new StringBuilder();
-            q.append("BEGIN UNLOGGED BATCH");
+            q.append("BEGIN UNLOGGED BATCH ");
             for (Iterator<String> i = popUsersAdded.iterator(); i.hasNext(); ) {
-                q.append(String.format("; INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s')"
+                q.append(String.format("INSERT INTO %s_attr_pop.%s_user (user_id) VALUES ('%s'); "
                             , acornKsPrefix, localDataCenterCql, i.next()));
                 i.remove();
                 numS ++;
@@ -295,7 +295,7 @@ public class AttrPopMonitor implements Runnable {
             }
             if (numS < maxNumS) {
                 for (Iterator<String> i = popUsersDeleted.iterator(); i.hasNext(); ) {
-                    q.append(String.format("; DELETE FROM %s_attr_pop.%s_user where user_id = '%s'"
+                    q.append(String.format("DELETE FROM %s_attr_pop.%s_user where user_id = '%s'; "
                                 , acornKsPrefix, localDataCenterCql, i.next()));
                     i.remove();
                     numS ++;
@@ -304,7 +304,7 @@ public class AttrPopMonitor implements Runnable {
             }
             if (numS < maxNumS) {
                 for (Iterator<String> i = popTopicsAdded.iterator(); i.hasNext(); ) {
-                    q.append(String.format("; INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s')"
+                    q.append(String.format("INSERT INTO %s_attr_pop.%s_topic (topic) VALUES ('%s'); "
                                 , acornKsPrefix, localDataCenterCql, i.next()));
                     i.remove();
                     numS ++;
@@ -313,14 +313,14 @@ public class AttrPopMonitor implements Runnable {
             }
             if (numS < maxNumS) {
                 for (Iterator<String> i = popTopicsDeleted.iterator(); i.hasNext(); ) {
-                    q.append(String.format("; DELETE FROM %s_attr_pop.%s_topic where topic = '%s'"
+                    q.append(String.format("DELETE FROM %s_attr_pop.%s_topic where topic = '%s'; "
                                 , acornKsPrefix, localDataCenterCql, i.next()));
                     i.remove();
                     numS ++;
                     if (numS == maxNumS) break;
                 }
             }
-            q.append("; APPLY BATCH;");
+            q.append("APPLY BATCH;");
             // TODO: comment out after making sure
             logger.warn("Acorn: q={}", q.toString());
 
