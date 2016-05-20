@@ -22,6 +22,11 @@ dc_coordinates:
 num_threads: 1000
 prog_mon_report_interval_in_ms: 1000
 
+# Replication type: full (uses acorn.*_regular keyspace) or partial (uses
+# acorn.*_pr keyspace) replication.
+#replication_type: partial
+#replication_type: full
+
 # For testing. The number is in global. Set max_requests to -1 for unlimited.
 #   tweets-010 has 556609 requests.
 #max_requests: 100000
@@ -71,12 +76,8 @@ prog_mon_report_interval_in_ms: 1000
 
 # TODO: move on to the partial
 fn_youtube_reqs: tweets-010
-max_requests: 10000
-# 5 min 20 secs
-simulation_time_dur_in_ms: 10000
+max_requests: -1
+simulation_time_dur_in_ms: 320000
 youtube_extra_data_size: 512
 read_req_delay_in_simulation_time_in_ms: 5000
-
-# Replication type: full (uses acorn.*_regular keyspace) or partial (uses
-# acorn.*_pr keyspace) replication.
-replication_type: partial
+replication_type: full
