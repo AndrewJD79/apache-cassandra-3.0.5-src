@@ -368,7 +368,8 @@ class Cass {
 				}
 			}
 			System.out.printf(" exists\n");
-			ExecutionBarrier();
+			// The first barrier is more lenient.
+			ExecutionBarrier(30000);
 		}
 	}
 
@@ -391,6 +392,9 @@ class Cass {
 
 		BoundStatement bs = new BoundStatement(_ps0);
 		_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+
+		// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
+		// I think it's when EBS gets rate-limited. Redo the whole experiment.
 	}
 
 	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
@@ -634,6 +638,10 @@ class Cass {
 
 	// Wait until everyone gets here
 	static public long ExecutionBarrier() throws Exception {
+		// Wait for 10 secs by default
+		return ExecutionBarrier(10000);
+	}
+	static public long ExecutionBarrier(long timeOut) throws Exception {
 		String q = null;
 		long lapTime = 0;
 		try {
@@ -674,7 +682,7 @@ class Cass {
 						throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 
 					lapTime = System.currentTimeMillis() - bt;
-					if (lapTime > 10000) {
+					if (lapTime > timeOut) {
 						System.out.printf("\n");
 						throw new RuntimeException("Execution barrier wait timed out :(");
 					}
