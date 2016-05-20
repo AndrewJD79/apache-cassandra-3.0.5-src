@@ -9,4 +9,4 @@ cqlsh -e "truncate acorn_regular.t0;"
 cat .run/pssh-out/160520-032620/* | grep -E "  # writes: |  # reads :|  # read misses:|      Local DC: | # write timeouts:"
 
 # Truncate a table and run experiment
-cqlsh -e "truncate acorn_regular.t0; acorn_pr.t0;" `curl -s http://169.254.169.254/latest/meta-data/public-ipv4` && ./run-cluster.py
+cqlsh -e "truncate acorn_regular.t0; truncate acorn_pr.t0;" `curl -s http://169.254.169.254/latest/meta-data/public-ipv4` && ./run-cluster.py

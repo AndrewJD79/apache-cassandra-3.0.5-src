@@ -146,7 +146,7 @@ public class AcornYoutube {
 		if (Conf.acornYoutubeOptions.replication_type.equals("regular")) {
 			Cass.ReadYoutubeRegular(r);
 		} else {
-			Cass.ReadYoutubePartial(r);
+			_FetchOnDemand(r);
 		}
 		long end = System.nanoTime();
 		LatMon.Read(end - begin);
@@ -179,6 +179,35 @@ public class AcornYoutube {
 			}
 			SimTime.SetStartSimulationTime(startTime);
 		}
+	}
+
+	private static void _FetchOnDemand(YoutubeData.Req r) throws Exception {
+		List<Row> rows = Cass.ReadYoutubePartial(r);
+		if (rows.size() == 1)
+			return;
+		if (rows.size() != 0)
+			throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
+
+		// Get a DC where the object is
+		String dc = Cass.GetObjLoc(r.vid);
+		if (dc == null) {
+			ProgMon.ReadMiss();
+			return;
+		}
+
+		rows = Cass.ReadYoutubePartial(r, dc);
+		if (rows.size() == 0) {
+			// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
+			// keyspace are asynchronous.
+			ProgMon.ReadMiss();
+			return;
+		}
+		Row row = rows.get(0);
+		String vid = row.getString("video_id");
+		long videoUploader = row.getLong("uid");
+		Set<String> topics = row.getSet("topics", String.class);
+		ByteBuffer extraData = row.getBytes("extra_data");
+		Cass.WriteYoutubePartial(vid, videoUploader, topics, extraData);
 	}
 
 //	static class ObjIDFactory {
@@ -564,75 +593,6 @@ public class AcornYoutube {
 //						} else
 //							throw new RuntimeException(String.format("Unexpected: objId2=%s rows.size()=%d", objId2, rows.size()));
 //
-//						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
-//							System.out.printf("\n");
-//							throw new RuntimeException("Time out :(");
-//						}
-//					}
-//				}
-//			}
-//			Cass.ExecutionBarrier();
-//		}
-//	}
-//
-//	private static void TestFetchOnDemand() throws Exception {
-//		try (Cons.MT _ = new Cons.MT("Testing fetch on demand ...")) {
-//			String user_john_1 = String.format("john-1-%s", Conf.ExpID());
-//			String topic_tennis_1 = String.format("tennis-1-%s", Conf.ExpID());
-//			String topic_uga_1 = String.format("uga-1-%s", Conf.ExpID());
-//
-//			Cass.ExecutionBarrier();
-//
-//			// Insert a record in the east. Not replicated to the west.
-//			String objId0 = ObjIDFactory.Gen();
-//			if (Cass.LocalDC().equals("us-east")) {
-//				try (Cons.MT _1 = new Cons.MT("Inserting a record %s in the east ...", objId0)) {
-//					Cass.InsertRecordPartial(objId0, user_john_1, new TreeSet<String>(Arrays.asList(topic_tennis_1, topic_uga_1)));
-//				}
-//			}
-//			// Expect the record immediately visible in the east and not visible in the west.
-//			if (Cass.LocalDC().equals("us-east")) {
-//				try (Cons.MT _1 = new Cons.MT("Expect to see the record immediately in the east ...")) {
-//					List<Row> rows = Cass.SelectRecordLocal(objId0);
-//					if (rows.size() != 1)
-//						throw new RuntimeException(String.format("Unexpected: objId0=%s rows.size()=%d", objId0, rows.size()));
-//				}
-//			} else if (Cass.LocalDC().equals("us-west")) {
-//				try (Cons.MT _1 = new Cons.MT("Fetch on demand in the west ...")) {
-//					// Poll for a bit longer than the popularity broadcast interval to
-//					// make sure the record is not propagated.
-//					Cons.Pnnl("Checking:");
-//					long bt = System.currentTimeMillis();
-//					while (true) {
-//						List<Row> rows = Cass.SelectRecordLocal(objId0);
-//						if (rows.size() != 0)
-//							throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
-//
-//						// Get a DC where the object is
-//						String dc = Cass.GetObjLoc(objId0);
-//						if (dc == null) {
-//							System.out.printf(" loc");
-//							System.out.flush();
-//							// Thread.sleep(100);
-//						} else {
-//							List<Row> rows1 = Cass.SelectRecordRemote(dc, objId0);
-//							if (rows1.size() != 1)
-//								throw new RuntimeException(String.format("Unexpected: rows1.size()=%d", rows1.size()));
-//							Row r = rows1.get(0);
-//							String objId = r.getString("obj_id");
-//							String user = r.getString("user");
-//							Set<String> topics = r.getSet("topics", String.class);
-//							//Cons.P("user={%s}", user);
-//							//Cons.P("topics={%s}", String.join(", ", topics));
-//							System.out.printf(" rf");
-//							System.out.flush();
-//
-//							Cass.InsertRecordPartial(objId, user, topics);
-//							System.out.printf(" lw\n");
-//							break;
-//						}
-//
-//						// Wait for a bit. Doesn't have to be broadcast interval. Okay for now.
 //						if (System.currentTimeMillis() - bt > Conf.acornOptions.attr_pop_broadcast_interval_in_ms + 500) {
 //							System.out.printf("\n");
 //							throw new RuntimeException("Time out :(");

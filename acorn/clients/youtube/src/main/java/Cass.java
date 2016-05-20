@@ -426,15 +426,21 @@ class Cass {
 		}
 	}
 
-	private static PreparedStatement _ps1 = null;
-	private static Object _ps1_sync = new Object();
-
 	public static void WriteYoutubePartial(YoutubeData.Req r) throws Exception {
 		byte[] b = new byte[Conf.acornYoutubeOptions.youtube_extra_data_size];
 		Random rand = ThreadLocalRandom.current();
 		rand.nextBytes(b);
 		ByteBuffer extraData = ByteBuffer.wrap(b);
 
+		WriteYoutubePartial(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData);
+	}
+
+	private static PreparedStatement _ps1 = null;
+	private static Object _ps1_sync = new Object();
+
+	public static void WriteYoutubePartial(
+			String vid, long videoUploader, Set<String> topics, ByteBuffer extraData) throws Exception
+	{
 		// Make once and reuse. Like test and test and set.
 		if (_ps1 == null) {
 			synchronized (_ps1_sync) {
@@ -447,7 +453,7 @@ class Cass {
 
 		BoundStatement bs = new BoundStatement(_ps1);
 		try{
-			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+			_GetSession().execute(bs.bind(vid, videoUploader, topics, extraData));
 		} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
 			// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
 			// Possibile explanations:
@@ -461,16 +467,25 @@ class Cass {
 		}
 	}
 
-	public static void ReadYoutubePartial(YoutubeData.Req r) throws Exception {
+	public static List<Row> ReadYoutubePartial(YoutubeData.Req r) throws Exception {
+		return ReadYoutubePartial(r, null);
+	}
+
+	// For fetch-on-demand
+	public static List<Row> ReadYoutubePartial(YoutubeData.Req r, String dc) throws Exception {
 		// Note: Must do select * to have all attributes processed inside Cassandra
 		// server. Doesn't matter for non acorn.*_pr keyspaces.
 		String q = String.format("SELECT * from %s.t0 WHERE video_id='%s'", _ks_pr, r.vid);
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
-			ResultSet rs = _GetSession().execute(s);
+			ResultSet rs;
+			if (dc == null) {
+				rs = _GetSession().execute(s);
+			} else {
+				rs = _GetSession(dc).execute(s);
+			}
 			List<Row> rows = rs.all();
-			if (rows.size() == 0)
-				ProgMon.ReadMiss();
+			return rows;
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
@@ -521,20 +536,20 @@ class Cass {
 		}
 	}
 
-	static public List<Row> SelectRecordLocal(String objId) throws Exception {
-		// Note: Must do select * to have all attributes processed inside Cassandra server
-		String q = String.format("select * from %s.t0 where obj_id='%s'"
-				, _ks_pr, objId);
-		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-		try {
-			ResultSet rs = _GetSession().execute(s);
-			List<Row> rows = rs.all();
-			return rows;
-		} catch (com.datastax.driver.core.exceptions.DriverException e) {
-			Cons.P("Exception=[%s] query=[%s]", e, q);
-			throw e;
-		}
-	}
+	//static public List<Row> SelectRecordLocal(String objId) throws Exception {
+	//	// Note: Must do select * to have all attributes processed inside Cassandra server
+	//	String q = String.format("select * from %s.t0 where obj_id='%s'"
+	//			, _ks_pr, objId);
+	//	Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+	//	try {
+	//		ResultSet rs = _GetSession().execute(s);
+	//		List<Row> rows = rs.all();
+	//		return rows;
+	//	} catch (com.datastax.driver.core.exceptions.DriverException e) {
+	//		Cons.P("Exception=[%s] query=[%s]", e, q);
+	//		throw e;
+	//	}
+	//}
 
 	static public List<Row> SelectRecordRemote(String dc, String objId) throws Exception {
 		// Note: Must do select * to have all attributes processed inside Cassandra server

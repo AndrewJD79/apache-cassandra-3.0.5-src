@@ -110,7 +110,8 @@ def main(argv):
 		Cons.P(Util.Indent(stdouterr, 2))
 	
 	# Rsync to mt-s7 for analysis. May want to store to S3 later.
-	Util.RunSubp("rsync -a ~/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log")
+	Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
+			" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
 
 	Cons.P("Run this for a quick summary:\n" \
 			"  cat .run/pssh-out/%s/* | grep -E \"  # writes: " \
