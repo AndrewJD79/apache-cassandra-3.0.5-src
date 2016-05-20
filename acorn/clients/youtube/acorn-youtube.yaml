@@ -45,13 +45,23 @@ dc_coordinates:
 #simulation_time_dur_in_ms: 20000
 #youtube_extra_data_size: 512
 
+# Only 21 misses
+# Local DC: ap-southeast-2
+# writes: 4419
+# reads : 19797
+# read misses: 21
+#fn_youtube_reqs: tweets-010
+#max_requests: 160000
+#simulation_time_dur_in_ms: 80000
+#youtube_extra_data_size: 512
+
 fn_youtube_reqs: tweets-010
-max_requests: 160000
-simulation_time_dur_in_ms: 80000
+max_requests: -1
+# 5 min 20 secs
+simulation_time_dur_in_ms: 320000
 youtube_extra_data_size: 512
 
 num_threads: 1000
-
 
 read_req_delay_in_simulation_time_in_ms: 5000
 
