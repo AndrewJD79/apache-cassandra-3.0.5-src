@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 
-import datetime
 import os
-import pprint
 import subprocess
 import sys
-import threading
 
 sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
 import Cons
@@ -14,73 +11,18 @@ import Util
 import AcornUtil
 
 
-def GetRemoteDcPubIps():
-	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
-	curRegion = curAz[:-1]
-	#Cons.P(curAz)
-	#Cons.P(curRegion)
-
-	fn = "%s/.run/dc-ip-map" % os.path.dirname(os.path.realpath(__file__))
-	ips = []
-	with open(fn) as fo:
-		for line in fo.readlines():
-			t = line.strip().split(" ")
-			if len(t) != 2:
-				raise RuntimeError("Unexpected format [%s]s" % line)
-			dc = t[0]
-			ip = t[1]
-			if dc != curRegion:
-				ips.append(ip)
-	return ips
-
-
-def RsyncSrcToRemoteDcs():
-	with Cons.MeasureTime("rsync src to remote DCs ..."):
-		remotePubIps = GetRemoteDcPubIps()
-		Cons.P(remotePubIps)
-
-		threads = []
-		for rIp in remotePubIps:
-			t = threading.Thread(target=ThreadRsync, args=[rIp])
-			t.start()
-			threads.append(t)
-
-		for t in threads:
-			t.join()
-
-
-def ThreadRsync(ip):
-	#Cons.P(ip)
-	# Make sure you sync only source files. Syncing build result confuses the
-	# build system.
-	cmd = "cd ~/work/acorn/acorn/clients/youtube" \
-			" && rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
-			" %s:work/acorn/acorn/clients/youtube/" % ip
-	Util.RunSubp(cmd, shell = True, print_cmd = False)
-
-
-# Experiment ID: Current datetime in UTC
-# It is a part of the keyspace name.
-_exp_id = None
+_exp_id = "update-src-restart-cassandra-except-local-dc"
 
 
 def main(argv):
-	if len(argv) == 1:
-		_exp_id = datetime.datetime.utcnow().strftime("%y%m%d-%H%M%S")
-	elif len(argv) == 2:
-		_exp_id = argv[1]
-	else:
-		print "Usage: %s" % argv[0]
-		sys.exit(1)
-
 	AcornUtil.GenHostfiles()
 
-	RunPssh("(cd /home/work/acorn" \
+	RunPssh("\"(cd /home/ubuntu/work/acorn" \
 			" && git checkout -- acorn" \
 			" && git pull" \
 			" && ant" \
-			" && cass-restart.py" \
-			")")
+			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
+			")\"")
 
 
 def RunPssh(cmd):
