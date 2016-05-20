@@ -208,7 +208,7 @@ public abstract class AbstractReadExecutor
             }
             targetReplicas = allReplicas = keepReplicas;
 
-            logger.warn("Acorn: drop replicas {}", dropReplicas);
+            //logger.warn("Acorn: drop replicas {}", dropReplicas);
         }
 
         // org.apache.cassandra.service.AbstractReadExecutor.getReadExecutor(AbstractReadExecutor.java:191)
