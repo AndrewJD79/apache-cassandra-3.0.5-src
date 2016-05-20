@@ -71,7 +71,7 @@ public class AcornObjLoc implements Runnable {
     }
 
     private static void _AddObjLoc(Req r) {
-        String q = String.format("UPDATE %s_obj_loc.obj_loc SET locations = locations + {'%s'} WHERE obj_id = '%s'"
+        String q = String.format("UPDATE %s_obj_loc.obj_loc SET locations = locations + {%s} WHERE obj_id = '%s'"
                 , acornKsPrefix
                 , String.join(", ", r.dcs.stream().map(dc -> String.format("'%s'", dc)).collect(Collectors.toList()))
                 , r.objId);
