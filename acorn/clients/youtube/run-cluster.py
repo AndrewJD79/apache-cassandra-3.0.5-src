@@ -117,7 +117,7 @@ def main(argv):
 	fn = "%s/.run/check-last-run.sh" % os.path.dirname(os.path.realpath(__file__))
 	with file(fn, "w") as fo:
 		fo.write("cat .run/pssh-out/%s/* | grep -E \"" \
-				"|# writes              :" \
+				"# writes              :" \
 				"|# reads               :" \
 				"|# read misses - DC loc:" \
 				"|# read misses - Obj   :" \
