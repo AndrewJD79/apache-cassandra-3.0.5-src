@@ -111,7 +111,8 @@ def main(argv):
 	
 	Cons.P("Run this for a quick summary:\n" \
 			"  cat .run/pssh-out/%s/* | grep -E \"  # writes: " \
-			"|  # reads :|  # read misses:|      Local DC: | # write timeouts:\"" \
+			"|  # reads :|  # read misses:|      Local DC: | # write timeouts:" \
+			"|#   avg=\"" \
 			% exp_id)
 
 

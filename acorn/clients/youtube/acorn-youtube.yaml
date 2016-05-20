@@ -55,14 +55,18 @@ dc_coordinates:
 #simulation_time_dur_in_ms: 80000
 #youtube_extra_data_size: 512
 
+# Only 6!
+# Quite a lot of the requests run behind though. This is probably the farthest
+# you can push.
 fn_youtube_reqs: tweets-010
 max_requests: -1
 # 5 min 20 secs
 simulation_time_dur_in_ms: 320000
 youtube_extra_data_size: 512
+read_req_delay_in_simulation_time_in_ms: 5000
+
 
 num_threads: 1000
 
-read_req_delay_in_simulation_time_in_ms: 5000
 
 prog_mon_report_interval_in_ms: 1000
