@@ -73,9 +73,8 @@ public class AcornObjLoc implements Runnable {
         // UPDATE acorn_obj_loc.obj_loc SET locations = locations + {'new_dc'} WHERE obj_id = 'aaa'
         //
         // It also create a row when it doesn't exist. Thank god.
-        //
-        // TODO: comment out after making sure it's working well with multiple DCs
-        logger.warn("Acorn: q={}", q);
+
+        //logger.warn("Acorn: q={}", q);
 
         QueryState state = QueryState.forInternalCalls();
         // Use CL LOCAL_ONE. It will eventually be propagated.

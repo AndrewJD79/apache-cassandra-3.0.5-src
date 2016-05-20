@@ -1210,8 +1210,8 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
-                    , naturalEndpoints, attrPopAwareEndpoints);
+            //logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
+            //        , naturalEndpoints, attrPopAwareEndpoints);
             naturalEndpoints = attrPopAwareEndpoints;
         }
 

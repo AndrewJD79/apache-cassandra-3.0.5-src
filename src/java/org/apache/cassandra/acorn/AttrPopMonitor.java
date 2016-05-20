@@ -321,8 +321,7 @@ public class AttrPopMonitor implements Runnable {
                 }
             }
             q.append("APPLY BATCH;");
-            // TODO: comment out after making sure
-            logger.warn("Acorn: q={}", q.toString());
+            //logger.warn("Acorn: q={}", q.toString());
 
             QueryState state = QueryState.forInternalCalls();
             // Use CL LOCAL_ONE. It will eventually be propagated.

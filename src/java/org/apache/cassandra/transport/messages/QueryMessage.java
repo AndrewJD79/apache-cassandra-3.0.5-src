@@ -145,10 +145,10 @@ public class QueryMessage extends Message.Request
                 //        , options.skipMetadata()
                 //        , options.getProtocolVersion()
                 //        , getCustomPayload());
-                //
-                logger.warn("Acorn: query={} options.getConsistency()={}"
-                        , query
-                        , options.getConsistency());
+
+                //logger.warn("Acorn: query={} options.getConsistency()={}"
+                //        , query
+                //        , options.getConsistency());
             }
             Message.Response response = ClientState.getCQLQueryHandler().process(ako, query, state, options, getCustomPayload());
             // response is of type ResultMessage$Rows
