@@ -76,6 +76,18 @@ def main(argv):
 
 	RsyncSrcToRemoteDcs()
 
+	# Delete all records in the experiment tables. The records in acorn_attr_pop
+	# are supposed to expire by themselves.
+	myPubIp = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4")
+	Util.RunSubp("cqlsh -e \"" \
+			"truncate acorn_pr.t0;" \
+			" truncate acorn_obj_loc.obj_loc;" \
+			" truncate acorn_exe_barrier.t0;" \
+			" truncate acorn_exp_meta.t0;" \
+			" truncate acorn_regular.t0;" \
+			"\" %s || true" % myPubIp
+			, shell = True)
+
 	Cons.P("Exp id: %s" % exp_id)
 
 	dn_this = os.path.dirname(os.path.realpath(__file__))
