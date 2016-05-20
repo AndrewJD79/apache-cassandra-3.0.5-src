@@ -416,7 +416,10 @@ public class SelectStatement implements CQLStatement
         if (!pager.isExhausted())
             msg.result.metadata.setHasMorePages(pager.state());
 
-        if (ako.IsPartialRep()) {
+        if (ako.IsPartialRep() &&
+                (DatabaseDescriptor.getAcornOptions().use_attr_user
+                 || DatabaseDescriptor.getAcornOptions().use_attr_topic))
+        {
             ResultSet rs = msg.result;
             ResultSet.ResultMetadata rm = rs.metadata;
             if (rm.names == null)
@@ -437,9 +440,9 @@ public class SelectStatement implements CQLStatement
                     if (colValue == null)
                         continue;
 
-                    if (colName.equals("user")) {
+                    if (DatabaseDescriptor.getAcornOptions().use_attr_user && colName.equals("user")) {
                         user = rm.names.get(i).type.getString(colValue);
-                    } else if (colName.equals("topics")) {
+                    } else if (DatabaseDescriptor.getAcornOptions().use_attr_topic && colName.equals("topics")) {
                         // E.g., ["tennis-160516-164741", "uga-160516-164741"]
                         if (! rm.names.get(i).type.getClass().equals(SetType.class))
                             throw new RuntimeException(String.format("Unexpected: rm.names.get(%d).type.getClass()=%s"

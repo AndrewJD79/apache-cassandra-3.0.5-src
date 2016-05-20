@@ -655,15 +655,12 @@ public class StorageProxy implements StorageProxyMBean
                         //logger.warn("Acorn: acornOiAttrs={}", acornOiAttrs);
                     }
 
-                    responseHandlers.add(performWrite(ako, acornOiAttrs, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    responseHandlers.add(performWrite(ako, acornOiAttrs, acornKsPrefix, mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
 
                     if (ako.IsPartialRep()) {
                         // Asynchronously make attributes popular in the local
                         // datacenter in a separate thread
                         AttrPopMonitor.SetPopular(acornOiAttrs, acornKsPrefix);
-
-                        // Asynchronously record the object location
-                        AcornObjLoc.Add(acornOiAttrs, acornKsPrefix, localDataCenter);
                     }
                 }
             }
@@ -1099,12 +1096,13 @@ public class StorageProxy implements StorageProxyMBean
                                                             WriteType writeType)
     throws UnavailableException, OverloadedException
     {
-        return performWrite(AcornKsOptions.Others(), null, mutation, consistency_level, localDataCenter, performer, callback, writeType);
+        return performWrite(AcornKsOptions.Others(), null, null, mutation, consistency_level, localDataCenter, performer, callback, writeType);
     }
 
     public static AbstractWriteResponseHandler<IMutation> performWrite(
                                                             AcornKsOptions ako,
                                                             AcornObjIdAttributes acornOiAttrs,
+                                                            String acornKsPrefix,
                                                             IMutation mutation,
                                                             ConsistencyLevel consistency_level,
                                                             String localDataCenter,
@@ -1138,6 +1136,7 @@ public class StorageProxy implements StorageProxyMBean
             String topicsCql = String.join(", ", acornOiAttrs.topics.stream().map(e -> String.format("'%s'", e)).collect(Collectors.toList()));
 
             List<InetAddress> attrPopAwareEndpoints = new ArrayList<InetAddress>();
+            List<String> targetDcNames = new ArrayList<String>();
             for (InetAddress ne: naturalEndpoints) {
                 String dc = snitch.getDatacenter(ne);
                 //logger.warn("Acorn: ne={} dc={}", ne, dc);
@@ -1145,12 +1144,11 @@ public class StorageProxy implements StorageProxyMBean
                 // Always keep the local DC
                 if (dc.equals(localDataCenter)) {
                     attrPopAwareEndpoints.add(ne);
+                    targetDcNames.add(dc);
                     continue;
                 }
 
                 String dcCql = dc.replace("-", "_");
-
-                // TODO: Make it configurable by cassandra.yaml.
 
                 QueryHandler qh = ClientState.getCQLQueryHandler();
                 if (! qh.getClass().equals(QueryProcessor.class))
@@ -1159,8 +1157,9 @@ public class StorageProxy implements StorageProxyMBean
                 final QueryState state = QueryState.forInternalCalls();
                 final QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.LOCAL_ONE, new ArrayList<ByteBuffer>());
 
-                // Is the user popular in this datacenter?
-                {
+                if (DatabaseDescriptor.getAcornOptions().use_attr_user) {
+                    // Is the user popular in this datacenter?
+
                     // Referenced QueryMessage.java
                     String q = String.format("select count(user_id) from %s.%s_user where user_id='%s';"
                             , ks_attr_pop, dcCql, acornOiAttrs.user);
@@ -1184,12 +1183,14 @@ public class StorageProxy implements StorageProxyMBean
                     //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
                     if (rs1.GetAttrCount() > 0) {
                         attrPopAwareEndpoints.add(ne);
+                        targetDcNames.add(dc);
                         continue;
                     }
                 }
 
-                // Is any of the topics popular in this datacenter?
-                {
+                if (DatabaseDescriptor.getAcornOptions().use_attr_topic) {
+                    // Is any of the topics popular in this datacenter?
+
                     String q = String.format("select count(topic) from %s.%s_topic where topic in (%s);"
                             , ks_attr_pop, dcCql, topicsCql);
                     //logger.warn("Acorn: q={}", q);
@@ -1205,10 +1206,32 @@ public class StorageProxy implements StorageProxyMBean
                     //logger.warn("Acorn: dc={} attrCnt={}", dc, rs1.GetAttrCount());
                     if (rs1.GetAttrCount() > 0) {
                         attrPopAwareEndpoints.add(ne);
+                        targetDcNames.add(dc);
                         continue;
                     }
                 }
             }
+
+            // Add extra random replicas
+            List<InetAddress> extraRandomEp = new ArrayList<InetAddress>();
+            for (InetAddress ia: naturalEndpoints) {
+                if (attrPopAwareEndpoints.contains(ia))
+                    continue;
+
+                // A value between zero (inclusive) and one (exclusive).
+                if (ThreadLocalRandom.current().nextDouble()
+                        < DatabaseDescriptor.getAcornOptions().extra_random_replicas_ratio)
+                {
+                    attrPopAwareEndpoints.add(ia);
+                    targetDcNames.add(snitch.getDatacenter(ia));
+                }
+            }
+
+            // Asynchronously record the object locations. I wonder if this
+            // could lead to a write write conflict without transactions, and
+            // possibly lose an elemement (datacenter locaiton). Transaction is
+            // not what you want for this research.
+            AcornObjLoc.Add(acornOiAttrs, acornKsPrefix, targetDcNames);
 
             //logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
             //        , naturalEndpoints, attrPopAwareEndpoints);

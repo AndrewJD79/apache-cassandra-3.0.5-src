@@ -959,8 +959,15 @@ acorn_options:
     #   Simulated time : 493087.5 sec :  5 * 365.25 * 24 * 3600 sec
     #                      (5.7 days)
     #
-    # Popularity monitor window size: 1 week.
+    # Popularity monitor window size:
+    #   4 week when using the 10% data
     attr_pop_broadcast_interval_in_ms: 1000
-    attr_pop_monitor_window_size_in_ms: 7000
+    attr_pop_monitor_window_size_in_ms: 28000
+
+    use_attr_user: true
+    use_attr_topic: true
+
+    extra_random_replicas_ratio: 0.0
+
     attr_filter_topic: attr-filter-topic
     attr_filter_user: attr-filter-user

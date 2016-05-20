@@ -330,9 +330,9 @@ public class Mutation implements IMutation
                     // c.column().name is of type ColumnIdentifier
                     String colName = c.column().name.toString();
                     AbstractType<?> type = c.column().type;
-                    if (colName.equals("user")) {
+                    if (DatabaseDescriptor.getAcornOptions().use_attr_user && colName.equals("user")) {
                         user = type.getString(c.value());
-                    } else if (colName.equals("topics")) {
+                    } else if (DatabaseDescriptor.getAcornOptions().use_attr_topic && colName.equals("topics")) {
                         if (! (type instanceof CollectionType && type.isMultiCell()))
                             throw new RuntimeException(String.format("Unexpected: type.getClass()=%s", type.getClass().getName()));
                         CollectionType ct = (CollectionType)type;
