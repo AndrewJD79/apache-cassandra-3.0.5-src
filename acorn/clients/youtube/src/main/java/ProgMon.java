@@ -24,6 +24,7 @@ class ProgMon {
 					+ " %5.1f %6.0f %6.0f"
 					+ " %8.3f %8.3f"
 					+ " %5d"
+					+ " %9d %9d"
 					+ " %6d %8d"
 					+ " %6d %8d"
 					;
@@ -33,6 +34,7 @@ class ProgMon {
 							, "num_w_per_sec", "num_r_per_sec"
 							, "write_latency_ms", "read_latency_ms"
 							, "read_misses"
+							, "eth0_rx", "eth0_tx"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
 							));
@@ -47,6 +49,8 @@ class ProgMon {
 					int r = _readRequested.get();
 					int wr = w + r;
 					int rm = _readMisses.get();
+
+					Util.RxTx rt = XDcTrafficMon.Get();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -68,6 +72,7 @@ class ProgMon {
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, rm - rm_prev
+								, rt.rx, rt.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -91,6 +96,8 @@ class ProgMon {
 					int wr = w + r;
 					int rm = _readMisses.get();
 
+					Util.RxTx rt = XDcTrafficMon.Get();
+
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
 						0 : (_extraSleepRunningOnTimeSum.get() / extraSleepRunningOnTimeCnt);
@@ -111,6 +118,7 @@ class ProgMon {
 								, 1000.0 * (r - r_prev) / Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms
 								, latency.avgWriteTime / 1000000.0, latency.avgReadTime / 1000000.0
 								, rm - rm_prev
+								, rt.rx, rt.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								);
@@ -166,16 +174,18 @@ class ProgMon {
 	private static MonThread _mt = new MonThread();
 	private static Thread _thrMt = new Thread(_mt);
 
-	public static void Start() {
+	public static void Start() throws Exception {
+		XDcTrafficMon.Start();
 		_thrMt.start();
 	}
 
-	public static void Stop() throws InterruptedException {
+	public static void Stop() throws Exception {
 		_stopRequested = true;
 		synchronized (_mt) {
 			_mt.notifyAll();
 		}
 		_thrMt.join();
+		XDcTrafficMon.Stop();
 	}
 
 	private static AtomicInteger _writeRequested = new AtomicInteger(0);

@@ -61,10 +61,10 @@ class Util {
 	}
 
 	static class RxTx {
-		int rx;
-		int tx;
+		long rx = 0;
+		long tx = 0;
 
-		RxTx(int rx, int tx) {
+		RxTx(long rx, long tx) {
 			this.rx = rx;
 			this.tx = tx;
 		}
@@ -82,22 +82,22 @@ class Util {
 		p.waitFor();
 		BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
 		String line = "";
-		int rx = -1;
-		int tx = -1;
+		long rx = -1;
+		long tx = -1;
 		while ((line = b.readLine()) != null) {
 			// RX bytes:80098259 (80.0 MB)  TX bytes:62102148 (62.1 MB)
 			{
 				String[] t = line.split("RX bytes:");
 				if (t.length == 2) {
 					String[] t1 = t[1].split(" ");
-					rx = Integer.parseInt(t1[0]);
+					rx = Long.parseLong(t1[0]);
 				}
 			}
 			{
 				String[] t = line.split("TX bytes:");
 				if (t.length == 2) {
 					String[] t1 = t[1].split(" ");
-					tx = Integer.parseInt(t1[0]);
+					tx = Long.parseLong(t1[0]);
 				}
 			}
 		}
