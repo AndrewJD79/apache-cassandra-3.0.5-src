@@ -1,6 +1,12 @@
 time mvn compile exec:java
 time mvn package -DskipTests
 
-# Deleting all rows in a table.
-# http://stackoverflow.com/questions/25483308/deleting-all-rows-from-cassandra-cql-table
+# Deleting all rows in a table. Saves time by not having to recreate keyspaces.
+#   http://stackoverflow.com/questions/25483308/deleting-all-rows-from-cassandra-cql-table
 cqlsh -e "truncate acorn_regular.t0;"
+
+# Filter out pssh-outputs for a quick summary
+cat .run/pssh-out/160520-032620/* | grep -E "  # writes: |  # reads :|  # read misses:|      Local DC: | # write timeouts:"
+
+# Truncate a table and run experiment
+cqlsh -e "truncate acorn_regular.t0;" 54.90.30.80 && ./run-cluster.py

@@ -108,6 +108,11 @@ def main(argv):
 		else:
 			Cons.P("Failure. rc=%d" % rc)
 		Cons.P(Util.Indent(stdouterr, 2))
+	
+	Cons.P("Run this for a quick summary:\n" \
+			"  cat .run/pssh-out/%s/* | grep -E \"  # writes: " \
+			"|  # reads :|  # read misses:|      Local DC: | # write timeouts:\"" \
+			% exp_id)
 
 
 def _RunSubp(cmd):

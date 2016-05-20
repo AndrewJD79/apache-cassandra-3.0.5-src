@@ -339,7 +339,7 @@ class Cass {
 					}
 					System.out.printf("%c", error_code);
 					System.out.flush();
-					Thread.sleep(100);
+					Thread.sleep(5000);
 				} catch (com.datastax.driver.core.exceptions.DriverException e) {
 					// This repeats. Not very often though.
 					//
@@ -368,6 +368,8 @@ class Cass {
 				}
 			}
 			System.out.printf(" exists\n");
+
+			Thread.sleep(1000);
 			// The first barrier is more lenient.
 			ExecutionBarrier(30000);
 		}
@@ -391,10 +393,19 @@ class Cass {
 		}
 
 		BoundStatement bs = new BoundStatement(_ps0);
-		_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
-
-		// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
-		// I think it's when EBS gets rate-limited. Redo the whole experiment.
+		try{
+			_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+		} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
+			// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
+			// Possibile explanations:
+			// - EBS gets rate-limited.
+			// - Cassandra gets overloaded. RX becomes almost like 100MB/sec.
+			// http://www.datastax.com/dev/blog/cassandra-error-handling-done-right
+			//
+			// Just report and don't bother retrying. A late write won't help reads
+			// on the object.
+			ProgMon.WriteTimeout();
+		}
 	}
 
 	public static void ReadYoutubeRegular(YoutubeData.Req r) throws Exception {
