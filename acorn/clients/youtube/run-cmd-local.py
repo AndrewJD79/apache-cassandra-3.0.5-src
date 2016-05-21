@@ -17,7 +17,9 @@ _exp_id = "run-cmd-cluster"
 
 
 def main(argv):
-	_Kill()
+	#_Kill()
+
+	Util.RunSubp("/home/ubuntu/work/acorn-tools/cass/cass-restart.py")
 
 
 def _Kill():
