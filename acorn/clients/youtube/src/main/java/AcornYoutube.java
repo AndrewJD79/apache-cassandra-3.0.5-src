@@ -208,7 +208,7 @@ public class AcornYoutube {
 		}
 		Row row = rows.get(0);
 		String vid = row.getString("video_id");
-		long videoUploader = row.getLong("uid");
+		String videoUploader = row.getString("uid");
 		Set<String> topics = row.getSet("topics", String.class);
 		ByteBuffer extraData = row.getBytes("extra_data");
 		Cass.WriteYoutubePartial(vid, videoUploader, topics, extraData);

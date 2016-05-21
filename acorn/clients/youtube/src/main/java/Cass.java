@@ -201,7 +201,7 @@ class Cass {
 					// A minimal schema to prove the concept.
 					q = String.format("CREATE TABLE %s.t0"
 							+ " (video_id text"			// YouTube video id. Primary key
-							+ ", uid bigint"				// Attribute user. The uploader of the video.
+							+ ", uid text"				// Attribute user. The uploader of the video.
 							+ ", topics set<text>"	// Attribute topics
 							+ ", extra_data blob"		// Extra data to make the record size configurable
 							+ ", PRIMARY KEY (video_id)"	// Primary key is mandatory
@@ -287,7 +287,7 @@ class Cass {
 
 					q = String.format("CREATE TABLE %s.t0"
 							+ " (video_id text"			// YouTube video id. Primary key
-							+ ", uid bigint"				// Attribute user. The uploader of the video.
+							+ ", uid text"					// Attribute user. The uploader of the video.
 							+ ", topics set<text>"	// Attribute topics
 							+ ", extra_data blob"		// Extra data to make the record size configurable
 							+ ", PRIMARY KEY (video_id)"	// Primary key is mandatory
@@ -445,7 +445,7 @@ class Cass {
 	private static Object _ps1_sync = new Object();
 
 	public static void WriteYoutubePartial(
-			String vid, long videoUploader, Set<String> topics, ByteBuffer extraData) throws Exception
+			String vid, String videoUploader, Set<String> topics, ByteBuffer extraData) throws Exception
 	{
 		// Make once and reuse. Like test and test and set.
 		if (_ps1 == null) {

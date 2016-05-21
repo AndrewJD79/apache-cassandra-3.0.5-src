@@ -85,7 +85,8 @@ class YoutubeData {
 	static class Req {
 		// Tweet ID. Not used for this application.
 		long id;
-		// User ID. Video uploader is constructed from uid.
+		// User ID. Video uploader is constructed from uid. Not used for this
+		// application. Alreay used for generating the data file.
 		long uid;
 
 		// In the format of 2010-08-16 01:47:12
@@ -95,8 +96,9 @@ class YoutubeData {
 		double geoLongi;
 		// YouTube video ID
 		String vid;
-		// Video uploader
-		long videoUploader;
+		// Video uploader. Data file has this as long. Convert to String so that
+		// Cassandra can treat it as a string.
+		String videoUploader;
 		List<String> topics;
 
 		// This is calculated from createdAt when requested
@@ -116,7 +118,7 @@ class YoutubeData {
 			geoLati = _ReadDouble(bis);
 			geoLongi = _ReadDouble(bis);
 			vid = _ReadStr(bis);
-			videoUploader = _ReadLong(bis);
+			videoUploader = Long.toString(_ReadLong(bis));
 
 			long numTopics = _ReadLong(bis);
 			//Cons.P("numTopics=%d", numTopics);
