@@ -99,10 +99,16 @@ class Conf {
 		// which I would love to in the future.
 		long attr_pop_broadcast_interval_in_ms;
 		long attr_pop_monitor_window_size_in_ms;
+		boolean use_attr_user;
+		boolean use_attr_topic;
+		double extra_random_replicas_ratio;
 
 		AcornOptions(Map m) {
 			attr_pop_broadcast_interval_in_ms  = Long.parseLong(m.get("attr_pop_broadcast_interval_in_ms").toString());
 			attr_pop_monitor_window_size_in_ms = Long.parseLong(m.get("attr_pop_monitor_window_size_in_ms").toString());
+			use_attr_user = Boolean.parseBoolean(m.get("use_attr_user").toString());
+			use_attr_topic = Boolean.parseBoolean(m.get("use_attr_topic").toString());
+			extra_random_replicas_ratio = Double.parseDouble(m.get("extra_random_replicas_ratio").toString());
 		}
 
 		@Override
