@@ -71,7 +71,9 @@ def RunLocal(cur_datetime):
 	with Cons.MeasureTime("Running locally ..."):
 		Util.RunSubp("killall -qw AcornYoutube-0.1.ja[r] || true", shell = True)
 
-		cmd = "java -cp target/AcornYoutube-0.1.jar:`cat %s` AcornYoutube %s 2>&1" % (fn_dep_class_path, cur_datetime)
+		Util.RunSubp("mkdir -p .run", shell = True)
+		cmd = "(java -cp target/AcornYoutube-0.1.jar:`cat %s` AcornYoutube %s 2>&1) | tee .run/current-AcornYoutube-stdout-stderr" \
+				% (fn_dep_class_path, cur_datetime)
 		Util.RunSubp(cmd, shell = True)
 
 
