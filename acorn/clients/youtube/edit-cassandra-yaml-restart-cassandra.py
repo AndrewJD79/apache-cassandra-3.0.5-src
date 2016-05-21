@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import threading
 
 sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
 import Cons
