@@ -1,3 +1,4 @@
+import boto3
 import os
 import pprint
 import sys
@@ -25,7 +26,13 @@ def GenHostfiles():
 
 	with Cons.MeasureTime("Generating host files ..."):
 		sys.stdout.write("  ")
-		inst_descriptions = DescInst.GetInstDescs("acorn-server")
+
+		tags = GetMyTags()
+		#Cons.P(tags)
+		acorn_exp_param = tags["acorn_exp_param"]
+		#Cons.P(acorn_exp_param)
+
+		inst_descriptions = DescInst.GetInstDescs(acorn_exp_param)
 		#Cons.P(pprint.pformat(inst_descriptions, indent=2, width=100))
 
 		# Take only running instances. There can be other instances like "terminated".
@@ -54,3 +61,22 @@ def GenHostfiles():
 				ip = inst_desc["PublicIpAddress"]
 				fo.write("%s %s\n" % (dc, ip))
 		Cons.P("Created %s %d" % (fn_dc_ip_map, os.path.getsize(fn_dc_ip_map)))
+
+
+def GetMyTags():
+	myAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	# Trim the last [a-z]
+	myRegion = myAz[0:-1]
+	myEc2InstId = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/instance-id", print_cmd = False, print_result = False)
+
+	boto_client = boto3.session.Session().client("ec2", region_name = myRegion)
+
+	response = boto_client.describe_instances(InstanceIds=[myEc2InstId])
+
+	tags = {}
+	for r in response["Reservations"]:
+		for r1 in r["Instances"]:
+			if "Tags" in r1:
+				for t in r1["Tags"]:
+					tags[t["Key"]] = t["Value"]
+	return tags
