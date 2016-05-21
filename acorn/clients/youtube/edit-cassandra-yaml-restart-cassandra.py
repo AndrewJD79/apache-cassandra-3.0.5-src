@@ -11,16 +11,60 @@ import Util
 import AcornUtil
 
 
-_exp_id = "update-src-restart-cassandra-except-local-dc"
+_exp_id = "edit-cassandra-yaml-restart-cassandra"
+
+
+def GetRemoteDcPubIps():
+	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	curRegion = curAz[:-1]
+	#Cons.P(curAz)
+	#Cons.P(curRegion)
+
+	fn = "%s/.run/dc-ip-map" % os.path.dirname(os.path.realpath(__file__))
+	ips = []
+	with open(fn) as fo:
+		for line in fo.readlines():
+			t = line.strip().split(" ")
+			if len(t) != 2:
+				raise RuntimeError("Unexpected format [%s]s" % line)
+			dc = t[0]
+			ip = t[1]
+			if dc != curRegion:
+				ips.append(ip)
+	return ips
+
+
+def RsyncSrcToRemoteDcs():
+	with Cons.MeasureTime("rsync src to remote DCs ..."):
+		remotePubIps = GetRemoteDcPubIps()
+		Cons.P(remotePubIps)
+
+		threads = []
+		for rIp in remotePubIps:
+			t = threading.Thread(target=ThreadRsync, args=[rIp])
+			t.start()
+			threads.append(t)
+
+		for t in threads:
+			t.join()
+
+
+def ThreadRsync(ip):
+	#Cons.P(ip)
+	# Make sure you sync only source files. Syncing build result confuses the
+	# build system.
+	cmd = "cd ~/work/acorn/acorn/clients/youtube" \
+			" && rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
+			" %s:work/acorn/acorn/clients/youtube/" % ip
+	Util.RunSubp(cmd, shell = True, print_cmd = False)
 
 
 def main(argv):
 	AcornUtil.GenHostfiles()
 
-	RunPssh("\"(cd /home/ubuntu/work/acorn" \
-			" && git checkout -- acorn" \
-			" && git pull" \
-			" && /home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local.py" \
+	RsyncSrcToRemoteDcs()
+
+	RunPssh("\"(/home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local.py" \
 			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
 			")\"")
 
