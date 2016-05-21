@@ -9,8 +9,8 @@ import Util
 
 def _EditCassConf():
 	cmd = "sed -i 's/" \
-			"^          - seeds: .*" \
-			"/          - seeds: \"%s\"" \
+			"^    use_attr_topic:.*" \
+			"/    use_attr_topic: false" \
 			"/g' /home/ubuntu/work/acorn/conf/cassandra.yaml"
 	Util.RunSubp(cmd, shell = True)
 
