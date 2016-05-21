@@ -65,8 +65,25 @@ def main(argv):
 
 	RsyncSrcToRemoteDcs()
 
-	RunPssh("\"(/home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local.py" \
+	RunPssh("\"(/home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local-1.py" \
 			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/run-youtube-cluster.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local-2.py" \
+			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/run-youtube-cluster.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local-3.py" \
+			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/run-youtube-cluster.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local-4.py" \
+			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
+			" && sleep 2" \
+			" && /home/ubuntu/work/acorn/acorn/clients/youtube/run-youtube-cluster.py" \
 			")\"")
 
 
