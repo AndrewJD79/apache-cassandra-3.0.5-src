@@ -16,10 +16,9 @@ def _EditCassConf():
 
 	cmd = "sed -i 's/" \
 			"^    use_attr_topic:.*" \
-			"/    use_attr_topic: false" \
+			"/    use_attr_topic: true" \
 			"/g' /home/ubuntu/work/acorn/conf/cassandra.yaml"
 	Util.RunSubp(cmd, shell = True)
-
 
 
 def main(argv):
