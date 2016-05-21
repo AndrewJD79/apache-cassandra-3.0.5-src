@@ -66,7 +66,7 @@ def main(argv):
 	RsyncSrcToRemoteDcs()
 
 	RunPssh("\"(/home/ubuntu/work/acorn/acorn/clients/youtube/edit-cassandra-yaml-local.py" \
-			" && slee 2" \
+			" && sleep 2" \
 			" && /home/ubuntu/work/acorn-tools/cass/cass-restart.py" \
 			")\"")
 

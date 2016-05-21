@@ -130,6 +130,10 @@ max_requests: -1
 simulation_time_dur_in_ms: 3600000
 # Bigger data size in proportioin to the longer experiment time.
 youtube_extra_data_size: 512
-read_req_delay_in_simulation_time_in_ms: 5000
+# Give enough time for read requests so that they see partially replicated
+# records in the local dc and updated obj locations for correct fetch-on-demand
+# operations. I noticed requests lag like 3 seconds behind. 10 sec should be
+# good enough.
+read_req_delay_in_simulation_time_in_ms: 10000
 #replication_type: partial
 replication_type: partial

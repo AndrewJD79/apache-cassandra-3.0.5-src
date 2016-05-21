@@ -125,7 +125,7 @@ def main(argv):
 	Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
 			" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
 
-	# Make a quick check tool
+	# Make a quick summary report tool and generate one.
 	fn = "%s/.run/check-last-run.sh" % os.path.dirname(os.path.realpath(__file__))
 	with file(fn, "w") as fo:
 		fo.write("cat .run/pssh-out/%s/* | grep -E \"" \
@@ -141,12 +141,11 @@ def main(argv):
 				"|# Read latency :" \
 				"\"" \
 				% exp_id)
-
-	Cons.P("Exp id: %s" % exp_id)
-
 	Util.RunSubp("chmod +x %s" % fn);
-	Cons.P("Run For a quick summary, run\n" \
-			"  .run/check-last-run.sh\n")
+	fn_summary = ".run/%s/summary" % exp_id
+	Util.RunSubp(".run/check-last-run.sh > %s" % fn_summary, shell = True)
+	Cons.P("A quick summary file is generated at %s" % fn_summary)
+	Cons.P("You can also run .run/check-last-run.sh")
 
 
 def _RunSubp(cmd):

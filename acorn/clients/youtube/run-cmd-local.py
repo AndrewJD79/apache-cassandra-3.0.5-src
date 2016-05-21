@@ -17,12 +17,12 @@ _exp_id = "run-cmd-cluster"
 
 
 def main(argv):
-	#_Kill()
+	_KillAcornYoutube()
 
-	Util.RunSubp("/home/ubuntu/work/acorn-tools/cass/cass-restart.py")
+	#Util.RunSubp("/home/ubuntu/work/acorn-tools/cass/cass-restart.py")
 
 
-def _Kill():
+def _KillAcornYoutube():
 	out = Util.RunSubp("ps -ef | grep target/AcornYoutube-0.1.ja[r] || true"
 			, shell = True, print_cmd = False, print_result = False)
 	if len(out) == 0:

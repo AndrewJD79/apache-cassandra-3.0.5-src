@@ -3,10 +3,15 @@ time mvn package -DskipTests
 
 # Deleting all rows in a table. Saves time by not having to recreate keyspaces.
 #   http://stackoverflow.com/questions/25483308/deleting-all-rows-from-cassandra-cql-table
-cqlsh -e "truncate acorn_regular.t0;"
+#
+# run-youtube-cluster.py uses this for truncating all keyspaces and tables
+# before an experiment.
+cqlsh -e "truncate acorn_regular.t0;" `curl -s http://169.254.169.254/latest/meta-data/public-ipv4`
 
-# Filter out pssh-outputs for a quick summary
+# Filter out pssh-outputs for a quick summary. Included in run-youtube-cluster.py
 cat .run/pssh-out/160520-032620/* | grep -E "  # writes: |  # reads :|  # read misses:|      Local DC: | # write timeouts:"
 
-# Truncate a table and run experiment
-cqlsh -e "truncate acorn_regular.t0; truncate acorn_pr.t0;" `curl -s http://169.254.169.254/latest/meta-data/public-ipv4` && ./run-cluster.py
+# rsync .run to mt-s7. Included in run-youtube-cluster.py
+rsync -a .run hobin@130.207.110.229:work/acorn-log
+
+dstat -f
