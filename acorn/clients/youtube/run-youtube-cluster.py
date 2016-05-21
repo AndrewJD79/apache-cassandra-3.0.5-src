@@ -142,7 +142,7 @@ def main(argv):
 				"\"" \
 				% exp_id)
 	Util.RunSubp("chmod +x %s" % fn);
-	fn_summary = ".run/%s/summary" % exp_id
+	fn_summary = ".run/summary-%s" % exp_id
 	Util.RunSubp(".run/check-last-run.sh > %s" % fn_summary, shell = True)
 	Cons.P("A quick summary file is generated at %s" % fn_summary)
 	Cons.P("You can also run .run/check-last-run.sh")
