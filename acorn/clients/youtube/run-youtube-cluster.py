@@ -64,8 +64,7 @@ def main(argv):
 	dn_this = os.path.dirname(__file__)
 	os.chdir(dn_this)
 
-	# Experiment ID: Current datetime in UTC
-	# It is a part of the keyspace name.
+	# Experiment ID, made of the current datetime in UTC
 	exp_id = None
 
 	if len(argv) == 1:
