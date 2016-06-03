@@ -20,7 +20,7 @@ def GetRemoteDcPubIps():
 	#Cons.P(curAz)
 	#Cons.P(curRegion)
 
-	fn = "%s/.run/dc-ip-map" % os.path.dirname(os.path.realpath(__file__))
+	fn = "%s/.run/dc-ip-map" % os.path.dirname(__file__)
 	ips = []
 	with open(fn) as fo:
 		for line in fo.readlines():
@@ -60,6 +60,10 @@ def ThreadRsync(ip):
 
 
 def main(argv):
+	# Change cwd to where this file is, so that this can be called from anywhere.
+	dn_this = os.path.dirname(__file__)
+	os.chdir(dn_this)
+
 	# Experiment ID: Current datetime in UTC
 	# It is a part of the keyspace name.
 	exp_id = None
@@ -90,7 +94,6 @@ def main(argv):
 
 	Cons.P("Exp id: %s" % exp_id)
 
-	dn_this = os.path.dirname(os.path.realpath(__file__))
 	fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
 
 	# Build src and run.
@@ -121,11 +124,7 @@ def main(argv):
 			Cons.P("Failure. rc=%d" % rc)
 		Cons.P(Util.Indent(stdouterr, 2))
 	
-	# Rsync to mt-s7 for analysis. May want to store to S3 later.
-	Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
-			" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
-
-	# Make a quick summary report tool and generate one.
+	# Make a quick summary reporting tool and generate one.
 	fn = "%s/.run/check-last-run.sh" % os.path.dirname(os.path.realpath(__file__))
 	with file(fn, "w") as fo:
 		fo.write("cat .run/pssh-out/%s/* | grep -E \"" \
@@ -146,6 +145,17 @@ def main(argv):
 	Util.RunSubp(".run/check-last-run.sh > %s" % fn_summary, shell = True)
 	Cons.P("A quick summary file is generated at %s" % fn_summary)
 	Cons.P("You can also run .run/check-last-run.sh")
+
+	# TODO: Upload the result to S3 in us-east-1
+	# - All exp parameters and results
+	# - May want current time
+
+	# TODO
+	# Rsync to mt-s7 for analysis. May want to store to S3 later.
+	#Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
+	#		" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
+
+	# TODO: Dequeue the experiment request from SQS
 
 
 def _RunSubp(cmd):
