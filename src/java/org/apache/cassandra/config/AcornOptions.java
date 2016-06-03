@@ -9,6 +9,7 @@ public class AcornOptions
     public long attr_pop_monitor_window_size_in_ms;
     public boolean use_attr_user;
     public boolean use_attr_topic;
+    public boolean full_replication;
     public double extra_random_replicas_ratio;
     public String attr_filter_topic;
     public String attr_filter_user;

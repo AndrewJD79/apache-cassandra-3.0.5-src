@@ -1235,7 +1235,12 @@ public class StorageProxy implements StorageProxyMBean
 
             //logger.warn("Acorn: naturalEndpoints={} attrPopAwareEndpoints={}"
             //        , naturalEndpoints, attrPopAwareEndpoints);
-            naturalEndpoints = attrPopAwareEndpoints;
+
+            // full_replication forces full replications with partial
+            // replication metadata exchanged, which is useful for measuring
+            // the metadata overhead.
+            if (! DatabaseDescriptor.getAcornOptions().full_replication)
+                naturalEndpoints = attrPopAwareEndpoints;
         }
 
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType);
