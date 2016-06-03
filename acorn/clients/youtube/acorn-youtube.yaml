@@ -3,10 +3,6 @@ dn_data: /home/ubuntu/work/acorn-data
 fn_users: 150505-104600-users
 #150812-143151-users-833266
 
-# The files don't have lonely writes. Repeated reads from the same user is not filtered out.
-#fn_youtube_reqs: tweets-100
-#fn_youtube_reqs: tweets-010
-
 dc_coordinates:
   # Longitude, latitude
   us-east-1: -77.539001, 39.018002
@@ -24,116 +20,28 @@ prog_mon_report_interval_in_ms: 1000
 
 # Replication type: full (uses acorn.*_regular keyspace) or partial (uses
 # acorn.*_pr keyspace) replication.
-#replication_type: partial
-#replication_type: full
+replication_type: partial
 
 # For testing. The number is in global. Set max_requests to -1 for unlimited.
 #   tweets-010 has 556609 requests.
 #max_requests: 100000
-#simulation_time_dur_in_ms: 10000
-
-# 100% file triggers the EBS rate limiting.
-#fn_youtube_reqs: tweets-100
-#max_requests: -1
-#simulation_time_dur_in_ms: 1000000
-
-# Lots of read misses
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-#simulation_time_dur_in_ms: 100000
-
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-## 3 mins 20 secs
-#simulation_time_dur_in_ms: 200000
-
-# No miss at all!
-#fn_youtube_reqs: tweets-010
-#max_requests: 40000
-#simulation_time_dur_in_ms: 20000
-#youtube_extra_data_size: 512
-
-# Only 21 misses
-# Local DC: ap-southeast-2
-# writes: 4419
-# reads : 19797
-# read misses: 21
-#fn_youtube_reqs: tweets-010
-#max_requests: 160000
-#simulation_time_dur_in_ms: 80000
-#youtube_extra_data_size: 512
-
-# Only 6!
-# Quite a lot of the requests run behind though. This is probably the farthest
-# you can push.
-# 160520-040624
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-## 5 min 20 secs
-#simulation_time_dur_in_ms: 320000
-#youtube_extra_data_size: 512
-#read_req_delay_in_simulation_time_in_ms: 5000
-
-# Full
-# 160520-193423
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-#simulation_time_dur_in_ms: 320000
-#youtube_extra_data_size: 512
-#read_req_delay_in_simulation_time_in_ms: 5000
-#replication_type: full
-
-# Partial
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-#simulation_time_dur_in_ms: 320000
-#youtube_extra_data_size: 512
-#read_req_delay_in_simulation_time_in_ms: 5000
-#replication_type: partial
-
-# Full timescale experiment. Full. Good.
-# 160520-195726
-#fn_youtube_reqs: tweets-010
-#max_requests: -1
-## 30.5 mins
-#simulation_time_dur_in_ms: 1826250
-## Bigger data size in proportioin to the longer experiment time.
-#youtube_extra_data_size: 2922
-#read_req_delay_in_simulation_time_in_ms: 5000
-#replication_type: full
-
-# Full timescale experiment. Partial. User+topic. Good.
-# 160520-203554
-# fn_youtube_reqs: tweets-010
-# max_requests: -1
-# # 30.5 mins
-# simulation_time_dur_in_ms: 1826250
-# # Bigger data size in proportioin to the longer experiment time.
-# youtube_extra_data_size: 2922
-# read_req_delay_in_simulation_time_in_ms: 5000
-# replication_type: partial
-
-## A short timescale experiment. Partial. Good.
-#fn_youtube_reqs: tweets-010
-#max_requests: 30000
-## 30.5 mins
-#simulation_time_dur_in_ms: 30000
-## Bigger data size in proportioin to the longer experiment time.
-#youtube_extra_data_size: 512
-#read_req_delay_in_simulation_time_in_ms: 5000
-##replication_type: partial
-#replication_type: full
-
-# Full timescale. 100% data. Partial.
-fn_youtube_reqs: tweets-100
 max_requests: -1
+
+# The files don't have lonely writes. Repeated reads from the same user is not
+# filtered out.
+#
+# 100% file triggered the EBS rate limiting with 8 GB EBS GP2. Pre-cache them
+# into RAM.
+#fn_youtube_reqs: tweets-100
+fn_youtube_reqs: tweets-100
+
 simulation_time_dur_in_ms: 3600000
+
 # Bigger data size in proportioin to the longer experiment time.
 youtube_extra_data_size: 512
+
 # Give enough time for read requests so that they see partially replicated
 # records in the local dc and updated obj locations for correct fetch-on-demand
 # operations. I noticed requests lag like 3 seconds behind. 10 sec should be
 # good enough.
 read_req_delay_in_simulation_time_in_ms: 10000
-#replication_type: partial
-replication_type: partial
