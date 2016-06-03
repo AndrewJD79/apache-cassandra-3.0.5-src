@@ -967,6 +967,10 @@ acorn_options:
     use_attr_user: true
     use_attr_topic: true
 
+    # Full replication with partial replication metadata traffic. Useful for
+    # (roughly) measuring metadata traffic.
+    full_replication: false
+
     extra_random_replicas_ratio: 0.0
 
     attr_filter_topic: attr-filter-topic
