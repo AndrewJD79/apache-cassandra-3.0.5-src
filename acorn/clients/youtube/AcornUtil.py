@@ -28,11 +28,7 @@ def GenHostfiles():
 		sys.stdout.write("  ")
 
 		tags = GetMyTags()
-		#Cons.P(tags)
-		acorn_exp_param = tags["acorn_exp_param"]
-		#Cons.P(acorn_exp_param)
-
-		inst_descriptions = DescInst.GetInstDescs(acorn_exp_param)
+		inst_descriptions = DescInst.GetInstDescs(tags)
 		#Cons.P(pprint.pformat(inst_descriptions, indent=2, width=100))
 
 		# Take only running instances. There can be other instances like "terminated".
