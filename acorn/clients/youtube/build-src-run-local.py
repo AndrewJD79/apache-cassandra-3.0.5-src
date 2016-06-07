@@ -57,18 +57,18 @@ def BuildSrc():
 
 	# Build package first so that you can terminate early on errors
 	if need_to_build_pkg:
-		with Cons.MeasureTime("Building package file ..."):
+		with Cons.MT("Building package file ..."):
 			Util.RunSubp("mvn package -Dmaven.test.skip=true 2>&1", shell = True)
 
 	if need_to_build_dep:
-		with Cons.MeasureTime("Generating dependency file ..."):
+		with Cons.MT("Generating dependency file ..."):
 			Util.RunSubp("mvn dependency:build-classpath -Dmdep.outputFile=%s 2>&1" % fn_dep_class_path, shell = True)
 			# Force update last modification time
 			Util.RunSubp("touch %s" % fn_dep_class_path, print_cmd = False, print_result = False)
 
 
 def RunLocal(cur_datetime):
-	with Cons.MeasureTime("Running locally ..."):
+	with Cons.MT("Running locally ..."):
 		Util.RunSubp("killall -qw AcornYoutube-0.1.ja[r] || true", shell = True)
 
 		Util.RunSubp("mkdir -p .run", shell = True)

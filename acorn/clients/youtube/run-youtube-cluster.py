@@ -6,6 +6,7 @@ import pprint
 import subprocess
 import sys
 import threading
+import traceback
 
 sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
 import Cons
@@ -36,7 +37,7 @@ def GetRemoteDcPubIps():
 
 
 def RsyncSrcToRemoteDcs():
-	with Cons.MeasureTime("rsync src to remote DCs ..."):
+	with Cons.MT("rsync src to remote DCs ..."):
 		remotePubIps = GetRemoteDcPubIps()
 		_Log(remotePubIps)
 
@@ -99,7 +100,7 @@ def main(argv):
 		fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
 
 		# Build src and run.
-		with Cons.MeasureTime("Running ..."):
+		with Cons.MT("Running ..."):
 			dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, exp_id)
 			dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, exp_id)
 			Util.RunSubp("mkdir -p %s" % dn_pssh_out)
@@ -145,17 +146,6 @@ def main(argv):
 		Util.RunSubp(".run/check-last-run.sh > %s" % fn_summary, shell = True)
 		_Log("A quick summary file is generated at %s" % fn_summary)
 		_Log("You can also run .run/check-last-run.sh")
-
-		# TODO: Upload the result to S3 in us-east-1
-		# - All exp parameters and results
-		# - May want current time
-
-		# TODO
-		# Rsync to mt-s7 for analysis. May want to store to S3 later.
-		#Util.RunSubp("rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"'" \
-		#		" /home/ubuntu/work/acorn/acorn/clients/youtube/.run hobin@130.207.110.229:work/acorn-log", shell = True)
-
-		# TODO: Dequeue the experiment request from SQS
 	except Exception as e:
 		msg = "Exception: %s\n%s" % (e, traceback.format_exc())
 		_Log(msg)

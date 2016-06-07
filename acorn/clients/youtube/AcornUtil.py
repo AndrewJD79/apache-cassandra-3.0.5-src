@@ -24,7 +24,7 @@ def GenHostfiles():
 	if os.path.isfile(fn_pssh_hn) and os.path.isfile(fn_pssh_hn_el) and os.path.isfile(fn_dc_ip_map):
 		return
 
-	with Cons.MeasureTime("Generating host files ..."):
+	with Cons.MT("Generating host files ..."):
 		sys.stdout.write("  ")
 
 		tags = GetMyTags()
