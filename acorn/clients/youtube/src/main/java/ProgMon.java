@@ -45,6 +45,9 @@ class ProgMon {
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
 							));
+
+				_WaitTillSimulationStarts();
+
 				while (true) {
 					synchronized (this) {
 						wait(Conf.acornYoutubeOptions.prog_mon_report_interval_in_ms);
@@ -198,6 +201,15 @@ class ProgMon {
 			} catch (Exception e) {
 				System.out.printf("Exception: %s\n%s\n", e, Util.GetStackTrace(e));
 				System.exit(1);
+			}
+		}
+
+		public void _WaitTillSimulationStarts() {
+			long waitTime = SimTime.GetStartSimulationTime() - System.currentTimeMillis();
+			if (waitTime > 0) {
+				synchronized (this) {
+					wait(waitTime);
+				}
 			}
 		}
 	}
