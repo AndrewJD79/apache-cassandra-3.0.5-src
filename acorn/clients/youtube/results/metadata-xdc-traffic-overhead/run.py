@@ -8,7 +8,7 @@ import ExpLogs
 
 def main(argv):
 	Conf.Load()
-	ExpLogs.Unzip()
+	ExpLogs.UnzipAndCalcMetadataTraffic()
 
 
 if __name__ == "__main__":
