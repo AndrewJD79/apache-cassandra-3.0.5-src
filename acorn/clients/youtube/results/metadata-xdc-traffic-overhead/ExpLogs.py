@@ -81,10 +81,13 @@ class Exp:
 	def CalcMetadataTraffic(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
 		dn1 = [os.path.join(dn, o) for o in os.listdir(dn) if os.path.isdir(os.path.join(dn, o))]
-		if len(dn1) != 1:
+		if len(dn1) == 0:
 			raise RuntimeError("Unexpected %s" % dn1)
-		for f in os.listdir(dn1[0]):
-			f1 = os.path.join(dn1[0], f)
+		# Get the last experiment in the directory. There can be repeated
+		# experiment attempts due to bugs.
+		dn1.sort()
+		for f in os.listdir(dn1[-1]):
+			f1 = os.path.join(dn1[-1], f)
 			self.nodes[f] = Exp.NodeStat(f, f1)
 
 		for ip, ns in self.nodes.iteritems():
@@ -126,7 +129,7 @@ class Exp:
 		sum_r_ot_cnt = 0
 		sum_r_b_cnt = 0
 		fmt = "%-14s %-15s" \
-				" %8d %8d" \
+				" %11d %11d" \
 				" %8d %8d" \
 				" %8d %8d"
 		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
