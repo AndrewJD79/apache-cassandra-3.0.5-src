@@ -204,7 +204,7 @@ class ProgMon {
 			}
 		}
 
-		public void _WaitTillSimulationStarts() {
+		public void _WaitTillSimulationStarts() throws Exception {
 			long waitTime = SimTime.GetStartSimulationTime() - System.currentTimeMillis();
 			if (waitTime > 0) {
 				synchronized (this) {
