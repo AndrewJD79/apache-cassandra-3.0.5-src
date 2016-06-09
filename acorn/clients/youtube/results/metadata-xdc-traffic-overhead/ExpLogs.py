@@ -25,10 +25,14 @@ def UnzipAndCalcMetadataTraffic():
 	_exps = [Exp("with_acorn_metadata", Conf.Get("exp_id")["full_rep_with_acorn_metadata_exchange"])
 			, Exp("without_acorn_metadata", Conf.Get("exp_id")["full_rep_without_acorn_metadata_exchange"])]
 
+	i = 0
 	for e in _exps:
+		if i > 0:
+			Cons.P("")
 		e.Unzip()
 		e.CalcMetadataTraffic()
 		e.PrintMetadataTraffic()
+		i += 1
 
 
 class Exp:
@@ -52,13 +56,27 @@ class Exp:
 			# for free. Traffic to Internet is even more expensive.
 			self.eth0_rx = 0
 			self.eth0_tx = 0
-
-		def AddEth0RxTx(self, r, t):
-			self.eth0_rx += r
-			self.eth0_tx += t
+			self.running_on_time_cnt = 0
+			self.running_on_time_sleep_avg_in_ms = []
+			self.running_behind_cnt = 0
+			self.running_behind_sleep_avg_in_ms = []
 
 		def SetDcName(self, dc_name):
 			self.dc_name = dc_name
+
+		def AddStat(self, t):
+			self.eth0_rx += int(t[13])
+			self.eth0_tx += int(t[14])
+			self.running_on_time_cnt += int(t[15])
+			self.running_on_time_sleep_avg_in_ms.append(int(t[16]))
+			self.running_behind_cnt += int(t[17])
+			self.running_behind_sleep_avg_in_ms.append(int(t[18]))
+
+		def RunningOnTimeSleepAvgInMs(self):
+			return sum(self.running_on_time_sleep_avg_in_ms) / float(len(self.running_on_time_sleep_avg_in_ms))
+
+		def RunningBehindSleepAvgInMs(self):
+			return sum(self.running_behind_sleep_avg_in_ms) / float(len(self.running_behind_sleep_avg_in_ms))
 
 	def CalcMetadataTraffic(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
@@ -99,20 +117,40 @@ class Exp:
 							break
 
 						#Cons.P(line.rstrip())
-						ns.AddEth0RxTx(int(t[13]), int(t[14]))
+						ns.AddStat(t)
 
 	def PrintMetadataTraffic(self):
 		Cons.P("%s:" % self.exp_name)
 		sum_rx = 0
 		sum_tx = 0
-		fmt = "  %-14s %-15s %8d %8d"
+		sum_r_ot_cnt = 0
+		sum_r_b_cnt = 0
+		fmt = "%-14s %-15s" \
+				" %8d %8d" \
+				" %8d %8d" \
+				" %8d %8d"
+		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
+				" eth0_rx eth0_tx" \
+				" running_on_time_cnt running_on_time_sleep_avg_in_ms" \
+				" running_behind_cnt running_behind_sleep_avg_in_ms"))
 		out = []
 		for ip, ns in self.nodes.iteritems():
-			out.append(fmt % (ns.dc_name, ip, ns.eth0_rx, ns.eth0_tx))
+			out.append(fmt % (
+				ns.dc_name, ip
+				, ns.eth0_rx, ns.eth0_tx
+				, ns.running_on_time_cnt, ns.RunningOnTimeSleepAvgInMs()
+				, ns.running_behind_cnt, ns.RunningBehindSleepAvgInMs()))
+
 			sum_rx += ns.eth0_rx
 			sum_tx += ns.eth0_tx
+			sum_r_ot_cnt += ns.running_on_time_cnt
+			sum_r_b_cnt += ns.running_behind_cnt
 
 		# Sort by DC names
 		Cons.P("\n".join(sorted(out)))
 
-		Cons.P(fmt % ("total", "", sum_rx, sum_tx))
+		Cons.P(fmt % (
+			"total", ""
+			, sum_rx, sum_tx
+			, sum_r_ot_cnt, 0.0
+			, sum_r_b_cnt, 0.0))
