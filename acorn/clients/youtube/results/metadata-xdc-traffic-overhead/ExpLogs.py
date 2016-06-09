@@ -105,8 +105,14 @@ class Exp:
 		Cons.P("%s:" % self.exp_name)
 		sum_rx = 0
 		sum_tx = 0
+		fmt = "  %-14s %-15s %8d %8d"
+		out = []
 		for ip, ns in self.nodes.iteritems():
-			Cons.P("  %-10s %-15s %d %d" % (ns.dc_name, ip, ns.eth0_rx, ns.eth0_tx))
+			out.append(fmt % (ns.dc_name, ip, ns.eth0_rx, ns.eth0_tx))
 			sum_rx += ns.eth0_rx
 			sum_tx += ns.eth0_tx
-		Cons.P("  %-10s %-15s %d %d" % ("total", "", sum_rx, sum_tx))
+
+		# Sort by DC names
+		Cons.P("\n".join(sorted(out)))
+
+		Cons.P(fmt % ("total", "", sum_rx, sum_tx))
