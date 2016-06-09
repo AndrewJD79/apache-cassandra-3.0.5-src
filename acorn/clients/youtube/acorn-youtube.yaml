@@ -45,3 +45,7 @@ youtube_extra_data_size: 512
 # operations. I noticed requests lag like 3 seconds behind. 10 sec should be
 # good enough.
 read_req_delay_in_simulation_time_in_ms: 10000
+
+# Useful for measuring client overhead. When set to false, it doessn't send
+# request to Cassandra server.
+use_acorn_server: true

@@ -129,6 +129,7 @@ class Conf {
 		public long max_requests;
 		public long prog_mon_report_interval_in_ms;
 		public String replication_type;
+		public boolean use_acorn_server;
 
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
@@ -153,6 +154,7 @@ class Conf {
 			max_requests = (int) m.get("max_requests");
 			prog_mon_report_interval_in_ms = (int) m.get("prog_mon_report_interval_in_ms");
 			replication_type = (String) m.get("replication_type");
+			use_acorn_server = (boolean) m.get("use_acorn_server");
 		}
 
 		@Override
