@@ -1,6 +1,11 @@
 exp_id:
-  full_rep_with_acorn_metadata_exchange:    160609-111601
-  full_rep_without_acorn_metadata_exchange: 160609-111631
+  # 100%. 30 mins. 512-byte extra data.
+  full_rep_with_acorn_metadata_exchange:    160609-125005
+  full_rep_without_acorn_metadata_exchange: 160609-122706
+
+  # 10%
+  #full_rep_with_acorn_metadata_exchange:    160609-111601
+  #full_rep_without_acorn_metadata_exchange: 160609-111631
 
   #full_rep_with_acorn_metadata_exchange:    160608-161818
   #full_rep_without_acorn_metadata_exchange: 160608-161847
