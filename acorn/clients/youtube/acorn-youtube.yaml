@@ -32,10 +32,9 @@ max_requests: -1
 #
 # 100% file triggered the EBS rate limiting with 8 GB EBS GP2. Pre-cache them
 # into RAM.
-#fn_youtube_reqs: tweets-100
 fn_youtube_reqs: tweets-100
 
-simulation_time_dur_in_ms: 3600000
+simulation_time_dur_in_ms: 1800000
 
 # Bigger data size in proportioin to the longer experiment time.
 youtube_extra_data_size: 512
@@ -49,3 +48,7 @@ read_req_delay_in_simulation_time_in_ms: 10000
 # Useful for measuring client overhead. When set to false, it doessn't send
 # request to Cassandra server.
 use_acorn_server: true
+
+# Useful for loading the same number of requests from a data center as if there
+# were all data centers.
+use_all_dcs_for_finding_the_local_dc_of_a_req: false
