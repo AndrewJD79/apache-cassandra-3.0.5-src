@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,10 +15,10 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 public class DC {
 	// Need to be ordered to get the same ordering from all AWS datacenters when
 	// calculating the cloests DC from a Req.
-	static Set<String> allDCs = new TreeSet<String>();
+	private static Set<String> allDCsAvailable = new TreeSet<String>();
 
-	static String localAz = null;
-	static String localDc = null;
+	private static String localAz = null;
+	private static String localDc = null;
 	static List<String> remoteDCs = new ArrayList<String>();
 
 	static public void Init() throws Exception {
@@ -32,10 +33,10 @@ public class DC {
 					String[] t = line.split("\\s+");
 					if (t.length !=2)
 						throw new RuntimeException(String.format("Unexpcted format [%s]", line));
-					allDCs.add(t[0]);
+					allDCsAvailable.add(t[0]);
 				}
 			}
-			Cons.P("allDCs: %s", String.join(", ", allDCs));
+			Cons.P("allDCsAvailable: %s", String.join(", ", allDCsAvailable));
 
 			// Get local DC and AZ names.
 			Runtime r = Runtime.getRuntime();
@@ -52,7 +53,7 @@ public class DC {
 			Cons.P("Local DC=%s AZ=%s", localDc, localAz);
 
 			// Calc remote DC names.
-			remoteDCs = allDCs.stream() .filter(dc -> (!dc.equals(localDc))).collect(Collectors.toList());
+			remoteDCs = allDCsAvailable.stream().filter(dc -> (!dc.equals(localDc))).collect(Collectors.toList());
 			Cons.P("remoteDCs: %s", String.join(", ", remoteDCs));
 
 			// Cassandra Ec2Snitch sometimes seems to have shorter names, which you
@@ -88,12 +89,31 @@ public class DC {
 	//	return false;
 	//}
 
+	private static Set<String> allDCs = new TreeSet<String>(Arrays.asList(
+				"us-east-1"
+				, "eu-west-1"
+				, "us-west-1"
+				, "us-west-2"
+				, "eu-central-1"
+				, "sa-east-1"
+				, "ap-southeast-1"
+				, "ap-southeast-2"
+				, "ap-northeast-1"
+				));
+
 	static private String _GetClosestDcToReq(YoutubeData.Req r) {
 		String closestDc = null;
 		// Initial value doesn't matter. Just to make the compiler quiet.
 		double shortestDist = 0;
 
-		for (String dc: allDCs) {
+		Set<String> dcs = null;
+		if (Conf.acornYoutubeOptions.use_all_dcs_for_finding_the_local_dc_of_a_req) {
+			dcs = allDCs;
+		} else {
+			dcs = allDCsAvailable;
+		}
+
+		for (String dc: dcs) {
 			Coord c = Conf.acornYoutubeOptions.mapDcCoord.get(dc);
 			if (c == null)
 				throw new RuntimeException(String.format("Unexpected: dc=%s", dc));

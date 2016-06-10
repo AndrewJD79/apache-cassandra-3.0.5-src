@@ -130,7 +130,9 @@ class Conf {
 		public long prog_mon_report_interval_in_ms;
 		public String replication_type;
 		public boolean use_acorn_server;
+		public boolean use_all_dcs_for_finding_the_local_dc_of_a_req;
 
+		@SuppressWarnings("unchecked")
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
 			fn_users = (String) m.get("fn_users");
@@ -155,6 +157,7 @@ class Conf {
 			prog_mon_report_interval_in_ms = (int) m.get("prog_mon_report_interval_in_ms");
 			replication_type = (String) m.get("replication_type");
 			use_acorn_server = (boolean) m.get("use_acorn_server");
+			use_all_dcs_for_finding_the_local_dc_of_a_req = (boolean) m.get("use_all_dcs_for_finding_the_local_dc_of_a_req");
 		}
 
 		@Override

@@ -130,15 +130,10 @@ public class AcornYoutube {
 	private static void DbWriteMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
 
-		if (Conf.acornYoutubeOptions.use_acorn_server) {
-			if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
-				Cass.WriteYoutubeRegular(r);
-			} else {
-				Cass.WriteYoutubePartial(r);
-			}
+		if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
+			Cass.WriteYoutubeRegular(r);
 		} else {
-			// Simulate calling Cassandra server
-			Thread.sleep(1);
+			Cass.WriteYoutubePartial(r);
 		}
 
 		long end = System.nanoTime();
@@ -149,15 +144,10 @@ public class AcornYoutube {
 
 	private static void DbReadMeasureTime(YoutubeData.Req r) throws Exception {
 		long begin = System.nanoTime();
-		if (Conf.acornYoutubeOptions.use_acorn_server) {
-			if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
-				Cass.ReadYoutubeRegular(r);
-			} else {
-				_FetchOnDemand(r);
-			}
+		if (Conf.acornYoutubeOptions.replication_type.equals("full")) {
+			Cass.ReadYoutubeRegular(r);
 		} else {
-			// Simulate calling Cassandra server
-			Thread.sleep(1);
+			_FetchOnDemand(r);
 		}
 		long end = System.nanoTime();
 		LatMon.Read(end - begin);
@@ -181,18 +171,26 @@ public class AcornYoutube {
 
 			// System.currentTimeMillis() is the time from 1970 in UTC. Good!
 			long startTime;
-			if (Cass.LocalDC().equals("us-east")) {
-				long now = System.currentTimeMillis();
-				startTime = now + maxLapTime * 5;
-				Cass.WriteStartTime(startTime);
+			if (Conf.acornYoutubeOptions.use_acorn_server) {
+				if (Cass.LocalDC().equals("us-east")) {
+					long now = System.currentTimeMillis();
+					startTime = now + maxLapTime * 5;
+					Cass.WriteStartTime(startTime);
+				} else {
+					startTime = Cass.ReadStartTimeUntilSucceed();
+				}
 			} else {
-				startTime = Cass.ReadStartTimeUntilSucceed();
+				long now = System.currentTimeMillis();
+				startTime = now + 100;
 			}
 			SimTime.SetStartSimulationTime(startTime);
 		}
 	}
 
 	private static void _FetchOnDemand(YoutubeData.Req r) throws Exception {
+		if (! Conf.acornYoutubeOptions.use_acorn_server)
+			return;
+
 		List<Row> rows = Cass.ReadYoutubePartial(r);
 		if (rows == null)
 			return;

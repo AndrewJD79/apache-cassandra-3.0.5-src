@@ -7,10 +7,10 @@ import java.util.concurrent.atomic.AtomicLong;
 // monitor. Unit is nanosecond.
 
 class LatMon {
-	private static List<Long> _writeTimes = new ArrayList();
-	private static List<Long> _readTimes = new ArrayList();
-	private static List<Long> _writeTimesAll = new ArrayList();
-	private static List<Long> _readTimesAll = new ArrayList();
+	private static List<Long> _writeTimes = new ArrayList<Long>();
+	private static List<Long> _readTimes = new ArrayList<Long>();
+	private static List<Long> _writeTimesAll = new ArrayList<Long>();
+	private static List<Long> _readTimesAll = new ArrayList<Long>();
 
 	public static void Write(long time) {
 		synchronized (_writeTimes) {

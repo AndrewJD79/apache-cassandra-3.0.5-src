@@ -33,6 +33,7 @@ class ProgMon {
 					+ " %9d %9d"
 					+ " %6d %8d"
 					+ " %6d %8d"
+					+ " %5.2f"
 					;
 				Cons.P(Util.BuildHeader(fmt, 0
 							, "simulation_time_dur_ms", "simulation_time", "simulated_time"
@@ -44,6 +45,7 @@ class ProgMon {
 							, "eth0_rx", "eth0_tx"
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
+							, "cpu"
 							));
 
 				_WaitTillSimulationStarts();
@@ -64,7 +66,7 @@ class ProgMon {
 					int wt = _writeTimeouts.get();
 					int rt = _readTimeouts.get();
 
-					Util.RxTx xDcTraffic = XDcTrafficMon.Get();
+					SysMon.RxTx xDcTraffic = SysMon.Eth0RxTx();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -92,6 +94,7 @@ class ProgMon {
 								, xDcTraffic.rx, xDcTraffic.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
+								, SysMon.Cpu()
 								);
 					if (wr == YoutubeData.NumReqs())
 						break;
@@ -121,7 +124,7 @@ class ProgMon {
 					int wt = _writeTimeouts.get();
 					int rt = _readTimeouts.get();
 
-					Util.RxTx xDcTraffic = XDcTrafficMon.Get();
+					SysMon.RxTx xDcTraffic = SysMon.Eth0RxTx();
 
 					int extraSleepRunningOnTimeCnt = _extraSleepRunningOnTimeCnt.get();
 					long extraSleepRunningOnTimeAvg = (extraSleepRunningOnTimeCnt == 0) ?
@@ -149,6 +152,7 @@ class ProgMon {
 								, xDcTraffic.rx, xDcTraffic.tx
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
+								, SysMon.Cpu()
 								);
 				}
 
@@ -218,7 +222,6 @@ class ProgMon {
 	private static Thread _thrMt = new Thread(_mt);
 
 	public static void Start() throws Exception {
-		XDcTrafficMon.Start();
 		_thrMt.start();
 	}
 
@@ -228,7 +231,6 @@ class ProgMon {
 			_mt.notifyAll();
 		}
 		_thrMt.join();
-		XDcTrafficMon.Stop();
 	}
 
 	private static AtomicInteger _writeRequested = new AtomicInteger(0);

@@ -397,7 +397,12 @@ class Cass {
 		BoundStatement bs = new BoundStatement(_ps0);
 		while (true) {
 			try{
-				_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+				if (Conf.acornYoutubeOptions.use_acorn_server) {
+					_GetSession().execute(bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData));
+				} else {
+					Session s = _GetSession();
+					bs.bind(r.vid, r.videoUploader, new TreeSet<String>(r.topics), extraData);
+				}
 				return;
 			} catch (com.datastax.driver.core.exceptions.WriteTimeoutException e) {
 				// com.datastax.driver.core.exceptions.WriteTimeoutException happens here.
@@ -419,12 +424,17 @@ class Cass {
 		Statement s = new SimpleStatement(q).setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 		try {
 			while (true) {
-				ResultSet rs = _GetSession().execute(s);
-				List<Row> rows = rs.all();
-				if (rows.size() == 1)
+				if (Conf.acornYoutubeOptions.use_acorn_server) {
+					ResultSet rs = _GetSession().execute(s);
+					List<Row> rows = rs.all();
+					if (rows.size() == 1)
+						return;
+					// Hope it doesn't get stuck forever. If it happens, report retry count
+					// and make it time out.
+				} else {
+					Session sess = _GetSession();
 					return;
-				// Hope it doesn't get stuck forever. If it happens, report retry count
-				// and make it time out.
+				}
 			}
 		} catch (com.datastax.driver.core.exceptions.DriverException e) {
 			Cons.P("Exception=[%s] query=[%s]", e, q);

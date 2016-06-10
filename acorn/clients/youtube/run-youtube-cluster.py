@@ -9,18 +9,19 @@ import threading
 import traceback
 
 sys.path.insert(0, "/home/ubuntu/work/acorn-tools/util/python")
-import Cons
 import Util
 
 sys.path.insert(0, "%s" % os.path.dirname(__file__))
 import AcornUtil
 
+import Log
+
 
 def GetRemoteDcPubIps():
-	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	curAz = RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_output = False)
 	curRegion = curAz[:-1]
-	#_Log(curAz)
-	#_Log(curRegion)
+	#Log.P(curAz)
+	#Log.P(curRegion)
 
 	fn = "%s/.run/dc-ip-map" % os.path.dirname(__file__)
 	ips = []
@@ -37,9 +38,9 @@ def GetRemoteDcPubIps():
 
 
 def RsyncSrcToRemoteDcs():
-	with Cons.MT("rsync src to remote DCs ..."):
+	with Log.MT("rsync src to remote DCs ..."):
 		remotePubIps = GetRemoteDcPubIps()
-		_Log(remotePubIps)
+		Log.P(remotePubIps)
 
 		threads = []
 		for rIp in remotePubIps:
@@ -52,19 +53,19 @@ def RsyncSrcToRemoteDcs():
 
 
 def ThreadRsync(ip):
-	#_Log(ip)
+	#Log.P(ip)
 	# Make sure you sync only source files. Syncing build result confuses the
 	# build system.
 	cmd = "cd ~/work/acorn/acorn/clients/youtube" \
 			" && rsync -a -e 'ssh -o \"StrictHostKeyChecking no\" -o \"UserKnownHostsFile /dev/null\"' *.py pom.xml *.yaml src" \
 			" %s:work/acorn/acorn/clients/youtube/" % ip
-	Util.RunSubp(cmd, shell = True, print_cmd = False)
+	RunSubp(cmd, print_output = False)
 
 
 def main(argv):
 	try:
 		# Change cwd to where this file is, so that this can be called from anywhere.
-		dn_this = os.path.dirname(__file__)
+		dn_this = os.path.dirname(os.path.abspath(__file__))
 		os.chdir(dn_this)
 
 		# Experiment ID, made of the current datetime in UTC. It is for identifying
@@ -79,7 +80,7 @@ def main(argv):
 			exp_id = argv[1]
 		else:
 			raise RuntimeError("argv=%s" % ",".join(argv))
-		_Log("Exp id: %s" % exp_id)
+		Log.P("Exp id: %s" % exp_id)
 
 		AcornUtil.GenHostfiles()
 
@@ -87,24 +88,23 @@ def main(argv):
 
 		# Delete all records in the experiment tables. The records in
 		# acorn_attr_pop are supposed to expire by themselves.
-		myPubIp = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4")
-		Util.RunSubp("cqlsh -e \"" \
+		myPubIp = RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4", print_output = False)
+		RunSubp("cqlsh -e \"" \
 				"truncate acorn_pr.t0;" \
 				" truncate acorn_obj_loc.obj_loc;" \
 				" truncate acorn_exe_barrier.t0;" \
 				" truncate acorn_exp_meta.t0;" \
 				" truncate acorn_regular.t0;" \
-				"\" %s || true" % myPubIp
-				, shell = True)
+				"\" %s || true" % myPubIp)
 
 		fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
 
 		# Build src and run.
-		with Cons.MT("Running ..."):
+		with Log.MT("Running ..."):
 			dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, exp_id)
 			dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, exp_id)
-			Util.RunSubp("mkdir -p %s" % dn_pssh_out)
-			Util.RunSubp("mkdir -p %s" % dn_pssh_err)
+			RunSubp("mkdir -p %s" % dn_pssh_out)
+			RunSubp("mkdir -p %s" % dn_pssh_err)
 			cmd = "parallel-ssh -h %s" \
 					" --option=\"StrictHostKeyChecking no\"" \
 					" --option=\"UserKnownHostsFile /dev/null\"" \
@@ -116,14 +116,14 @@ def main(argv):
 			[rc, stdouterr] = _RunSubp(cmd)
 
 			# Check output with more
-			Util.RunSubp("more %s/*" % dn_pssh_out, shell = True)
-			Util.RunSubp("more %s/*" % dn_pssh_err, shell = True)
+			RunSubp("more %s/*" % dn_pssh_out)
+			RunSubp("more %s/*" % dn_pssh_err)
 
 			if rc == 0:
-				_Log("Success")
+				Log.P("Success")
 			else:
-				_Log("Failure. rc=%d" % rc)
-			_Log(Util.Indent(stdouterr, 2))
+				Log.P("Failure. rc=%d" % rc)
+			Log.P(Util.Indent(stdouterr, 2))
 		
 		# Make a quick summary reporting tool and generate one.
 		fn = "%s/.run/check-last-run.sh" % os.path.dirname(os.path.realpath(__file__))
@@ -141,19 +141,19 @@ def main(argv):
 					"|# Read latency :" \
 					"\"" \
 					% exp_id)
-		Util.RunSubp("chmod +x %s" % fn);
+		RunSubp("chmod +x %s" % fn);
 		fn_summary = ".run/summary-%s" % exp_id
-		Util.RunSubp(".run/check-last-run.sh > %s" % fn_summary, shell = True)
-		_Log("A quick summary file is generated at %s" % fn_summary)
-		_Log("You can also run .run/check-last-run.sh")
+		RunSubp(".run/check-last-run.sh > %s" % fn_summary)
+		Log.P("A quick summary file is generated at %s" % fn_summary)
+		Log.P("You can also run .run/check-last-run.sh")
 	except Exception as e:
 		msg = "Exception: %s\n%s" % (e, traceback.format_exc())
-		_Log(msg)
+		Log.P(msg)
 		sys.exit(1)
 
 
 def _RunSubp(cmd):
-	_Log(cmd)
+	Log.P(cmd)
 
 	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	# communidate() waits for termination
@@ -162,16 +162,23 @@ def _RunSubp(cmd):
 	return [rc, stdouterr]
 
 
-_fo_log = None
-
-def _Log(msg):
-	fn = "/var/log/acorn/ec2-init.log"
-	global _fo_log
-	if _fo_log is None:
-		_fo_log = open(fn, "a")
-	_fo_log.write("%s: %s\n" % (datetime.datetime.now().strftime("%y%m%d-%H%M%S"), msg))
-	_fo_log.flush()
-	Cons.P(msg)
+def RunSubp(cmd, env_ = os.environ.copy(), shell = True, print_output = True):
+	# http://stackoverflow.com/questions/18421757/live-output-from-subprocess-command
+	# It can read char by char depending on the requirements.
+	lines = ""
+	p = None
+	if shell:
+		p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE)
+	else:
+		p = subprocess.Popen(cmd.split(), shell=shell, stdout=subprocess.PIPE)
+	for line in iter(p.stdout.readline, ''):
+		if print_output:
+			Log.P(line.rstrip())
+		lines += line
+	p.wait()
+	if p.returncode != 0:
+		raise RuntimeError("Error: cmd=[%s] rc=%d" % (cmd, p.returncode))
+	return lines
 
 
 if __name__ == "__main__":

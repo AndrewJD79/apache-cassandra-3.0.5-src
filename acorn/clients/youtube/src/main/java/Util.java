@@ -60,53 +60,6 @@ class Util {
 		return sdf.format(now);
 	}
 
-	static class RxTx {
-		long rx = 0;
-		long tx = 0;
-
-		RxTx(long rx, long tx) {
-			this.rx = rx;
-			this.tx = tx;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("rx=%d tx=%d", rx, tx);
-		}
-	}
-
-	static RxTx GetEth0RxTx() throws IOException, InterruptedException {
-		// http://stackoverflow.com/questions/792024/how-to-execute-system-commands-linux-bsd-using-java
-		Runtime r = Runtime.getRuntime();
-		Process p = r.exec("ifconfig eth0");
-		p.waitFor();
-		BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
-		String line = "";
-		long rx = -1;
-		long tx = -1;
-		while ((line = b.readLine()) != null) {
-			// RX bytes:80098259 (80.0 MB)  TX bytes:62102148 (62.1 MB)
-			{
-				String[] t = line.split("RX bytes:");
-				if (t.length == 2) {
-					String[] t1 = t[1].split(" ");
-					rx = Long.parseLong(t1[0]);
-				}
-			}
-			{
-				String[] t = line.split("TX bytes:");
-				if (t.length == 2) {
-					String[] t1 = t[1].split(" ");
-					tx = Long.parseLong(t1[0]);
-				}
-			}
-		}
-		b.close();
-		if (rx == -1 || tx == -1)
-			throw new RuntimeException("Unable to get RX and TX bytes");
-		return new RxTx(rx, tx);
-	}
-
 	// http://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string
 	public static String GetStackTrace(Throwable t) {
 		StringWriter sw = new StringWriter();
@@ -120,7 +73,7 @@ class Util {
 		// integer, or string
 		Pattern p = Pattern.compile("%(([-+]?[0-9]*\\.?[0-9]*f)|([-+]?[0-9]*d)|([-+]?[0-9]*s))");
 		Matcher m = p.matcher(fmt);
-		List<Integer> nameEndPos = new ArrayList();
+		List<Integer> nameEndPos = new ArrayList<Integer>();
 		int ep = leftMargin;
 		while (m.find()) {
 			// m.group() returns for example %5.1f
@@ -150,7 +103,7 @@ class Util {
 			colmneNamesFlat.append(" ").append(s);
 
 		// Header lines
-		List<StringBuilder> headerLines = new ArrayList();
+		List<StringBuilder> headerLines = new ArrayList<StringBuilder>();
 		for (int i = 0; i < args.length; i ++) {
 			boolean fit = false;
 			for (StringBuilder hl: headerLines) {
@@ -177,7 +130,7 @@ class Util {
 		//	System.out.printf("  %s\n", hl);
 
 		// Indices for column headers starting from 1 for easy gnuplot indexing
-		List<StringBuilder> headerLineIndices = new ArrayList();
+		List<StringBuilder> headerLineIndices = new ArrayList<StringBuilder>();
 		for (int i = 0; i < args.length; i ++) {
 			String idxstr = Integer.toString(i + 1);
 			boolean fit = false;

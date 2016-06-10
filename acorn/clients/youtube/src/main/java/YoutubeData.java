@@ -20,7 +20,7 @@ class YoutubeData {
 		String fn = String.format("%s/%s"
 				, Conf.acornYoutubeOptions.dn_data
 				, Conf.acornYoutubeOptions.fn_youtube_reqs);
-		try (Cons.MT _ = new Cons.MT("Loading data file %s ...", fn)) {
+		try (Cons.MT _ = new Cons.MT("Loading data file %s in the background ...", fn)) {
 			File file = new File(fn);
 			FileInputStream fis = new FileInputStream(file);
 			BufferedInputStream bis = new BufferedInputStream(fis);

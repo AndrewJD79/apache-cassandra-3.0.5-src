@@ -20,7 +20,6 @@ def BuildSrc():
 	dn_this = os.path.dirname(os.path.realpath(__file__))
 	os.chdir(dn_this)
 
-	proj_name = "AcornYoutube"
 	need_to_build_dep = False
 	fn_jar = "target/AcornYoutube-0.1.jar"
 	need_to_build_pkg = False
@@ -32,8 +31,7 @@ def BuildSrc():
 		need_to_build_pkg = True
 
 	# Check modification times
-	mt_src = Util.RunSubp("find src -name \"*.java\" -printf \"%T@\\n\" | sort | tail -n 1"
-			, shell = True, print_cmd = False, print_result = False).strip()
+	mt_src = RunSubp("find src -name \"*.java\" -printf \"%T@\\n\" | sort | tail -n 1", print_output = False)
 	#Cons.P(mt_src)
 
 	# No need to build dependency file everytime source files change
@@ -46,35 +44,52 @@ def BuildSrc():
 	#fi
 
 	if need_to_build_pkg == False:
-		mt_jar = Util.RunSubp("find target -maxdepth 1 -name \"AcornYoutube-*.jar\" -printf \"%T@\\n\""
-				, shell = True, print_cmd = False, print_result = False).strip()
+		mt_jar = RunSubp("find target -maxdepth 1 -name \"AcornYoutube-*.jar\" -printf \"%T@\\n\"", print_output = False).strip()
 		#Cons.P(mt_jar)
 
 		if mt_jar < mt_src:
 			#printf "The package file is outdated\n  %s\n  %s\n" $mt_src $mt_jar
 			need_to_build_pkg = True
 
-
 	# Build package first so that you can terminate early on errors
 	if need_to_build_pkg:
 		with Cons.MT("Building package file ..."):
-			Util.RunSubp("mvn package -Dmaven.test.skip=true 2>&1", shell = True)
+			RunSubp("mvn package -Dmaven.test.skip=true 2>&1")
 
 	if need_to_build_dep:
 		with Cons.MT("Generating dependency file ..."):
-			Util.RunSubp("mvn dependency:build-classpath -Dmdep.outputFile=%s 2>&1" % fn_dep_class_path, shell = True)
+			RunSubp("mvn dependency:build-classpath -Dmdep.outputFile=%s 2>&1" % fn_dep_class_path)
 			# Force update last modification time
-			Util.RunSubp("touch %s" % fn_dep_class_path, print_cmd = False, print_result = False)
+			RunSubp("touch %s" % fn_dep_class_path)
 
 
 def RunLocal(cur_datetime):
 	with Cons.MT("Running locally ..."):
-		Util.RunSubp("killall -qw AcornYoutube-0.1.ja[r] || true", shell = True)
+		RunSubp("killall -qw AcornYoutube-0.1.ja[r] || true")
 
-		Util.RunSubp("mkdir -p .run", shell = True)
+		RunSubp("mkdir -p .run")
 		cmd = "(java -cp target/AcornYoutube-0.1.jar:`cat %s` AcornYoutube %s 2>&1) | tee .run/current-AcornYoutube-stdout-stderr" \
 				% (fn_dep_class_path, cur_datetime)
-		Util.RunSubp(cmd, shell = True)
+		RunSubp(cmd)
+
+
+def RunSubp(cmd, env_ = os.environ.copy(), shell = True, print_output = True):
+	# http://stackoverflow.com/questions/18421757/live-output-from-subprocess-command
+	# It can read char by char depending on the requirements.
+	lines = ""
+	p = None
+	if shell:
+		p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE)
+	else:
+		p = subprocess.Popen(cmd.split(), shell=shell, stdout=subprocess.PIPE)
+	for line in iter(p.stdout.readline, ''):
+		if print_output:
+			Cons.P(line.rstrip())
+		lines += line
+	p.wait()
+	if p.returncode != 0:
+		raise RuntimeError("Error: cmd=[%s] rc=%d" % (cmd, p.returncode))
+	return lines
 
 
 def main(argv):
