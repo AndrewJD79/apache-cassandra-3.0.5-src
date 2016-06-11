@@ -15,7 +15,7 @@ dc_coordinates:
   ap-southeast-2: 151.205505, -33.861500
   ap-northeast-1: 139.755905, 35.684502
 
-num_threads: 1500
+num_threads: 3000
 prog_mon_report_interval_in_ms: 1000
 
 # Replication type: full (uses acorn.*_regular keyspace) or partial (uses
