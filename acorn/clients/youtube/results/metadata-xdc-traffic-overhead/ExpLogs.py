@@ -11,22 +11,16 @@ import Conf
 
 _dn_tmp = None
 
-# 0: with metadata traffic
-# 1: without metadata traffic
-_exps = []
-
 def UnzipAndCalcMetadataTraffic():
 	global _dn_tmp
 	_dn_tmp = "%s/.tmp" % os.path.dirname(__file__)
 	Util.MkDirs(_dn_tmp)
 
-	# TODO: need to be global?
-	global _exps
-	_exps = [Exp("with_acorn_metadata", Conf.Get("exp_id")["full_rep_with_acorn_metadata_exchange"])
+	exps = [Exp("with_acorn_metadata", Conf.Get("exp_id")["full_rep_with_acorn_metadata_exchange"])
 			, Exp("without_acorn_metadata", Conf.Get("exp_id")["full_rep_without_acorn_metadata_exchange"])]
 
 	i = 0
-	for e in _exps:
+	for e in exps:
 		if i > 0:
 			Cons.P("")
 		e.Unzip()
