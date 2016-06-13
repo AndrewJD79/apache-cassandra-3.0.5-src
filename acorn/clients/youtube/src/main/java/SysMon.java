@@ -140,4 +140,22 @@ public class SysMon {
 			throw new RuntimeException("Unable to get RX and TX bytes");
 		return new RxTx(rx, tx);
 	}
+
+	private static long AcornDataDiskUsage() throws IOException, InterruptedException {
+		Runtime r = Runtime.getRuntime();
+		Process p = r.exec("du -s -B1 /home/ubuntu/work/acorn/data");
+		p.waitFor();
+		BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
+		String line = "";
+		long rx = -1;
+		long tx = -1;
+		while ((line = b.readLine()) != null) {
+			// 1056768	/home/ubuntu/work/acorn/data
+			String[] t = line.split(" +");
+			if (t.length != 2) {
+				throw new RuntimeException(String.format("Unexpected. line=[%s]", line));
+			return Long.parseLong(t[0]);
+		}
+		throw new RuntimeException("Unexpected");
+	}
 }

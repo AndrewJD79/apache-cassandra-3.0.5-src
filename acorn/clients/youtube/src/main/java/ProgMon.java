@@ -34,6 +34,7 @@ class ProgMon {
 					+ " %6d %8d"
 					+ " %6d %8d"
 					+ " %5.2f"
+					+ " %12d"
 					;
 				Cons.P(Util.BuildHeader(fmt, 0
 							, "simulation_time_dur_ms", "simulation_time", "simulated_time"
@@ -46,6 +47,7 @@ class ProgMon {
 							, "running_on_time_cnt", "running_on_time_sleep_avg_in_ms"
 							, "running_behind_cnt", "running_behind_avg_in_ms"
 							, "cpu"
+							, "acorn_data_disk_usage"
 							));
 
 				_WaitTillSimulationStarts();
@@ -95,6 +97,7 @@ class ProgMon {
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								, SysMon.Cpu()
+								, SysMon.AcornDataDiskUsage()
 								);
 					if (wr == YoutubeData.NumReqs())
 						break;
@@ -153,6 +156,7 @@ class ProgMon {
 								, extraSleepRunningOnTimeCnt, extraSleepRunningOnTimeAvg
 								, extraSleepRunningBehindCnt, extraSleepRunningBehindAvg
 								, SysMon.Cpu()
+								, SysMon.AcornDataDiskUsage()
 								);
 				}
 
