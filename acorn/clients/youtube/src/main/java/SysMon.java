@@ -141,7 +141,7 @@ public class SysMon {
 		return new RxTx(rx, tx);
 	}
 
-	private static long AcornDataDiskUsage() throws IOException, InterruptedException {
+	public static long AcornDataDiskUsage() throws IOException, InterruptedException {
 		Runtime r = Runtime.getRuntime();
 		Process p = r.exec("du -s -B1 /home/ubuntu/work/acorn/data");
 		p.waitFor();
@@ -151,9 +151,9 @@ public class SysMon {
 		long tx = -1;
 		while ((line = b.readLine()) != null) {
 			// 1056768	/home/ubuntu/work/acorn/data
-			String[] t = line.split(" +");
-			if (t.length != 2) {
-				throw new RuntimeException(String.format("Unexpected. line=[%s]", line));
+			String[] t = line.split("\t+| +");
+			if (t.length != 2)
+				throw new RuntimeException(String.format("Unexpected. line=[%s] t.length=%d", line, t.length));
 			return Long.parseLong(t[0]);
 		}
 		throw new RuntimeException("Unexpected");
