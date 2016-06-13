@@ -36,8 +36,8 @@ fn_youtube_reqs: tweets-100
 
 simulation_time_dur_in_ms: 1800000
 
-# Bigger data size in proportioin to the longer experiment time.
-youtube_extra_data_size: 512
+# Extra random data per record
+youtube_extra_data_size: 10240
 
 # Give enough time for read requests so that they see partially replicated
 # records in the local dc and updated obj locations for correct fetch-on-demand
