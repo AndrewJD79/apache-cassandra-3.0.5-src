@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import traceback
 import zipfile
 
 sys.path.insert(0, "%s/work/acorn-tools/util/python" % os.path.expanduser("~"))
@@ -25,7 +26,8 @@ def UnzipAndCalcMetadataTraffic():
 		if i > 0:
 			Cons.P("")
 		e.Unzip()
-		e.CalcMetadataTraffic()
+		e.ReadTags()
+		e.ReadStatLineByLine()
 		e.PrintStatByNodes()
 		i += 1
 
@@ -36,6 +38,8 @@ class Exp:
 		self.exp_id = exp_id
 		# ip: NodeStat
 		self.nodes = {}
+		# Tags for experiment parameters
+		self.tags = {}
 
 	def Unzip(self):
 		fn_zip = "%s/work/acorn-data/%s.zip" % (os.path.expanduser("~"), self.exp_id)
@@ -100,7 +104,21 @@ class Exp:
 		def CpuMax(self):
 			return max(self.cpu)
 
-	def CalcMetadataTraffic(self):
+	def ReadTags(self):
+		fn = "%s/.tmp/%s/var/log/acorn/ec2-init.log" % (os.path.dirname(__file__), self.exp_id)
+		with open(fn) as fo:
+			for line in fo.readlines():
+				if ": tags_str: " in line:
+					t = line.split(": tags_str: ")
+					if len(t) != 2:
+						raise RuntimeError("Unexpected %s" % line)
+					for tags_kv in t[1].split(","):
+						t1 = tags_kv.split(":")
+						if len(t1) != 2:
+							raise RuntimeError("Unexpected %s" % line)
+						self.tags[t1[0]] = t1[1].rstrip()
+
+	def ReadStatLineByLine(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
 		dn1 = [os.path.join(dn, o) for o in os.listdir(dn) if os.path.isdir(os.path.join(dn, o))]
 		if len(dn1) == 0:
@@ -112,40 +130,53 @@ class Exp:
 			f1 = os.path.join(dn1[-1], f)
 			self.nodes[f] = Exp.NodeStat(f, f1)
 
+		if len(self.nodes) != 9:
+			Cons.P("WARNING: len(self.nodes)=%d" % len(self.nodes))
+
 		for ip, ns in self.nodes.iteritems():
-			with open(ns.fn_log) as fo:
-				pos = "before_body"
-				for line in fo.readlines():
-					#Cons.P(line.strip())
-					# The lines include a full list of AcornOptions and AcornYoutubeOptions
+			try:
+				with open(ns.fn_log) as fo:
+					pos = "before_body"
+					for line in fo.readlines():
+						#Cons.P(line.strip())
+						# The lines include a full list of AcornOptions and AcornYoutubeOptions
 
-					if line.startswith("    Local DC="):
-						#                 0123456789012
-						t = re.split(" +|=", line[13:])
-						#t = line.split("=")
-						ns.SetDcName(t[0])
-						continue
+						if line.startswith("    Local DC="):
+							#                 0123456789012
+							t = re.split(" +|=", line[13:])
+							#t = line.split("=")
+							ns.SetDcName(t[0])
+							continue
 
-					t = line.split()
+						t = line.split()
 
-					if pos == "before_body":
-						if len(t) > 10 and t[0] == "#":
-							header_cnt = 0
-							for i in range(1, 10 + 1):
-								if t[i] == str(i):
-									header_cnt += 1
-							if header_cnt == 10:
-								pos = "in_body"
-					elif pos == "in_body":
-						if len(t) > 0 and t[0] == "#":
-							pos = "after_body"
-							break
+						if pos == "before_body":
+							if len(t) > 10 and t[0] == "#":
+								header_cnt = 0
+								for i in range(1, 10 + 1):
+									if t[i] == str(i):
+										header_cnt += 1
+								if header_cnt == 10:
+									pos = "in_body"
+						elif pos == "in_body":
+							if len(t) > 0 and t[0] == "#":
+								pos = "after_body"
+								break
 
-						#Cons.P(line.rstrip())
-						ns.AddStat(t)
+							#Cons.P(line.rstrip())
+							if "ERROR com.datastax.driver.core.ControlConnection" in line:
+								continue
+							ns.AddStat(t)
+			except Exception as e:
+				Cons.P("Exception: fn_log=%s\nline=[%s]\n%s" % (ns.fn_log, line, traceback.format_exc()))
+				raise e
 
 	def PrintStatByNodes(self):
-		Cons.P("%s:" % self.exp_name)
+		Cons.P("# exp_name=%s" % self.exp_name)
+		Cons.P("# tags:")
+		for k, v in sorted(self.tags.iteritems()):
+			Cons.P("#   %s:%s" % (k, v))
+		Cons.P("#")
 		fmt = "%-14s %-15s" \
 				" %11d %11d" \
 				" %8d %8d" \
