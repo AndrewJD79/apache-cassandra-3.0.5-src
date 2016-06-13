@@ -1,9 +1,31 @@
 exp_id:
-  ut:   160612-234004
-  t:    160612-223714
-  u:    160612-223815
-  na:   160612-223915
-  full: 160611-233904
+  ut:   160613-101239
+  t:    160613-101508
+
+  # Only 8 nodes
+  #exp:   160613-111031
+
+  # Only 8 nodes
+  #exp: 160613-111953
+
+  # Only 8 nodes
+  #na:   160613-112722
+
+  # Something's wrong with this. Needs to be redone.
+  #u:    160613-101619
+
+  # Something's wrong with this one too. Redo.
+  #na:   160613-101725
+
+  # Something's wrong
+  #full: 160613-110848
+
+  # UT has quite high TX numbers. Hmm.
+  #ut:   160612-234004
+  #t:    160612-223714
+  #u:    160612-223815
+  #na:   160612-223915
+  #full: 160611-233904
 
   # 10%. 30 mins. 10K extra data.
   #full_rep_with_acorn_metadata_exchange:    160611-233832
