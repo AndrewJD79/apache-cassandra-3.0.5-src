@@ -26,7 +26,7 @@ def UnzipAndCalcMetadataTraffic():
 			Cons.P("")
 		e.Unzip()
 		e.CalcMetadataTraffic()
-		e.PrintMetadataTraffic()
+		e.PrintStatByNodes()
 		i += 1
 
 
@@ -47,6 +47,9 @@ class Exp:
 			self.dc_name = None
 			self.ip = ip
 			self.fn_log = fn_log
+
+			self.lat_w = []
+			self.lat_r = []
 			# Count only outbound traffic to remote AWS regions. Inbound traffic is
 			# for free. Traffic to Internet is even more expensive.
 			self.eth0_rx = 0
@@ -55,23 +58,47 @@ class Exp:
 			self.running_on_time_sleep_avg_in_ms = []
 			self.running_behind_cnt = 0
 			self.running_behind_sleep_avg_in_ms = []
+			self.cpu = []
+			self.acorn_data_disk_space = 0
 
 		def SetDcName(self, dc_name):
 			self.dc_name = dc_name
 
 		def AddStat(self, t):
+			self.lat_w.append(float(t[6]))
+			self.lat_r.append(float(t[7]))
 			self.eth0_rx += int(t[13])
 			self.eth0_tx += int(t[14])
 			self.running_on_time_cnt += int(t[15])
 			self.running_on_time_sleep_avg_in_ms.append(int(t[16]))
 			self.running_behind_cnt += int(t[17])
 			self.running_behind_sleep_avg_in_ms.append(int(t[18]))
+			self.cpu.append(float(t[19]))
+			self.acorn_data_disk_used = int(t[20])
 
 		def RunningOnTimeSleepAvgInMs(self):
 			return sum(self.running_on_time_sleep_avg_in_ms) / float(len(self.running_on_time_sleep_avg_in_ms))
 
 		def RunningBehindSleepAvgInMs(self):
 			return sum(self.running_behind_sleep_avg_in_ms) / float(len(self.running_behind_sleep_avg_in_ms))
+
+		def LatWavg(self):
+			return sum(self.lat_w) / float(len(self.lat_w))
+
+		def LatRavg(self):
+			return sum(self.lat_r) / float(len(self.lat_r))
+
+		def LatWmax(self):
+			return max(self.lat_w)
+
+		def LatRmax(self):
+			return max(self.lat_r)
+
+		def CpuAvg(self):
+			return sum(self.cpu) / float(len(self.cpu))
+
+		def CpuMax(self):
+			return max(self.cpu)
 
 	def CalcMetadataTraffic(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
@@ -117,38 +144,63 @@ class Exp:
 						#Cons.P(line.rstrip())
 						ns.AddStat(t)
 
-	def PrintMetadataTraffic(self):
+	def PrintStatByNodes(self):
 		Cons.P("%s:" % self.exp_name)
+		fmt = "%-14s %-15s" \
+				" %11d %11d" \
+				" %8d %8d" \
+				" %8d %8d" \
+				" %7.3f %7.3f %7.3f %8.3f" \
+				" %5.2f %5.2f" \
+				" %5.0f"
+		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
+				" eth0_rx eth0_tx" \
+				" running_on_time_cnt running_on_time_sleep_avg_in_ms" \
+				" running_behind_cnt running_behind_sleep_avg_in_ms" \
+				" lat_w_avg lat_w_max lat_r_avg lat_r_max" \
+				" cpu_avg cpu_max" \
+				" disk_used_in_mb" \
+				))
+
+		out = []
 		sum_rx = 0
 		sum_tx = 0
 		sum_r_ot_cnt = 0
 		sum_r_b_cnt = 0
-		fmt = "%-14s %-15s" \
-				" %11d %11d" \
-				" %8d %8d" \
-				" %8d %8d"
-		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
-				" eth0_rx eth0_tx" \
-				" running_on_time_cnt running_on_time_sleep_avg_in_ms" \
-				" running_behind_cnt running_behind_sleep_avg_in_ms"))
-		out = []
+		all_lat_w = []
+		all_lat_r = []
+		all_cpu = []
+		sum_disk_used = 0
 		for ip, ns in self.nodes.iteritems():
 			out.append(fmt % (
 				ns.dc_name, ip
 				, ns.eth0_rx, ns.eth0_tx
 				, ns.running_on_time_cnt, ns.RunningOnTimeSleepAvgInMs()
-				, ns.running_behind_cnt, ns.RunningBehindSleepAvgInMs()))
+				, ns.running_behind_cnt, ns.RunningBehindSleepAvgInMs()
+				, ns.LatWavg(), ns.LatWmax(), ns.LatRavg(), ns.LatRmax()
+				, ns.CpuAvg(), ns.CpuMax()
+				, ns.acorn_data_disk_used / 1000000.0
+				))
 
 			sum_rx += ns.eth0_rx
 			sum_tx += ns.eth0_tx
 			sum_r_ot_cnt += ns.running_on_time_cnt
 			sum_r_b_cnt += ns.running_behind_cnt
+			sum_r_b_cnt += ns.running_behind_cnt
+			all_lat_w += ns.lat_w
+			all_lat_r += ns.lat_r
+			all_cpu = ns.cpu
+			sum_disk_used += ns.acorn_data_disk_used
 
 		# Sort by DC names
 		Cons.P("\n".join(sorted(out)))
 
 		Cons.P(fmt % (
-			"total", ""
+			"overall", ""
 			, sum_rx, sum_tx
 			, sum_r_ot_cnt, 0.0
-			, sum_r_b_cnt, 0.0))
+			, sum_r_b_cnt, 0.0
+			, sum(all_lat_w) / float(len(all_lat_w)), max(all_lat_w), sum(all_lat_r) / float(len(all_lat_r)), max(all_lat_r)
+			, sum(all_cpu) / float(len(all_cpu)), max(all_cpu)
+			, sum_disk_used / 1000000.0
+			))
