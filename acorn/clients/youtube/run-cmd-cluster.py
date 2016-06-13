@@ -36,7 +36,7 @@ def GetRemoteDcPubIps():
 
 
 def RsyncSrcToRemoteDcs():
-	with Cons.MeasureTime("rsync src to remote DCs ..."):
+	with Cons.MT("rsync src to remote DCs ..."):
 		remotePubIps = GetRemoteDcPubIps()
 		Cons.P(remotePubIps)
 
@@ -80,7 +80,7 @@ def RunPssh(cmd):
 	dn_this = os.path.dirname(os.path.realpath(__file__))
 	fn_pssh_hn = "%s/.run/pssh-hostnames" % dn_this
 
-	with Cons.MeasureTime("Running ..."):
+	with Cons.MT("Running ..."):
 		dn_pssh_out = "%s/.run/pssh-out/%s" % (dn_this, _exp_id)
 		dn_pssh_err = "%s/.run/pssh-err/%s" % (dn_this, _exp_id)
 		Util.RunSubp("mkdir -p %s" % dn_pssh_out)
