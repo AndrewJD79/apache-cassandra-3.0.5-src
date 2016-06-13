@@ -16,8 +16,9 @@ def UnzipAndCalcMetadataTraffic():
 	_dn_tmp = "%s/.tmp" % os.path.dirname(__file__)
 	Util.MkDirs(_dn_tmp)
 
-	exps = [Exp("with_acorn_metadata", Conf.Get("exp_id")["full_rep_with_acorn_metadata_exchange"])
-			, Exp("without_acorn_metadata", Conf.Get("exp_id")["full_rep_without_acorn_metadata_exchange"])]
+	exps = []
+	for exp_name, exp_id in Conf.Get("exp_id").iteritems():
+		exps.append(Exp(exp_name, exp_id))
 
 	i = 0
 	for e in exps:
