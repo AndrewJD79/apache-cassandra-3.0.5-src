@@ -41,7 +41,7 @@ def GenHostfiles():
 				fo.write("%s\n" % inst_desc["PublicIpAddress"])
 		Cons.P("Created %s %d" % (fn_pssh_hn, os.path.getsize(fn_pssh_hn)))
 
-		myPubIp = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4", print_cmd = False, print_result = False)
+		myPubIp = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4", print_cmd = False, print_output = False)
 		with open(fn_pssh_hn_el, "w") as fo:
 			for inst_desc in inst_descriptions:
 				if myPubIp == inst_desc["PublicIpAddress"]:
@@ -60,10 +60,10 @@ def GenHostfiles():
 
 
 def GetMyTags():
-	myAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	myAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_output = False)
 	# Trim the last [a-z]
 	myRegion = myAz[0:-1]
-	myEc2InstId = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/instance-id", print_cmd = False, print_result = False)
+	myEc2InstId = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/instance-id", print_cmd = False, print_output = False)
 
 	boto_client = boto3.session.Session().client("ec2", region_name = myRegion)
 

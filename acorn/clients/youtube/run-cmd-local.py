@@ -24,7 +24,7 @@ def main(argv):
 
 def _KillAcornYoutube():
 	out = Util.RunSubp("ps -ef | grep target/AcornYoutube-0.1.ja[r] || true"
-			, shell = True, print_cmd = False, print_result = False)
+			, shell = True, print_cmd = False, print_output = False)
 	if len(out) == 0:
 		print "No process to kill"
 		return

@@ -16,7 +16,7 @@ _exp_id = "edit-cassandra-yaml-restart-cassandra"
 
 
 def GetRemoteDcPubIps():
-	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_result = False)
+	curAz = Util.RunSubp("curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone", print_cmd = False, print_output = False)
 	curRegion = curAz[:-1]
 	#Cons.P(curAz)
 	#Cons.P(curRegion)
