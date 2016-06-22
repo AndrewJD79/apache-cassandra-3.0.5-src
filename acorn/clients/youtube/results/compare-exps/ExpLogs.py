@@ -105,7 +105,7 @@ class Exp:
 			return max(self.cpu)
 
 	def ReadTags(self):
-		fn = "%s/.tmp/%s/var/log/acorn/ec2-init.log" % (os.path.dirname(__file__), self.exp_id)
+		fn = "%s/.tmp/%s/var/log/cloud-init-output.log" % (os.path.dirname(__file__), self.exp_id)
 		with open(fn) as fo:
 			for line in fo.readlines():
 				if ": tags_str: " in line:
