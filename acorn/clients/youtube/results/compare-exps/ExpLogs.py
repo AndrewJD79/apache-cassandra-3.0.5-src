@@ -181,7 +181,7 @@ class Exp:
 				" %11d %11d" \
 				" %8d %8d" \
 				" %8d %8d" \
-				" %7.3f %7.3f %7.3f %8.3f" \
+				" %7.3f %8.3f %7.3f %8.3f" \
 				" %5.2f %5.2f" \
 				" %5.0f"
 		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
