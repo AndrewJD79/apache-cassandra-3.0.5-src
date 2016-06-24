@@ -22,6 +22,11 @@ public class AcornYoutube {
 
 			DC.Init();
 
+			if (Conf.acornYoutubeOptions.test_number_of_reqs_per_dc) {
+				YoutubeData.PrintNumReqsPerDc();
+				return;
+			}
+
 			// Overlap Cass.Init() and YouTube.Load() to save time. Cons.P()s are
 			// messed up, but not a big deal.
 			Thread tCassInit = new Thread() {

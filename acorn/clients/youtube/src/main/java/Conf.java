@@ -119,7 +119,7 @@ class Conf {
 
 	public static class AcornYoutubeOptions {
 		public String dn_data;
-		public String fn_users;
+		public String fn_topic_filter;
 		public String fn_youtube_reqs;
 		public Map<String, DC.Coord> mapDcCoord = new TreeMap<String, DC.Coord>();
 		public long simulation_time_dur_in_ms;
@@ -131,11 +131,12 @@ class Conf {
 		public String replication_type;
 		public boolean use_acorn_server;
 		public boolean use_all_dcs_for_finding_the_local_dc_of_a_req;
+		public boolean test_number_of_reqs_per_dc;
 
 		@SuppressWarnings("unchecked")
 		AcornYoutubeOptions(Map m) {
 			dn_data = (String) m.get("dn_data");
-			fn_users = (String) m.get("fn_users");
+			fn_topic_filter = (String) m.get("fn_topic_filter");
 			fn_youtube_reqs = (String) m.get("fn_youtube_reqs");
 			for (Map.Entry<String, String> e: ((Map<String, String>) m.get("dc_coordinates")).entrySet()) {
 				String k = e.getKey();
@@ -158,6 +159,7 @@ class Conf {
 			replication_type = (String) m.get("replication_type");
 			use_acorn_server = (boolean) m.get("use_acorn_server");
 			use_all_dcs_for_finding_the_local_dc_of_a_req = (boolean) m.get("use_all_dcs_for_finding_the_local_dc_of_a_req");
+			test_number_of_reqs_per_dc = (boolean) m.get("test_number_of_reqs_per_dc");
 		}
 
 		@Override

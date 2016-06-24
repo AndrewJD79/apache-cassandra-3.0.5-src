@@ -62,7 +62,7 @@ public class DC {
 	}
 
 	static public boolean IsLocalDcTheClosestToReq(YoutubeData.Req r) {
-		return _GetClosestDcToReq(r).equals(localDc);
+		return GetClosestDcToReq(r).equals(localDc);
 	}
 
 	// This won't break the tie.
@@ -101,7 +101,7 @@ public class DC {
 				, "ap-northeast-1"
 				));
 
-	static private String _GetClosestDcToReq(YoutubeData.Req r) {
+	static public String GetClosestDcToReq(YoutubeData.Req r) {
 		String closestDc = null;
 		// Initial value doesn't matter. Just to make the compiler quiet.
 		double shortestDist = 0;

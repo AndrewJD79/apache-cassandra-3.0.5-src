@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
@@ -10,6 +11,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
@@ -31,6 +34,9 @@ class YoutubeData {
 			Req lastReq = null;
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
+				if (TopicFilter.Blacklisted(r.topics))
+					continue;
+
 				lastReq = r;
 				//if (i == 0)
 				//	Cons.P(r);
@@ -194,6 +200,48 @@ class YoutubeData {
 			throw new RuntimeException(String.format("Unexpected: bytesRead=%d", bytesRead));
 
 		// http://stackoverflow.com/questions/2905556/how-can-i-convert-a-byte-array-into-a-double-and-back
-		return ByteBuffer.wrap(bytes).getDouble();
+		return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getDouble();
+	}
+
+
+	// For testing
+	public static void PrintNumReqsPerDc() throws Exception {
+		String fn = String.format("%s/%s"
+				, Conf.acornYoutubeOptions.dn_data
+				, Conf.acornYoutubeOptions.fn_youtube_reqs);
+		try (Cons.MT _ = new Cons.MT("Counting number of requests per DC ...", fn)) {
+			File file = new File(fn);
+			FileInputStream fis = new FileInputStream(file);
+			BufferedInputStream bis = new BufferedInputStream(fis);
+
+			long numTweets = _ReadLong(bis);
+			Cons.P("Total number of read and write requests: %d", numTweets);
+
+			Map<String, Long> dcReqs = new TreeMap<String, Long>();
+			for (long i = 0; i < numTweets; i ++) {
+				Req r = new Req(bis);
+				if (TopicFilter.Blacklisted(r.topics))
+					continue;
+
+				String dc = DC.GetClosestDcToReq(r);
+				Long cnt = dcReqs.get(dc);
+				if (cnt == null) {
+					dcReqs.put(dc, 1L);
+				} else {
+					dcReqs.put(dc, cnt + 1);
+				}
+
+				if (i < 100)
+					Cons.P("%s", r);
+			}
+
+			for (Map.Entry<String, Long> e : dcReqs.entrySet()) {
+				String dc = e.getKey();
+				Long cnt = e.getValue();
+				// ap-southeast-2
+				// 01234567890123
+				Cons.P("%-14s %7d", dc, cnt);
+			}
+		}
 	}
 }

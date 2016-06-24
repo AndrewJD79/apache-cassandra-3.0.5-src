@@ -1,7 +1,10 @@
 dn_data: /home/ubuntu/work/acorn-data
 
-fn_users: 150505-104600-users
+# Not used
+#fn_users: 150505-104600-users
 #150812-143151-users-833266
+
+fn_topic_filter: topic-filter
 
 dc_coordinates:
   # Longitude, latitude
@@ -52,3 +55,7 @@ use_acorn_server: true
 # Useful for loading the same number of requests from a data center as if there
 # were all data centers.
 use_all_dcs_for_finding_the_local_dc_of_a_req: false
+
+# Make sure the requests are balanced. Use with
+# use_all_dcs_for_finding_the_local_dc_of_a_req
+test_number_of_reqs_per_dc: false
