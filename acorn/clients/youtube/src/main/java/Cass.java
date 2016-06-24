@@ -616,8 +616,7 @@ class Cass {
 			// what you want in this project.
 			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/DCAwareRoundRobinPolicy.html
 
-			PoolingOptions poolingOptions = cluster.getConfiguration().getPoolingOptions();
-			poolingOptions
+			PoolingOptions po = new PoolingOptions()
 				.setMaxRequestsPerConnection(HostDistance.LOCAL, 32768)
 				.setMaxRequestsPerConnection(HostDistance.REMOTE, 2000);
 
@@ -640,7 +639,7 @@ class Cass {
 				// Timeout while trying to acquire available connection (you may want
 				// to increase the driver number o f per-host connections
 				//   https://datastax.github.io/java-driver/manual/pooling/
-				.withPoolingOptions(poolingOptions)
+				.withPoolingOptions(po)
 				.build();
 
 			// Session instances are thread-safe and usually a single instance is enough per application.
