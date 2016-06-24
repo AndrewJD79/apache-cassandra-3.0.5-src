@@ -89,7 +89,7 @@ def main(argv):
 		# Delete all records in the experiment tables. The records in
 		# acorn_attr_pop are supposed to expire by themselves.
 		myPubIp = RunSubp("curl -s http://169.254.169.254/latest/meta-data/public-ipv4", print_output = False)
-		RunSubp("cqlsh -e \"" \
+		RunSubp("/home/ubuntu/work/acorn/bin/cqlsh -e \"" \
 				"truncate acorn_pr.t0;" \
 				" truncate acorn_obj_loc.obj_loc;" \
 				" truncate acorn_exe_barrier.t0;" \
