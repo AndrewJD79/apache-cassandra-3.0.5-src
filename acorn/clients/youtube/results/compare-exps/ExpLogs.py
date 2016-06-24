@@ -106,6 +106,11 @@ class Exp:
 
 	def ReadTags(self):
 		fn = "%s/.tmp/%s/var/log/cloud-init-output.log" % (os.path.dirname(__file__), self.exp_id)
+
+		# Fall back to the old log file
+		if not os.path.exists(fn):
+			fn = "%s/.tmp/%s/var/log/acorn/ec2-init.log" % (os.path.dirname(__file__), self.exp_id)
+
 		with open(fn) as fo:
 			for line in fo.readlines():
 				if ": tags_str: " in line:
@@ -130,7 +135,7 @@ class Exp:
 			f1 = os.path.join(dn1[-1], f)
 			self.nodes[f] = Exp.NodeStat(f, f1)
 
-		if len(self.nodes) != 9:
+		if len(self.nodes) < 8:
 			Cons.P("WARNING: len(self.nodes)=%d" % len(self.nodes))
 
 		for ip, ns in self.nodes.iteritems():
@@ -178,10 +183,10 @@ class Exp:
 			Cons.P("#   %s:%s" % (k, v))
 		Cons.P("#")
 		fmt = "%-14s %-15s" \
-				" %11d %11d" \
+				" %11d %12d" \
 				" %8d %8d" \
 				" %8d %8d" \
-				" %7.3f %8.3f %7.3f %8.3f" \
+				" %7.3f %8.3f %7.3f %9.3f" \
 				" %5.2f %5.2f" \
 				" %5.0f"
 		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
