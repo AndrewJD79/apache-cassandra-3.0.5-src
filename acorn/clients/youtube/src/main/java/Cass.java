@@ -615,6 +615,12 @@ class Cass {
 			// round-robins over the nodes of the local data center, which is exactly
 			// what you want in this project.
 			// http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/DCAwareRoundRobinPolicy.html
+
+			PoolingOptions poolingOptions = cluster.getConfiguration().getPoolingOptions();
+			poolingOptions
+				.setMaxRequestsPerConnection(HostDistance.LOCAL, 32768)
+				.setMaxRequestsPerConnection(HostDistance.REMOTE, 2000);
+
 			Cluster c = new Cluster.Builder()
 				.addContactPoints(_GetDcPubIp(dcEc2Snitch))
 				// It says,
@@ -630,6 +636,11 @@ class Cass {
 				//		))
 				//
 				// It might not mean which nodes this client connects to.
+
+				// Timeout while trying to acquire available connection (you may want
+				// to increase the driver number o f per-host connections
+				//   https://datastax.github.io/java-driver/manual/pooling/
+				.withPoolingOptions(poolingOptions)
 				.build();
 
 			// Session instances are thread-safe and usually a single instance is enough per application.
