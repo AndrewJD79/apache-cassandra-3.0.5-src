@@ -31,11 +31,15 @@ class YoutubeData {
 			long numTweets = _ReadLong(bis);
 			Cons.P("Total number of read and write requests: %d", numTweets);
 
+			Req firstReq = null;
 			Req lastReq = null;
 			for (long i = 0; i < numTweets; i ++) {
 				Req r = new Req(bis);
 				if (TopicFilter.Blacklisted(r.topics))
 					continue;
+
+				if (firstReq == null)
+					firstReq = r;
 
 				lastReq = r;
 				//if (i == 0)
@@ -53,7 +57,7 @@ class YoutubeData {
 				if (DC.IsLocalDcTheClosestToReq(r))
 					allReqs.put(r);
 			}
-			SimTime.Init(lastReq);
+			SimTime.Init(firstReq, lastReq);
 
 			// Delay read request time by like 1.5 sec in simulation time into the
 			// future so that they are actually read by remote datacenters.
@@ -71,7 +75,7 @@ class YoutubeData {
 			}
 
 			// Check the last read simulated time
-			Cons.P("lastReadSimulatedTime=%d %s", lastReadSimulatedTime
+			Cons.P("lastReadSimulatedTime: %d %s", lastReadSimulatedTime
 					, (new SimpleDateFormat("yyMMdd-HHmmss")).format(new Date(lastReadSimulatedTime)));
 
 			numReqs = allReqs.size();
@@ -139,14 +143,15 @@ class YoutubeData {
 			//Cons.P("type=%s", type);
 		}
 
+		private static DateFormat _df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
 		public long GetSimulatedTime() throws Exception {
 			if (simulatedTime != -1)
 				return simulatedTime;
 
 			// SimpleDateFormat is not thread safe. Oh well.
 			// http://stackoverflow.com/questions/10411944/java-text-simpledateformat-not-thread-safe
-			DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			Date d = df.parse(createdAt);
+			Date d = _df.parse(createdAt);
 			simulatedTime = d.getTime();
 			return simulatedTime;
 		}
@@ -230,9 +235,6 @@ class YoutubeData {
 				} else {
 					dcReqs.put(dc, cnt + 1);
 				}
-
-				if (i < 100)
-					Cons.P("%s", r);
 			}
 
 			for (Map.Entry<String, Long> e : dcReqs.entrySet()) {

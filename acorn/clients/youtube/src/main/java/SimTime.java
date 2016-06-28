@@ -12,16 +12,13 @@ public class SimTime
 	private static long endSimulatedTimeMs;
 	private static long simulatedTimeDurMs;
 
-	public static void Init(YoutubeData.Req lastReq) throws Exception {
-		DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		Date d = df.parse("2010-08-01 00:00:00");
-		//Cons.P(d);
-		startSimulatedTimeMs = d.getTime();
-		//Cons.P(startSimulatedTimeMs);
-
-		// Force calculation of the simulated time in ms
-		lastReq.GetSimulatedTime();
-		endSimulatedTimeMs = lastReq.simulatedTime;
+	public static void Init(YoutubeData.Req firstReq, YoutubeData.Req lastReq) throws Exception {
+		startSimulatedTimeMs = firstReq.GetSimulatedTime();
+		endSimulatedTimeMs = lastReq.GetSimulatedTime();
+		Cons.P("startSimulatedTimeMs : %d %s", startSimulatedTimeMs
+				, (new SimpleDateFormat("yyMMdd-HHmmss")).format(new Date(startSimulatedTimeMs)));
+		Cons.P("endSimulatedTimeMs   : %d %s", endSimulatedTimeMs
+				, (new SimpleDateFormat("yyMMdd-HHmmss")).format(new Date(endSimulatedTimeMs)));
 
 		simulatedTimeDurMs = endSimulatedTimeMs - startSimulatedTimeMs;
 	}
