@@ -8,15 +8,30 @@ fn_topic_filter: topic-filter
 
 dc_coordinates:
   # Longitude, latitude
+  #
+  # N. Virginia
   us-east-1: -77.539001, 39.018002
+  # N. California
   us-west-1: -121.741798, 37.178699
+  # Oregon
   us-west-2: -119.688004, 45.869598
+  # Frankfurt
   eu-central-1: 8.683300, 50.116699
+  # Ireland
   eu-west-1: -6.248900, 53.333099
+  # São Paulo
   sa-east-1: -46.665798, -23.473301
+
+  # Mumbai
+  # ap-south-1:
+  #
+  # Singapore
   ap-southeast-1: 103.855797, 1.293100
+  # Sydney
   ap-southeast-2: 151.205505, -33.861500
+  # Tokyo
   ap-northeast-1: 139.755905, 35.684502
+
 
 num_threads: 3000
 prog_mon_report_interval_in_ms: 1000
