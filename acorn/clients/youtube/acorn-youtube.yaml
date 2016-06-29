@@ -21,10 +21,8 @@ dc_coordinates:
   eu-west-1: -6.248900, 53.333099
   # São Paulo
   sa-east-1: -46.665798, -23.473301
-
   # Mumbai
-  # ap-south-1:
-  #
+  ap-south-1: 72.825798, 18.975000
   # Singapore
   ap-southeast-1: 103.855797, 1.293100
   # Sydney
