@@ -13,6 +13,11 @@ import joptsimple.OptionSet;
 
 import org.yaml.snakeyaml.Yaml;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
 
 class Conf {
 	private static String _dt_begin;
@@ -92,6 +97,7 @@ class Conf {
 			acornYoutubeOptions = new AcornYoutubeOptions((Map) root);
 			Cons.P(acornYoutubeOptions);
 		}
+		System.exit(0);
 	}
 
 	public static class AcornOptions {
@@ -113,7 +119,19 @@ class Conf {
 
 		@Override
 		public String toString() {
-			return ReflectionToStringBuilder.toString(this);
+			//return ReflectionToStringBuilder.toString(this);
+			try {
+				ObjectWriter ow = new ObjectMapper()
+					.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)
+					.writer()
+					//.withDefaultPrettyPrinter()
+					;
+				return ow.writeValueAsString(this);
+			} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+				Cons.P("Exception: %s\n%s", e, Util.GetStackTrace(e));
+				System.exit(1);
+			}
+			return "Unexpected";
 		}
 	}
 
@@ -164,7 +182,14 @@ class Conf {
 
 		@Override
 		public String toString() {
-			return ReflectionToStringBuilder.toString(this);
+			try {
+				ObjectWriter ow = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, Visibility.ANY).writer();
+				return ow.writeValueAsString(this);
+			} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+				Cons.P("Exception: %s\n%s", e, Util.GetStackTrace(e));
+				System.exit(1);
+			}
+			return "Unexpected";
 		}
 	}
 
