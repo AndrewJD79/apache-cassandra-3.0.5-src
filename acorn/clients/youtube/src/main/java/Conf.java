@@ -86,7 +86,7 @@ class Conf {
 			if (! (o instanceof Map))
 				throw new RuntimeException(String.format("Unexpected: o.getClass()=%s", o.getClass().getName()));
 			acornOptions = new AcornOptions((Map) o);
-			Cons.P(acornOptions);
+			Cons.P("AcornOptions: %s", acornOptions);
 		}
 
 		{
@@ -95,9 +95,8 @@ class Conf {
 			if (! (root instanceof Map))
 				throw new RuntimeException(String.format("Unexpected: root.getClass()=%s", root.getClass().getName()));
 			acornYoutubeOptions = new AcornYoutubeOptions((Map) root);
-			Cons.P(acornYoutubeOptions);
+			Cons.P("AcornYoutubeOptions: %s", acornYoutubeOptions);
 		}
-		System.exit(0);
 	}
 
 	public static class AcornOptions {
