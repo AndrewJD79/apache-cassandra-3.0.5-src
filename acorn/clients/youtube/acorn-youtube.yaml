@@ -29,7 +29,8 @@ dc_coordinates:
   ap-southeast-2: 151.205505, -33.861500
   # Tokyo
   ap-northeast-1: 139.755905, 35.684502
-
+  # Seoul
+  ap-northeast-2: 126.731697, 37.453602
 
 num_threads: 3000
 prog_mon_report_interval_in_ms: 1000
