@@ -1,3 +1,4 @@
+import json
 import os
 import pprint
 import re
@@ -127,52 +128,18 @@ class Exp:
 						self.tags[t1[0]] = t1[1].rstrip()
 
 	def ReadConfs(self):
-		pass
-		# Ad hoc parsing is too hard. Let the log use some structured format, like json.
-
-	#	self.conf = {}
-	#	fn = "%s/.tmp/%s/current-AcornYoutube-stdout-stderr" % (os.path.dirname(__file__), self.exp_id)
-	#	with open(fn) as fo:
-	#		for line in fo.readlines():
-	#			line = line.strip()
-	#			#Cons.P(line)
-
-	#			# Ad hoc parsing for now. Could use json formatting for something when
-	#			# generating the log.
-	#			#
-	#			#Conf$AcornOptions@47fd17e3[attr_pop_broadcast_interval_in_ms=1000,attr_pop_monitor_window_size_in_ms=28000,use_attr_user=true,use_attr_topic=true,extra_random_replicas_ratio=0.0]
-	#			m = re.match(r"Conf\$AcornOptions\@.+\[", line)
-	#			if m:
-	#				self.conf["AcornOptions"] = {}
-	#				#Cons.P(m.group(0))
-	#				l1 = line[len(m.group(0)) : -1]
-	#				#Cons.P(l1)
-	#				tokens = re.compile(", *").split(l1)
-	#				for t in tokens:
-	#					#Cons.P(t)
-	#					t1 = t.split("=")
-	#					self.conf["AcornOptions"][t1[0]] = t1[1]
-	#				continue
-
-	#			#Conf$AcornYoutubeOptions@3f0ee7cb[dn_data=/home/ubuntu/work/acorn-data,fn_topic_filter=topic-filter,fn_youtube_reqs=tweets-054,mapDcCoord={ap-northeast-1=DC$Coord@7d417077[longi=139.755905,lati=35.684502], ap-southeast-1=DC$Coord@7dc36524[longi=103.855797,lati=1.2931], ap-southeast-2=DC$Coord@35bbe5e8[longi=151.205505,lati=-33.8615], eu-central-1=DC$Coord@2c8d66b2[longi=8.6833,lati=50.116699], eu-west-1=DC$Coord@5a39699c[longi=-6.2489,lati=53.333099], sa-east-1=DC$Coord@3cb5cdba[longi=-46.665798,lati=-23.473301], us-east-1=DC$Coord@56cbfb61[longi=-77.539001,lati=39.018002], us-west-1=DC$Coord@1134affc[longi=-121.741798,lati=37.178699], us-west-2=DC$Coord@d041cf[longi=-119.688004,lati=45.869598]},simulation_time_dur_in_ms=2100000,num_threads=3000,youtube_extra_data_size=10240,read_req_delay_in_simulation_time_in_ms=10000,max_requests=-1,prog_mon_report_interval_in_ms=1000,replication_type=partial,use_acorn_server=true,use_all_dcs_for_finding_the_local_dc_of_a_req=false,test_number_of_reqs_per_dc=false]
-	#			m = re.match(r"Conf\$AcornYoutubeOptions\@........\[", line)
-	#			if m:
-	#				self.conf["AcornYoutubeOptions"] = {}
-	#				#Cons.P(m.group(0))
-	#				l1 = line[len(m.group(0)) : -1]
-	#				#Cons.P(l1)
-	#				t = l1.split("=", 1)
-	#				key = t[0]
-	#				Cons.P("key: %s" % key)
-	#				remainder = t[1]
-	#				# http://stackoverflow.com/questions/11301387/python-regex-first-shortest-match
-	#				m1 = re.match(r".*?(, *|\[|\()", remainder)
-	#				if m1:
-	#					#Cons.P(m1.group(0))
-	#					if remainder[len(m1.group(0))-1] == ",":
-	#						value = remainder[0:len(m1.group(0))-1]
-	#						Cons.P("value: %s" % value)
-	#					elif remainder[len(m1.group(0))-1] == "[":
+		self.conf = {}
+		fn = "%s/.tmp/%s/current-AcornYoutube-stdout-stderr" % (os.path.dirname(__file__), self.exp_id)
+		with open(fn) as fo:
+			for line in fo.readlines():
+				if line.startswith("AcornOptions: "):
+					#                 01234567890123
+					Cons.P("Acorn options:\n%s" % Util.Indent(pprint.pformat(json.loads(line[14:])), 2))
+				elif line.startswith("AcornYoutubeOptions: "):
+					#                   012345678901234567890
+					ay_opts = json.loads(line[21:])
+					ay_opts.pop("mapDcCoord", None)
+					Cons.P("Acorn Youtube options:\n%s" % Util.Indent(pprint.pformat(ay_opts), 2))
 
 	def ReadStatLineByLine(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
