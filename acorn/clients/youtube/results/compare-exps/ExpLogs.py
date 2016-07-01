@@ -42,8 +42,9 @@ class Exp:
 		# ip: NodeStat
 		self.nodes = {}
 		# Conf options and ec2 instance tags for experiment parameters
-		self.conf = {}
 		self.tags = {}
+		self.confs_acorn = None
+		self.confs_acorn_youtube = None
 
 	def Unzip(self):
 		fn_zip = "%s/work/acorn-data/%s.zip" % (os.path.expanduser("~"), self.exp_id)
@@ -128,18 +129,18 @@ class Exp:
 						self.tags[t1[0]] = t1[1].rstrip()
 
 	def ReadConfs(self):
-		self.conf = {}
 		fn = "%s/.tmp/%s/current-AcornYoutube-stdout-stderr" % (os.path.dirname(__file__), self.exp_id)
 		with open(fn) as fo:
 			for line in fo.readlines():
 				if line.startswith("AcornOptions: "):
 					#                 01234567890123
-					Cons.P("Acorn options:\n%s" % Util.Indent(pprint.pformat(json.loads(line[14:])), 2))
+					self.confs_acorn = json.loads(line[14:])
+					#Cons.P("Acorn options:\n%s" % Util.Indent(pprint.pformat(self.confs_acorn), 2))
 				elif line.startswith("AcornYoutubeOptions: "):
 					#                   012345678901234567890
-					ay_opts = json.loads(line[21:])
-					ay_opts.pop("mapDcCoord", None)
-					Cons.P("Acorn Youtube options:\n%s" % Util.Indent(pprint.pformat(ay_opts), 2))
+					self.confs_acorn_youtube = json.loads(line[21:])
+					self.confs_acorn_youtube.pop("mapDcCoord", None)
+					#Cons.P("Acorn Youtube options:\n%s" % Util.Indent(pprint.pformat(self.confs_acorn_youtube), 2))
 
 	def ReadStatLineByLine(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
@@ -199,6 +200,8 @@ class Exp:
 		Cons.P("# tags:")
 		for k, v in sorted(self.tags.iteritems()):
 			Cons.P("#   %s:%s" % (k, v))
+		Cons.P("# Acorn options:\n%s" % re.sub(re.compile("^", re.MULTILINE), "#   ", pprint.pformat(self.confs_acorn)))
+		Cons.P("# Acorn Youtube options:\n%s" % re.sub(re.compile("^", re.MULTILINE), "#   ", pprint.pformat(self.confs_acorn_youtube)))
 		Cons.P("#")
 		fmt = "%-14s %-15s" \
 				" %11d %12d" \
