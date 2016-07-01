@@ -1,16 +1,74 @@
 exp_id:
-  ut: 160613-121038
-  #ut1:  160613-101239
+  # With the 1-yr data
 
-  t: 160613-141334
-  u:  160613-101508
+  #full-054: 160630-133533
+  #full-076: 160630-133937
+  #full-100: 160630-140521
+  #
+  #partial-010: 160630-144651
+  #partial-076: 160630-133420
+  #
+  # Rename if there are more than 1 keys of the same value
+  #partial-010: 160630-232617
 
-  #u2: 160613-121247
-  #u1: 160613-121133
 
-  na: 160613-121530
+  # Good
+  #partial-054: 160629-002401
 
-  full: 160613-141435
+  # Execution barrier got timed out
+  #e: 160629-002124
+  # 8 DCs
+  #e: 160629-002559
+
+  #partial-tweets-010: 160624-111650
+  #partial-tweets-017: 160624-111952
+  #partial-tweets-054: 160624-112941
+  #partial-tweets-076: 160624-112411
+  #partial-tweets-100: 160624-113831
+
+  #full-tweets-010: 160624-114058
+  #full-tweets-017: 160624-114441
+
+  # NoHostAvailableException: All host(s) tried for query failed
+  #e: 160624-124819
+  #e: 160624-124916
+  #e: 160624-125015
+  #e: 160624-125228
+  #e: 160624-125347
+  #e: 160624-130048
+  #e: 160624-130141
+  #e: 160624-112657
+  #e: 160624-113354
+  #e: 160624-114731
+
+  # Execution barrier timed out
+  #e: 160624-125128
+
+  #partial-tweets-010: 160623-134919
+  #partial-tweets-076: 160623-211952
+  #partial-tweets-100: 160623-212351
+
+  #full-tweets-010: 160624-075405
+
+  # 8 nodes. not useful
+  # 160623-180848
+  # 8 nodes. not useful: 160623-182113
+
+  # 8 node exp. Not useful.
+  #full-tweets-017: 160624-075733
+
+#  ut: 160613-121038
+#  #ut1:  160613-101239
+#
+#  t: 160613-141334
+#  u:  160613-101508
+#
+#  #u2: 160613-121247
+#  #u1: 160613-121133
+#
+#  na: 160613-121530
+#
+#  full: 160613-141435
 
   # Only 8 nodes
   #exp:   160613-111031

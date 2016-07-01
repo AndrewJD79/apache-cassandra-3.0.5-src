@@ -154,7 +154,7 @@ class Exp:
 			f1 = os.path.join(dn1[-1], f)
 			self.nodes[f] = Exp.NodeStat(f, f1)
 
-		if len(self.nodes) < 8:
+		if len(self.nodes) != 11:
 			Cons.P("WARNING: len(self.nodes)=%d" % len(self.nodes))
 
 		for ip, ns in self.nodes.iteritems():
