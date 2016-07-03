@@ -100,6 +100,7 @@ public class DC {
 				, "ap-southeast-1"
 				, "ap-southeast-2"
 				, "ap-northeast-1"
+				, "ap-northeast-2"
 				));
 
 	static public String GetClosestDcToReq(YoutubeData.Req r) {
