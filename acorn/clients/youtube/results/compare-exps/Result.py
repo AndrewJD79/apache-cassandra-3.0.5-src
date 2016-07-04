@@ -65,7 +65,7 @@ class PerNode:
 				" disk_used_in_mb" \
 				)
 
-		def __str__(self):
+	def __str__(self):
 		return _fmt % (
 				self.region
 				#, self.ip
