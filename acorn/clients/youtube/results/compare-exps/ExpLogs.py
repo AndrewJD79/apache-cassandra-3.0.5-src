@@ -11,26 +11,89 @@ import Cons
 import Util
 
 import Conf
+import Result
 
-_dn_tmp = None
+_dn_tmp = "%s/.tmp" % os.path.dirname(__file__)
 
-def UnzipAndCalcMetadataTraffic():
-	global _dn_tmp
-	_dn_tmp = "%s/.tmp" % os.path.dirname(__file__)
+def AcornVsCassByReqDensity():
+	Cons.P("Acorn:")
+	# { exp_name(req_density): exp_id }
+	acorn = {}
+	for exp_name, exp_id in Conf.Get("acorn_vs_cass_by_req_density")["acorn"].iteritems():
+		acorn[exp_name] = Exp(exp_name, exp_id)
+
+	fmt = "%3s" \
+			" %11d %12d" \
+			" %7d" \
+			" %8d" \
+			" %6d %6d" \
+			" %7.3f %8.3f" \
+			" %7.3f %9.3f" \
+			" %5.2f %5.2f" \
+			" %5.0f"
+	Cons.P(Util.BuildHeader(fmt,
+		"request_density" \
+		" eth0_rx eth0_tx" \
+		" running_on_time_cnt" \
+		" running_on_time_sleep_avg_in_ms" \
+		" running_behind_cnt running_behind_min_in_ms" \
+		" lat_w_avg lat_w_max" \
+		" lat_r_avg lat_r_max" \
+		" cpu_avg cpu_max" \
+		" disk_used_in_mb"
+		))
+	for exp_name, e in sorted(acorn.iteritems()):
+		e.Load()
+		o = e.result_overall
+		Cons.P(fmt %
+				(exp_name.split("-")[1]
+					, o.sum_rx, o.sum_tx
+					, o.sum_r_ot_cnt
+					, (sum(o.r_ot_sleep_avg_in_ms) / float(len(o.r_ot_sleep_avg_in_ms)))
+					, o.sum_r_b_cnt
+					, o.r_b_min_in_ms
+					, sum(o.lat_w) / float(len(o.lat_w)), max(o.lat_w)
+					, sum(o.lat_r) / float(len(o.lat_r)), max(o.lat_r)
+					, sum(o.cpu) / float(len(o.cpu)), max(o.cpu)
+					, o.sum_disk_used / 1000000.0
+					)
+				)
+
+	Cons.P("")
+	Cons.P("Cassandra:")
+	cass = {}
+	for exp_name, exp_id in Conf.Get("acorn_vs_cass_by_req_density")["cassandra"].iteritems():
+		cass[exp_name] = Exp(exp_name, exp_id)
+	for exp_name, e in sorted(cass.iteritems()):
+		e.Load()
+		o = e.result_overall
+		Cons.P(fmt %
+				(exp_name.split("-")[1]
+					, o.sum_rx, o.sum_tx
+					, o.sum_r_ot_cnt
+					, (sum(o.r_ot_sleep_avg_in_ms) / float(len(o.r_ot_sleep_avg_in_ms)))
+					, o.sum_r_b_cnt
+					, o.r_b_min_in_ms
+					, sum(o.lat_w) / float(len(o.lat_w)), max(o.lat_w)
+					, sum(o.lat_r) / float(len(o.lat_r)), max(o.lat_r)
+					, sum(o.cpu) / float(len(o.cpu)), max(o.cpu)
+					, o.sum_disk_used / 1000000.0
+					)
+				)
+
+
+def UnzipAndReportExp():
 	Util.MkDirs(_dn_tmp)
 
 	exps = []
-	for exp_name, exp_id in Conf.Get("exp_id").iteritems():
+	for exp_name, exp_id in Conf.Get("new_exps").iteritems():
 		exps.append(Exp(exp_name, exp_id))
 
 	i = 0
 	for e in exps:
 		if i > 0:
 			Cons.P("")
-		e.Unzip()
-		e.ReadTags()
-		e.ReadConfs()
-		e.ReadStatLineByLine()
+		e.Load()
 		e.PrintStatByNodes()
 		i += 1
 
@@ -39,77 +102,31 @@ class Exp:
 	def __init__(self, exp_name, exp_id):
 		self.exp_name = exp_name
 		self.exp_id = exp_id
-		# ip: NodeStat
-		self.nodes = {}
+
 		# Conf options and ec2 instance tags for experiment parameters
 		self.tags = {}
 		self.confs_acorn = None
 		self.confs_acorn_youtube = None
 
-	def Unzip(self):
+		# {ip: per-node stat}
+		self.result_per_node = {}
+
+		# Overall stat
+		self.result_overall = None
+
+
+	def Load(self):
+		self._Unzip()
+		self._ReadTags()
+		self._ReadConfs()
+		self._ReadStatLineByLine()
+
+	def _Unzip(self):
 		fn_zip = "%s/work/acorn-data/%s.zip" % (os.path.expanduser("~"), self.exp_id)
 		with zipfile.ZipFile(fn_zip, "r") as zf:
 			zf.extractall("%s/%s" % (_dn_tmp, self.exp_id))
 
-	class NodeStat:
-		def __init__(self, ip, fn_log):
-			self.dc_name = None
-			self.ip = ip
-			self.fn_log = fn_log
-
-			self.lat_w = []
-			self.lat_r = []
-			# Count only outbound traffic to remote AWS regions. Inbound traffic is
-			# for free. Traffic to Internet is even more expensive.
-			self.eth0_rx = 0
-			self.eth0_tx = 0
-			self.running_on_time_cnt = 0
-			self.running_on_time_sleep_avg_in_ms = []
-			self.running_behind_cnt = 0
-			self.running_behind_sleep_avg_in_ms = []
-			self.cpu = []
-			self.acorn_data_disk_space = 0
-
-		def SetDcName(self, dc_name):
-			self.dc_name = dc_name
-
-		def AddStat(self, t):
-			self.lat_w.append(float(t[6]))
-			self.lat_r.append(float(t[7]))
-			self.eth0_rx += int(t[13])
-			self.eth0_tx += int(t[14])
-			self.running_on_time_cnt += int(t[15])
-			self.running_on_time_sleep_avg_in_ms.append(int(t[16]))
-			self.running_behind_cnt += int(t[17])
-			self.running_behind_sleep_avg_in_ms.append(int(t[18]))
-			self.cpu.append(float(t[19]))
-			self.acorn_data_disk_used = int(t[20])
-
-		def RunningOnTimeSleepAvgInMs(self):
-			return sum(self.running_on_time_sleep_avg_in_ms) / float(len(self.running_on_time_sleep_avg_in_ms))
-
-		def RunningBehindSleepAvgInMs(self):
-			return sum(self.running_behind_sleep_avg_in_ms) / float(len(self.running_behind_sleep_avg_in_ms))
-
-		def LatWavg(self):
-			return sum(self.lat_w) / float(len(self.lat_w))
-
-		def LatRavg(self):
-			return sum(self.lat_r) / float(len(self.lat_r))
-
-		def LatWmax(self):
-			return max(self.lat_w)
-
-		def LatRmax(self):
-			return max(self.lat_r)
-
-		def CpuAvg(self):
-			return sum(self.cpu) / float(len(self.cpu))
-
-		def CpuMax(self):
-			return max(self.cpu)
-
-	def ReadTags(self):
+	def _ReadTags(self):
 		fn = "%s/.tmp/%s/var/log/cloud-init-output.log" % (os.path.dirname(__file__), self.exp_id)
 
 		# Fall back to the old log file
@@ -128,7 +145,7 @@ class Exp:
 							raise RuntimeError("Unexpected %s" % line)
 						self.tags[t1[0]] = t1[1].rstrip()
 
-	def ReadConfs(self):
+	def _ReadConfs(self):
 		fn = "%s/.tmp/%s/current-AcornYoutube-stdout-stderr" % (os.path.dirname(__file__), self.exp_id)
 		with open(fn) as fo:
 			for line in fo.readlines():
@@ -142,7 +159,7 @@ class Exp:
 					self.confs_acorn_youtube.pop("mapDcCoord", None)
 					#Cons.P("Acorn Youtube options:\n%s" % Util.Indent(pprint.pformat(self.confs_acorn_youtube), 2))
 
-	def ReadStatLineByLine(self):
+	def _ReadStatLineByLine(self):
 		dn = "%s/.tmp/%s/pssh-out" % (os.path.dirname(__file__), self.exp_id)
 		dn1 = [os.path.join(dn, o) for o in os.listdir(dn) if os.path.isdir(os.path.join(dn, o))]
 		if len(dn1) == 0:
@@ -152,12 +169,12 @@ class Exp:
 		dn1.sort()
 		for f in os.listdir(dn1[-1]):
 			f1 = os.path.join(dn1[-1], f)
-			self.nodes[f] = Exp.NodeStat(f, f1)
+			self.result_per_node[f] = Result.PerNode(f, f1)
 
-		if len(self.nodes) != 11:
-			Cons.P("WARNING: len(self.nodes)=%d" % len(self.nodes))
+		if len(self.result_per_node) != 11:
+			Cons.P("WARNING: len(self.result_per_node)=%d" % len(self.result_per_node))
 
-		for ip, ns in self.nodes.iteritems():
+		for ip, ns in self.result_per_node.iteritems():
 			try:
 				with open(ns.fn_log) as fo:
 					pos = "before_body"
@@ -169,7 +186,7 @@ class Exp:
 							#                 0123456789012
 							t = re.split(" +|=", line[13:])
 							#t = line.split("=")
-							ns.SetDcName(t[0])
+							ns.SetRegion(t[0])
 							continue
 
 						t = line.split()
@@ -195,69 +212,19 @@ class Exp:
 				Cons.P("Exception: fn_log=%s\nline=[%s]\n%s" % (ns.fn_log, line, traceback.format_exc()))
 				raise e
 
+		# Make overall stat
+		self.result_overall = Result.Overall(self.result_per_node)
+
 	def PrintStatByNodes(self):
-		Cons.P("# exp_name=%s" % self.exp_name)
+		Cons.P("# exp_name: %s" % self.exp_name)
 		Cons.P("# tags:")
 		for k, v in sorted(self.tags.iteritems()):
 			Cons.P("#   %s:%s" % (k, v))
 		Cons.P("# Acorn options:\n%s" % re.sub(re.compile("^", re.MULTILINE), "#   ", pprint.pformat(self.confs_acorn)))
 		Cons.P("# Acorn Youtube options:\n%s" % re.sub(re.compile("^", re.MULTILINE), "#   ", pprint.pformat(self.confs_acorn_youtube)))
 		Cons.P("#")
-		fmt = "%-14s %-15s" \
-				" %11d %12d" \
-				" %8d %8d" \
-				" %8d %8d" \
-				" %7.3f %8.3f %7.3f %9.3f" \
-				" %5.2f %5.2f" \
-				" %5.0f"
-		Cons.P(Util.BuildHeader(fmt, "dc_name ip" \
-				" eth0_rx eth0_tx" \
-				" running_on_time_cnt running_on_time_sleep_avg_in_ms" \
-				" running_behind_cnt running_behind_sleep_avg_in_ms" \
-				" lat_w_avg lat_w_max lat_r_avg lat_r_max" \
-				" cpu_avg cpu_max" \
-				" disk_used_in_mb" \
-				))
 
-		out = []
-		sum_rx = 0
-		sum_tx = 0
-		sum_r_ot_cnt = 0
-		sum_r_b_cnt = 0
-		all_lat_w = []
-		all_lat_r = []
-		all_cpu = []
-		sum_disk_used = 0
-		for ip, ns in self.nodes.iteritems():
-			out.append(fmt % (
-				ns.dc_name, ip
-				, ns.eth0_rx, ns.eth0_tx
-				, ns.running_on_time_cnt, ns.RunningOnTimeSleepAvgInMs()
-				, ns.running_behind_cnt, ns.RunningBehindSleepAvgInMs()
-				, ns.LatWavg(), ns.LatWmax(), ns.LatRavg(), ns.LatRmax()
-				, ns.CpuAvg(), ns.CpuMax()
-				, ns.acorn_data_disk_used / 1000000.0
-				))
-
-			sum_rx += ns.eth0_rx
-			sum_tx += ns.eth0_tx
-			sum_r_ot_cnt += ns.running_on_time_cnt
-			sum_r_b_cnt += ns.running_behind_cnt
-			sum_r_b_cnt += ns.running_behind_cnt
-			all_lat_w += ns.lat_w
-			all_lat_r += ns.lat_r
-			all_cpu = ns.cpu
-			sum_disk_used += ns.acorn_data_disk_used
-
-		# Sort by DC names
-		Cons.P("\n".join(sorted(out)))
-
-		Cons.P(fmt % (
-			"overall", ""
-			, sum_rx, sum_tx
-			, sum_r_ot_cnt, 0.0
-			, sum_r_b_cnt, 0.0
-			, sum(all_lat_w) / float(len(all_lat_w)), max(all_lat_w), sum(all_lat_r) / float(len(all_lat_r)), max(all_lat_r)
-			, sum(all_cpu) / float(len(all_cpu)), max(all_cpu)
-			, sum_disk_used / 1000000.0
-			))
+		Cons.P(Result.PerNode.Header())
+		for rpn in sorted(self.result_per_node.values(), key=lambda rpn: rpn.region):
+			Cons.P(rpn)
+		Cons.P(self.result_overall)

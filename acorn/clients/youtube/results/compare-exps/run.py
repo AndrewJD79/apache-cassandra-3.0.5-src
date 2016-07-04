@@ -8,7 +8,8 @@ import ExpLogs
 
 def main(argv):
 	Conf.Load()
-	ExpLogs.UnzipAndCalcMetadataTraffic()
+	ExpLogs.AcornVsCassByReqDensity()
+	#ExpLogs.UnzipAndReportExp()
 
 
 if __name__ == "__main__":
