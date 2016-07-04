@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.Set;
 import java.util.TreeSet;
@@ -134,15 +136,25 @@ public class DC {
 		return closestDc;
 	}
 
-	static public String GetClosestDcFromCandidates(Set<String> dcs) {
+	private static Pattern _pattern0 = Pattern.compile(".+-.+-\\d$");
+
+	public static String GetClosestDcFromCandidates(Set<String> dcs) {
 		Coord local_coord = Conf.acornYoutubeOptions.mapDcCoord.get(localDc);
 		String closestDc = null;
 		double shortestDist = 0;
 
 		for (String dc: dcs) {
-			Coord c = Conf.acornYoutubeOptions.mapDcCoord.get(dc);
+			Matcher matcher = _pattern0.matcher(dc);
+			String dc1 = null;
+			if (matcher.find()) {
+				dc1 = dc;
+			} else {
+				dc1 = dc + "-1";
+			}
+
+			Coord c = Conf.acornYoutubeOptions.mapDcCoord.get(dc1);
 			if (c == null)
-				throw new RuntimeException(String.format("Unexpected: dc=%s", dc));
+				throw new RuntimeException(String.format("Unexpected: dc1=%s", dc1));
 
 			// Caching the distance result would be an optimization, but I doubt it
 			// would optimize much.
