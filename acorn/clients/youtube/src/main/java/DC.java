@@ -134,6 +134,32 @@ public class DC {
 		return closestDc;
 	}
 
+	static public String GetClosestDcFromCandidates(Set<String> dcs) {
+		Coord local_coord = Conf.acornYoutubeOptions.mapDcCoord.get(localDc);
+		String closestDc = null;
+		double shortestDist = 0;
+
+		for (String dc: dcs) {
+			Coord c = Conf.acornYoutubeOptions.mapDcCoord.get(dc);
+			if (c == null)
+				throw new RuntimeException(String.format("Unexpected: dc=%s", dc));
+
+			// Caching the distance result would be an optimization, but I doubt it
+			// would optimize much.
+			double dcToLocalDc = ArcInRadians(c, local_coord);
+			if (closestDc == null) {
+				closestDc = dc;
+				shortestDist = dcToLocalDc;
+				continue;
+			}
+			if (dcToLocalDc < shortestDist) {
+				closestDc = dc;
+				shortestDist = dcToLocalDc;
+			}
+		}
+		return closestDc;
+	}
+
 	public static class Coord {
 		double longi;
 		double lati;
@@ -167,6 +193,10 @@ public class DC {
 	 *
 	 * @sa http://en.wikipedia.org/wiki/Law_of_haversines
 	 */
+	private static double ArcInRadians(Coord c0, Coord c1)
+	{
+		return ArcInRadians(c0.lati, c0.longi, c1.lati, c1.longi);
+	}
 	private static double ArcInRadians(Coord c, YoutubeData.Req r)
 	{
 		return ArcInRadians(c.lati, c.longi, r.geoLati, r.geoLongi);

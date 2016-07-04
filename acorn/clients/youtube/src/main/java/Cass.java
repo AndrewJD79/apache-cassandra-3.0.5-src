@@ -725,13 +725,18 @@ class Cass {
 				int locSize = locs.size();
 				if (locSize == 0)
 					throw new RuntimeException(String.format("Unexpected: no location for object %s", objId));
-				int rand = (ThreadLocalRandom.current()).nextInt(locSize);
-				int i = 0;
-				for (String l: locs) {
-					if (i == rand)
-						return l;
-					i ++;
-				}
+				return DC.GetClosestDcFromCandidates(locs);
+
+				// Pick a random DC
+				//{
+				//	int rand = (ThreadLocalRandom.current()).nextInt(locSize);
+				//	int i = 0;
+				//	for (String l: locs) {
+				//		if (i == rand)
+				//			return l;
+				//		i ++;
+				//	}
+				//}
 			} else {
 				throw new RuntimeException(String.format("Unexpected: rows.size()=%d", rows.size()));
 			}
@@ -739,7 +744,6 @@ class Cass {
 			Cons.P("Exception=[%s] query=[%s]", e, q);
 			throw e;
 		}
-		return null;
 	}
 
 	static private int _barrier_id = 0;

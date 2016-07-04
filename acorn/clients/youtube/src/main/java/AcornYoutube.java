@@ -197,8 +197,10 @@ public class AcornYoutube {
 			return;
 
 		List<Row> rows = Cass.ReadYoutubePartial(r);
-		if (rows == null)
+		if (rows == null) {
+			// Read timeout. Report to the ProgMon and ignore for now.
 			return;
+		}
 		if (rows.size() == 1)
 			return;
 		if (rows.size() != 0)
@@ -214,8 +216,10 @@ public class AcornYoutube {
 		// Possible since the updates to acorn.*_obj_loc keyspace and acorn.*_pr
 		// keyspace are asynchronous.
 		rows = Cass.ReadYoutubePartial(r, dc);
-		if (rows == null)
+		if (rows == null) {
+			// Read timeout
 			return;
+		}
 		if (rows.size() == 0) {
 			ProgMon.ReadMissObj();
 			return;
