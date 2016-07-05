@@ -944,25 +944,28 @@ acorn_options:
     # Partial replications work on the keyspace (keyspace_prefix).*_pr
     keyspace_prefix: acorn
 
+    # These need to be specified in real time. Acorn doesn't know AcornYoutube
+    # application's configuration.
+    #
     # Broadcast interval
-    #   1 sec. I think it's the minimum. I'm worries about the amount of
-    #   calculation. Building user and topic sets that are popular and
-    #   calculating diffs from the previous broadcast epoch. The amount of xDC
+    #   1 sec in simulation time. The CPU overhead is minimal as can be
+    #   compared by Acorn and unmodified Cassandra.  The amount of xDC
     #   communication is not a concern. Only diffs are sent.
     #
-    #   Simulation time:         1 sec :                    1826.25 sec
-    #                                                        (30.5 min)
-    #   Simulated time : 24 * 3600 sec :  5 * 365.25 * 24 * 3600    sec
+    #   Simulation time:    1 sec :                  30 * 60 sec
+    #   Simulated time : 8766 sec : 0.5 * 365.25 * 24 * 3600 sec
+    #                 (2h 26 mins) <-- calculated value
     #
+    #   Simulation time:        276.985 sec :                   30 * 60 sec
+    #                           <-- calculated value
     #
-    #   Simulation time:        1 sec :                     320 sec
-    #   Simulated time : 493087.5 sec :  5 * 365.25 * 24 * 3600 sec
-    #                      (5.7 days)
+    #   Simulated time : 28 * 24 * 3600 sec :  0.5 * 365.25 * 24 * 3600 sec
     #
     # Popularity monitor window size:
-    #   4 week when using the 10% data
+    #   4 weeks when using the 10% data
+    #
     attr_pop_broadcast_interval_in_ms: 1000
-    attr_pop_monitor_window_size_in_ms: 28000
+    attr_pop_monitor_window_size_in_ms: 275975
 
     use_attr_user: true
     use_attr_topic: true
