@@ -51,9 +51,9 @@ max_requests: -1
 # into RAM.
 fn_youtube_reqs: tweets-100
 
-# 45 mins, which barely saturates the 11-cluster cassandra with the 1-year
+# 30 mins, which barely saturates the 11-cluster cassandra with the 6-month
 # workload and full replication.
-simulation_time_dur_in_ms:  2700000
+simulation_time_dur_in_ms: 1800000
 
 # Extra random data per record
 youtube_extra_data_size: 10240
