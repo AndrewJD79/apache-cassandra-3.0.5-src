@@ -1,23 +1,41 @@
 # Performance of Acorn over unmodified Cassandra by request density.
-# - With the 1-yr data, 11 DCs
+# - With the 6-month data, 11 DCs
+# - Simulation time: 30 mins.
+
 acorn_vs_cass_by_req_density:
   acorn:
-    tweets-010: 160630-144651
-    tweets-017: 160701-104730
-    tweets-054: 160701-100432
-    tweets-076: 160630-133420
-    tweets-100: 160701-100543
-
+    tweets-010: 160705-083140
+    #tweets-010: 160705-092900
+    tweets-017: 160705-083244
+    tweets-054: 160705-083353
+    tweets-076: 160705-083558
+    tweets-100: 160705-083710
   cassandra:
-    tweets-010: 160703-124359
-    tweets-017: 160701-100833
-    tweets-054: 160630-133533
-    tweets-076: 160630-133937
-    tweets-100: 160630-140521
+    tweets-010: 160705-083818
+    tweets-017: 160705-093244
+    tweets-054: 160705-084038
+    tweets-076: 160705-084202
+    tweets-100: 160705-083919
 
+
+## Performance of Acorn over unmodified Cassandra by request density.
+## - With the 1-yr data, 11 DCs
+#acorn_vs_cass_by_req_density:
+#  acorn:
+#    tweets-010: 160630-144651
+#    tweets-017: 160701-104730
+#    tweets-054: 160701-100432
+#    tweets-076: 160630-133420
+#    tweets-100: 160701-100543
+#
+#  cassandra:
+#    tweets-010: 160703-124359
+#    tweets-017: 160701-100833
+#    tweets-054: 160630-133533
+#    tweets-076: 160630-133937
+#    tweets-100: 160630-140521
 
 new_exps:
-  #
   #full-010-failed: 160701-100706
   #
   # Rename if there are more than 1 keys of the same value
