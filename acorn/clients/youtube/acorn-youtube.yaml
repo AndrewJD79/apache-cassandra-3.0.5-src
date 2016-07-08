@@ -1,4 +1,4 @@
-dn_data: /home/ubuntu/work/acorn-data
+dn_data: /mnt/local-ssd0/work/acorn-data
 
 # Not used
 #fn_users: 150505-104600-users
@@ -49,7 +49,7 @@ max_requests: -1
 #
 # 100% file triggered the EBS rate limiting with 8 GB EBS GP2. Pre-cache them
 # into RAM.
-fn_youtube_reqs: tweets-100
+fn_youtube_reqs: 160708-154005-tweets-1571389
 
 # 30 mins, which barely saturates the 11-cluster cassandra with the 6-month
 # workload and full replication.
