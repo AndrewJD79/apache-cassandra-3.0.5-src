@@ -49,7 +49,7 @@ max_requests: -1
 #
 # 100% file triggered the EBS rate limiting with 8 GB EBS GP2. Pre-cache them
 # into RAM.
-fn_youtube_reqs: 160708-154005-tweets-1571389
+fn_youtube_reqs: 160709-203228-tweets-1571389
 
 # 30 mins, which barely saturates the 11-cluster cassandra with the 6-month
 # workload and full replication.
