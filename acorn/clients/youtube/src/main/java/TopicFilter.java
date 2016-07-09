@@ -14,8 +14,8 @@ class TopicFilter {
 		if (_initialized)
 			return;
 
-		String fn = String.format("%s/%s"
-				, Conf.acornYoutubeOptions.dn_data
+		String fn = String.format("%s/work/acorn-data/%s"
+				, System.getProperty("user.home")
 				, Conf.acornYoutubeOptions.fn_topic_filter);
 
 		try (BufferedReader br = new BufferedReader(new FileReader(fn))) {
