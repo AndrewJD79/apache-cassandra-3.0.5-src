@@ -143,7 +143,8 @@ def main(argv):
 					% exp_id)
 		RunSubp("chmod +x %s" % fn);
 		fn_summary = ".run/summary-%s" % exp_id
-		RunSubp(".run/check-last-run.sh > %s" % fn_summary)
+		# true is needed for when grep doesn't find any matches
+		RunSubp(".run/check-last-run.sh > %s || true" % fn_summary)
 		Log.P("A quick summary file is generated at %s" % fn_summary)
 		Log.P("You can also run .run/check-last-run.sh")
 	except Exception as e:
