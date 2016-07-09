@@ -122,7 +122,7 @@ class Exp:
 		self._ReadStatLineByLine()
 
 	def _Unzip(self):
-		fn_zip = "%s/work/acorn-data/%s.zip" % (os.path.expanduser("~"), self.exp_id)
+		fn_zip = "%s/work/acorn-log/%s.zip" % (os.path.expanduser("~"), self.exp_id)
 		with zipfile.ZipFile(fn_zip, "r") as zf:
 			zf.extractall("%s/%s" % (_dn_tmp, self.exp_id))
 
