@@ -59,7 +59,7 @@ public class AcornYoutube {
 
 			CreateSchema();
 
-			MakeRequest();
+			MakeRequests();
 
 			// Seems like leftover Cassandra cluster and session objects prevent the
 			// process from terminating. Force quit. Don't think it's a big deal for
@@ -84,7 +84,7 @@ public class AcornYoutube {
 		Cass.WaitForSchemaCreation();
 	}
 
-	private static void MakeRequest() throws Exception {
+	private static void MakeRequests() throws Exception {
 		int numThreads = Conf.acornYoutubeOptions.num_threads;
 		List<Thread> reqThreads = new ArrayList<Thread>();
 		for (int i = 0; i < numThreads; i ++) {
@@ -100,8 +100,13 @@ public class AcornYoutube {
 		for (Thread t: reqThreads)
 			t.start();
 
+		// Some requests never finishes when Cassandra fails to write or read.
+		// Ignore them after maxWaitTime.
+		long maxWaitTime = Conf.acornYoutubeOptions.simulation_time_dur_in_ms
+			+ Conf.acornYoutubeOptions.read_req_delay_in_simulation_time_in_ms
+			+ 60000;
 		for (Thread t: reqThreads)
-			t.join();
+			t.join(maxWaitTime);
 
 		ProgMon.Stop();
 	}
