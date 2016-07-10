@@ -94,8 +94,6 @@ public class AcornYoutube {
 
 		_AgreeOnStartTime();
 
-		ProgMon.Start();
-
 		Cons.P("Making requests ...");
 		for (Thread t: reqThreads)
 			t.start();
@@ -108,8 +106,16 @@ public class AcornYoutube {
 			+ Conf.acornYoutubeOptions.simulation_time_dur_in_ms
 			+ Conf.acornYoutubeOptions.read_req_delay_in_simulation_time_in_ms
 			+ 2000;
-		for (Thread t: reqThreads)
-			t.join(maxWaitTime);
+		Cons.P("  maxWaitTime: %d ms", maxWaitTime);
+
+		ProgMon.Start();
+		Thread.sleep(maxWaitTime);
+
+		int i = 0;
+		for (Thread t: reqThreads) {
+			t.join(0, 1);
+			i ++;
+		}
 
 		ProgMon.Stop();
 	}
