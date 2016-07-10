@@ -53,7 +53,10 @@ fn_youtube_reqs: 160709-203228-tweets-1571389
 
 # 30 mins, which barely saturates the 11-cluster cassandra with the 6-month
 # workload and full replication.
-simulation_time_dur_in_ms: 1800000
+#simulation_time_dur_in_ms: 1800000
+#
+# 20 mins, for the saturation test.
+simulation_time_dur_in_ms: 1200000
 
 # Extra random data per record
 youtube_extra_data_size: 10240
