@@ -101,10 +101,13 @@ public class AcornYoutube {
 			t.start();
 
 		// Some requests never finishes when Cassandra fails to write or read.
-		// Ignore them after maxWaitTime.
-		long maxWaitTime = Conf.acornYoutubeOptions.simulation_time_dur_in_ms
+		// Ignore them after maxWaitTime. All will be joined 2 seconds after they
+		// are done.
+		long maxWaitTime =
+			(SimTime.GetStartSimulationTime() - System.currentTimeMillis())
+			+ Conf.acornYoutubeOptions.simulation_time_dur_in_ms
 			+ Conf.acornYoutubeOptions.read_req_delay_in_simulation_time_in_ms
-			+ 60000;
+			+ 2000;
 		for (Thread t: reqThreads)
 			t.join(maxWaitTime);
 
