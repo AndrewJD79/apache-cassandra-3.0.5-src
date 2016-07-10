@@ -952,20 +952,26 @@ acorn_options:
     #   compared by Acorn and unmodified Cassandra.  The amount of xDC
     #   communication is not a concern. Only diffs are sent.
     #
-    #   Simulation time:    1 sec :                  30 * 60 sec
-    #   Simulated time : 8766 sec : 0.5 * 365.25 * 24 * 3600 sec
+    #   Simulation time:     1 sec :                  30 * 60 sec
+    #   Simulated time :  8766 sec : 0.5 * 365.25 * 24 * 3600 sec
     #                 (2h 26 mins) <-- calculated value
+    #attr_pop_broadcast_interval_in_ms: 1000
     #
+    #   Simulation time:     1 sec :                  20 * 60 sec
+    #   Simulated time : 13149 sec : 0.5 * 365.25 * 24 * 3600 sec
+    #                 (3h 39 mins) <-- calculated value
+    attr_pop_broadcast_interval_in_ms: 1000
+
+    # Popularity monitor window size: 4 weeks
     #   Simulation time:        276.985 sec :                   30 * 60 sec
     #                           <-- calculated value
-    #
     #   Simulated time : 28 * 24 * 3600 sec :  0.5 * 365.25 * 24 * 3600 sec
+    #attr_pop_monitor_window_size_in_ms: 275975
     #
-    # Popularity monitor window size:
-    #   4 weeks when using the 10% data
-    #
-    attr_pop_broadcast_interval_in_ms: 1000
-    attr_pop_monitor_window_size_in_ms: 275975
+    #   Simulation time:        183.984 sec :                   20 * 60 sec
+    #                           <-- calculated value
+    #   Simulated time : 28 * 24 * 3600 sec :  0.5 * 365.25 * 24 * 3600 sec
+    attr_pop_monitor_window_size_in_ms: 183984
 
     use_attr_user: true
     use_attr_topic: true
