@@ -194,9 +194,11 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_pr, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
-					// It shouldn't already exist. The keyspace name is supposed to be
-					// unique for each run. No need to catch AlreadyExistsException.
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+						// Ignore if already exists
+					}
 
 					// A minimal schema to prove the concept.
 					q = String.format("CREATE TABLE %s.t0"
@@ -207,9 +209,11 @@ class Cass {
 							+ ", PRIMARY KEY (video_id)"	// Primary key is mandatory
 							+ ");",
 							_ks_pr);
-
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 				}
 
 				// Attribute popularity keyspace
@@ -218,19 +222,28 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_attr_pop, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 
 					// These are periodically updated (broadcasted). Cassandra doesn't like "-".
 					for (String dc: _allDCs) {
 						q = String.format("CREATE TABLE %s.%s_user (user_id text, PRIMARY KEY (user_id));"
 								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
-						_GetSession().execute(s);
+						try {
+							_GetSession().execute(s);
+						} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+						}
 
 						q = String.format("CREATE TABLE %s.%s_topic (topic text, PRIMARY KEY (topic));"
 								, _ks_attr_pop, dc.replace("-", "_"));
 						s = new SimpleStatement(q).setConsistencyLevel(cl);
-						_GetSession().execute(s);
+						try {
+							_GetSession().execute(s);
+						} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+						}
 					}
 				}
 
@@ -240,12 +253,18 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_obj_loc, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 
 					q = String.format("CREATE TABLE %s.obj_loc (obj_id text, locations set<text>, PRIMARY KEY (obj_id));"
 							, _ks_obj_loc);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 				}
 
 				// Execution barrier keyspace
@@ -254,12 +273,18 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_exe_barrier, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 
 					q = String.format("CREATE TABLE %s.t0 (barrier_id text, PRIMARY KEY (barrier_id));"
 							, _ks_exe_barrier);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 				}
 
 				// Experiment metadata keyspace
@@ -268,12 +293,18 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_exp_meta, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 
 					q = String.format("CREATE TABLE %s.t0 (key text, value text, PRIMARY KEY (key));"
 							, _ks_exp_meta);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 				}
 
 				// A regular keyspace for comparison. Useful for a full replication
@@ -283,7 +314,10 @@ class Cass {
 							+ " 'class' : 'NetworkTopologyStrategy'%s};"
 							, _ks_regular, q_dcs);
 					Statement s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 
 					q = String.format("CREATE TABLE %s.t0"
 							+ " (video_id text"			// YouTube video id. Primary key
@@ -294,7 +328,10 @@ class Cass {
 							+ ");",
 							_ks_regular);
 					s = new SimpleStatement(q).setConsistencyLevel(cl);
-					_GetSession().execute(s);
+					try {
+						_GetSession().execute(s);
+					} catch (com.datastax.driver.core.exceptions.AlreadyExistsException e) {
+					}
 				}
 			} catch (com.datastax.driver.core.exceptions.DriverException e) {
 				Cons.P("Exception %s. query=[%s]", e, q);
