@@ -1,21 +1,47 @@
 # Performance of Acorn over unmodified Cassandra by request density.
 # - With the 6-month data, 11 DCs
 # - Simulation time: 30 mins.
+# - New data including lonely requests
 
 acorn_vs_cass_by_req_density:
   acorn:
-    tweets-010: 160705-083140
-    #tweets-010: 160705-092900
-    tweets-017: 160705-083244
-    tweets-054: 160705-083353
-    tweets-076: 160705-083558
-    tweets-100: 160705-083710
+    partial-0131812: 160709-235913
+    partial-0434435: 160709-235915
+    #partial-0434435: 160710-075524
+    partial-0767461: 160709-235922
+    #partial-0767461: 160710-075534
+    partial-1109828: 160709-235917
+    #partial-1109828: 160710-075527
+    partial-1466911: 160710-001211
+    #partial-1466911: 160710-005920
+    #partial-1466911: 160710-075521
+
   cassandra:
-    tweets-010: 160705-083818
-    tweets-017: 160705-093244
-    tweets-054: 160705-084038
-    tweets-076: 160705-084202
-    tweets-100: 160705-083919
+    full-0131812: 160709-235920
+    #full=0131812: 160710-075537
+    full-0434435: 160709-235926
+    #full-0434435: 160710-075531
+    full-0767461: 160709-235927
+    #full-0767461: 160710-075532
+    full-1109828: 160710-005916
+    #full-1109828: 160710-085532
+    full-1466911: 160709-235930
+    #full-1466911: 160710-001213
+    #full-1466911: 160710-075529
+
+#  acorn:
+#    tweets-010: 160705-083140
+#    #tweets-010: 160705-092900
+#    tweets-017: 160705-083244
+#    tweets-054: 160705-083353
+#    tweets-076: 160705-083558
+#    tweets-100: 160705-083710
+#  cassandra:
+#    tweets-010: 160705-083818
+#    tweets-017: 160705-093244
+#    tweets-054: 160705-084038
+#    tweets-076: 160705-084202
+#    tweets-100: 160705-083919
 
 
 ## Performance of Acorn over unmodified Cassandra by request density.
@@ -36,6 +62,9 @@ acorn_vs_cass_by_req_density:
 #    tweets-100: 160630-140521
 
 new_exps:
+  # Create schema exeution barrier timed-out
+  #e: 160710-075525
+
   #full-010-failed: 160701-100706
   #
   # Rename if there are more than 1 keys of the same value
