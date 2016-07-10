@@ -116,8 +116,8 @@ def main(argv):
 			[rc, stdouterr] = _RunSubp(cmd)
 
 			# Check output with more
-			RunSubp("more %s/*" % dn_pssh_out)
-			RunSubp("more %s/*" % dn_pssh_err)
+			#RunSubp("more %s/*" % dn_pssh_out)
+			#RunSubp("more %s/*" % dn_pssh_err)
 
 			if rc == 0:
 				Log.P("Success")
