@@ -22,7 +22,7 @@ def AcornVsCassByReqDensity():
 	for exp_name, exp_id in Conf.Get("acorn_vs_cass_by_req_density")["acorn"].iteritems():
 		acorn[exp_name] = Exp(exp_name, exp_id)
 
-	fmt = "%3s" \
+	fmt = "%7s" \
 			" %11d %12d" \
 			" %7d" \
 			" %8d" \
