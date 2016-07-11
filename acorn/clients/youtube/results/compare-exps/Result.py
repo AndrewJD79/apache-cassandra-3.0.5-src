@@ -39,15 +39,27 @@ class PerNode:
 		self.region = region
 
 	def AddStat(self, t):
-		self.lat_w.append(float(t[6]))
-		self.lat_r.append(float(t[7]))
+		num_w = int(t[4])
+		num_r = int(t[5])
+
+		for i in range(num_w):
+			self.lat_w.append(float(t[6]))
+
+		for i in range(num_r):
+			self.lat_r.append(float(t[7]))
+
 		self.eth0_rx += int(t[13])
 		self.eth0_tx += int(t[14])
 		self.running_on_time_cnt += int(t[15])
-		self.running_on_time_sleep_avg_in_ms.append(int(t[16]))
+
+		for i in range(int(t[15])):
+			self.running_on_time_sleep_avg_in_ms.append(int(t[16]))
+
 		self.running_behind_cnt += int(t[17])
 		self.running_behind_min_in_ms = min(int(t[18]), self.running_behind_min_in_ms)
+
 		self.cpu.append(float(t[19]))
+
 		self.acorn_data_disk_used = int(t[20])
 
 	@staticmethod
