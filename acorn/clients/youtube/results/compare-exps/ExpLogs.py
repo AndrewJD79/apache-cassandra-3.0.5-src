@@ -19,17 +19,19 @@ def AcornVsCassByReqDensity():
 	Cons.P("Acorn:")
 	# { exp_name(req_density): exp_id }
 	acorn = {}
-	for exp_name, exp_id in Conf.Get("acorn_vs_cass_by_req_density")["acorn"].iteritems():
-		acorn[exp_name] = Exp(exp_name, exp_id)
+	acorn_exps = Conf.Get("acorn_vs_cass_by_req_density").get("acorn")
+	if acorn_exps is not None:
+		for exp_name, exp_id in acorn_exps.iteritems():
+			acorn[exp_name] = Exp(exp_name, exp_id)
 
 	fmt = "%7s" \
 			" %11d %12d" \
 			" %7d" \
 			" %8d" \
-			" %6d %6d" \
+			" %6d %7d" \
 			" %7.3f %8.3f" \
-			" %7.3f %9.3f" \
-			" %5.2f %5.2f" \
+			" %7.3f %10.3f" \
+			" %5.2f %6.2f" \
 			" %5.0f"
 	Cons.P(Util.BuildHeader(fmt,
 		"request_density" \
@@ -62,8 +64,10 @@ def AcornVsCassByReqDensity():
 	Cons.P("")
 	Cons.P("Cassandra:")
 	cass = {}
-	for exp_name, exp_id in Conf.Get("acorn_vs_cass_by_req_density")["cassandra"].iteritems():
-		cass[exp_name] = Exp(exp_name, exp_id)
+	cass_exps = Conf.Get("acorn_vs_cass_by_req_density").get("cassandra")
+	if cass_exps is not None:
+		for exp_name, exp_id in cass_exps.iteritems():
+			cass[exp_name] = Exp(exp_name, exp_id)
 	for exp_name, e in sorted(cass.iteritems()):
 		e.Load()
 		o = e.result_overall
@@ -86,7 +90,7 @@ def UnzipAndReportExp():
 	Util.MkDirs(_dn_tmp)
 
 	exps = []
-	for exp_name, exp_id in Conf.Get("new_exps").iteritems():
+	for exp_name, exp_id in sorted(Conf.Get("new_exps").iteritems()):
 		exps.append(Exp(exp_name, exp_id))
 
 	i = 0
