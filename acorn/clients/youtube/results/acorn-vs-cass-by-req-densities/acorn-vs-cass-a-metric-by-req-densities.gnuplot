@@ -26,8 +26,10 @@ set xrange [0:100]
 
 set key top left
 
-set pointsize 0.3
+set pointsize 0.4
 
 plot \
-"data-acorn" u ($1*100.0/MAX_NUM_REQS):(column(Y_COL)*Y_ALPHA) w linespoints pt 7 t "Acorn (U+T)", \
-"data-cass"  u ($1*100.0/MAX_NUM_REQS):(column(Y_COL)*Y_ALPHA) w linespoints pt 7 lc rgb "blue" t "Cassandra"
+"data-cass"  u ($1*100.0/MAX_NUM_REQS):(column(Y_COL)*Y_ALPHA)                  w lp pt 6 lt 0 lc rgb "blue" not , \
+"data-cass"  u ($1*100.0/MAX_NUM_REQS):($16 == 0 ? column(Y_COL)*Y_ALPHA : 1/0) w lp pt 7      lc rgb "blue" t "Cassandra", \
+"data-acorn" u ($1*100.0/MAX_NUM_REQS):(column(Y_COL)*Y_ALPHA)                  w lp pt 7 lt 0 lc rgb "red"  not, \
+"data-acorn" u ($1*100.0/MAX_NUM_REQS):($16 == 0 ? column(Y_COL)*Y_ALPHA : 1/0) w lp pt 7      lc rgb "red"  t "Acorn (U+T)"
