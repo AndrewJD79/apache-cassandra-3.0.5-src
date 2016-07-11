@@ -66,7 +66,10 @@ class PerNode:
 		self.running_behind_cnt += int(t[17])
 		self.running_behind_min_in_ms = min(int(t[18]), self.running_behind_min_in_ms)
 
-		self.cpu.append(float(t[19]))
+		if t[19] == "NaN":
+			self.cpu.append(0.0)
+		else:
+			self.cpu.append(float(t[19]))
 
 		self.acorn_data_disk_used = int(t[20])
 
