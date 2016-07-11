@@ -63,8 +63,10 @@ public class SysMon {
 				//Cons.P("%d %d %d %d", usr, nice, system, idle, total);
 
 				if (_prev_total != -1) {
-					cpu_usage = (double)((usr + nice + system) - (_prev_usr + _prev_nice + _prev_system))
-						/ (total - _prev_total);
+					if (total != _prev_total) {
+						cpu_usage = (double)((usr + nice + system) - (_prev_usr + _prev_nice + _prev_system))
+							/ (total - _prev_total);
+					}
 				}
 
 				_prev_usr = usr;
