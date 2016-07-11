@@ -9,12 +9,12 @@ _fmt = "%-14s" \
 		" %11d %12d" \
 		" %7d" \
 		" %8d" \
-		" %6d %6d" \
+		" %6d %7d" \
 		" %7.3f %8.3f" \
-		" %7.3f %9.3f" \
+		" %7.3f %10.3f" \
 		" %5.2f %5.2f" \
-		" %5.0f"
-		#" %-15s" \
+		" %5.0f" \
+		" %1s"
 
 class PerNode:
 	def __init__(self, ip, fn_log):
@@ -35,8 +35,16 @@ class PerNode:
 		self.cpu = []
 		self.acorn_data_disk_space = 0
 
+		self.parsing_stopped = False
+
 	def SetRegion(self, region):
 		self.region = region
+
+	def ParsingStopped(self):
+		# Parsing stopped due to an error in the log file. For example, the cluster
+		# is loaded and got a
+		# com.datastax.driver.core.exceptions.NoHostAvailableException exception.
+		self.parsing_stopped = True
 
 	def AddStat(self, t):
 		num_w = int(t[4])
@@ -75,6 +83,7 @@ class PerNode:
 				" lat_r_avg lat_r_max" \
 				" cpu_avg cpu_max" \
 				" disk_used_in_mb" \
+				" parsing_stopped" \
 				)
 
 	def __str__(self):
@@ -89,6 +98,7 @@ class PerNode:
 				, sum(self.lat_r) / float(len(self.lat_r)), max(self.lat_r)
 				, sum(self.cpu) / float(len(self.cpu)), max(self.cpu)
 				, self.acorn_data_disk_used / 1000000.0
+				, ("T" if self.parsing_stopped else "F")
 				)
 
 
@@ -107,6 +117,8 @@ class Overall():
 		self.cpu = []
 		self.sum_disk_used = 0
 
+		self.parsing_stopped = False
+
 		for ip, nr in per_node_results.iteritems():
 			self.sum_rx += nr.eth0_rx
 			self.sum_tx += nr.eth0_tx
@@ -119,6 +131,8 @@ class Overall():
 			self.lat_r += nr.lat_r
 			self.cpu += nr.cpu
 			self.sum_disk_used += nr.acorn_data_disk_used
+
+			self.parsing_stopped = (self.parsing_stopped or nr.parsing_stopped)
 
 	def __str__(self):
 		return _fmt % (
@@ -136,4 +150,6 @@ class Overall():
 
 			, sum(self.cpu) / float(len(self.cpu)), max(self.cpu)
 			, self.sum_disk_used / 1000000.0
+
+			, ("T" if self.parsing_stopped else "F")
 			)

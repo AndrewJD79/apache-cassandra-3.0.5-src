@@ -32,7 +32,8 @@ def AcornVsCassByReqDensity():
 			" %7.3f %8.3f" \
 			" %7.3f %10.3f" \
 			" %5.2f %6.2f" \
-			" %5.0f"
+			" %5.0f" \
+			" %1s"
 	Cons.P(Util.BuildHeader(fmt,
 		"request_density" \
 		" eth0_rx eth0_tx" \
@@ -42,7 +43,8 @@ def AcornVsCassByReqDensity():
 		" lat_w_avg lat_w_max" \
 		" lat_r_avg lat_r_max" \
 		" cpu_avg cpu_max" \
-		" disk_used_in_mb"
+		" disk_used_in_mb" \
+		" parsing_stopped"
 		))
 	for exp_name, e in sorted(acorn.iteritems()):
 		e.Load()
@@ -58,6 +60,7 @@ def AcornVsCassByReqDensity():
 					, sum(o.lat_r) / float(len(o.lat_r)), max(o.lat_r)
 					, sum(o.cpu) / float(len(o.cpu)), max(o.cpu)
 					, o.sum_disk_used / 1000000.0
+					, ("T" if o.parsing_stopped else "F")
 					)
 				)
 
@@ -82,6 +85,7 @@ def AcornVsCassByReqDensity():
 					, sum(o.lat_r) / float(len(o.lat_r)), max(o.lat_r)
 					, sum(o.cpu) / float(len(o.cpu)), max(o.cpu)
 					, o.sum_disk_used / 1000000.0
+					, ("T" if o.parsing_stopped else "F")
 					)
 				)
 
@@ -211,6 +215,11 @@ class Exp:
 							#Cons.P(line.rstrip())
 							if "ERROR com.datastax.driver.core.ControlConnection" in line:
 								continue
+							if "com.datastax.driver.core.exceptions.NoHostAvailableException:" in line:
+								# Something went wrong. The cluster is overloaded. Stop parsing from here.
+								ns.ParsingStopped()
+								break
+
 							ns.AddStat(t)
 			except Exception as e:
 				Cons.P("Exception: fn_log=%s\nline=[%s]\n%s" % (ns.fn_log, line, traceback.format_exc()))
