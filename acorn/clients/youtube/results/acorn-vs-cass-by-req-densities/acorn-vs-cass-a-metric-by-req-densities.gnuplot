@@ -1,7 +1,7 @@
 # Tested with gnuplot 4.6 patchlevel 6
 
 FN_OUT = system("echo $FN_OUT")
-MAX_NUM_REQS = system("echo $MAX_NUM_REQS")
+#MAX_NUM_REQS = system("echo $MAX_NUM_REQS")
 LABEL_Y = system("echo $LABEL_Y")
 Y_COL = system("echo $Y_COL")
 # Cast to a number
@@ -15,16 +15,17 @@ METRIC_Y = system("echo $METRIC_Y")
 set terminal pdfcairo enhanced size 3in, 2in
 set output FN_OUT
 
-set xlabel "Request density (%)"
+set xlabel "K requests / day"
 set ylabel LABEL_Y offset 0.5,0
 
 set border back
 set grid back
-set xtics scale 0.5,0 autofreq 0,10
+set xtics scale 0.5,0 #autofreq 0,10
 set ytics scale 0.5,0
 set tics back
 
-set xrange [0:100]
+set xrange [0:]
+set yrange [0:]
 
 set key top left
 
@@ -37,8 +38,10 @@ INST_STORE_COST=0.527583
 y_val(a)=(METRIC_Y eq "cost" ? (0.02 * column(3) / 1024 / 1024 / 1024 + INST_STORE_COST * column(14) / 1024 * 6) \
 : column(Y_COL)*Y_ALPHA)
 
+req_per_day(a)=a / (365.25 / 2) / 1000
+
 plot \
-"data-cass"  u ($1*100.0/MAX_NUM_REQS):(y_val(1))                  w lp pt 6 lt 0 lc rgb "blue" not , \
-"data-cass"  u ($1*100.0/MAX_NUM_REQS):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "blue" t "Cassandra", \
-"data-acorn" u ($1*100.0/MAX_NUM_REQS):(y_val(1))                  w lp pt 7 lt 0 lc rgb "red"  not, \
-"data-acorn" u ($1*100.0/MAX_NUM_REQS):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "red"  t "Acorn (U+T)"
+"data-cass"  u (req_per_day($1)):(y_val(1))                  w lp pt 6 lt 0 lc rgb "blue" not , \
+"data-cass"  u (req_per_day($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "blue" t "Cassandra", \
+"data-acorn" u (req_per_day($1)):(y_val(1))                  w lp pt 7 lt 0 lc rgb "red"  not, \
+"data-acorn" u (req_per_day($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "red"  t "Acorn (U+T)"

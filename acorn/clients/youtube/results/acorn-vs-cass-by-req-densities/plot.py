@@ -35,7 +35,7 @@ def __PlotReqDensityVsMetric(metric_y, label_y ,y_col, y_alpha):
 	env = os.environ.copy()
 	fn_out = "%s/acorn-vs-cass-by-req-densities-%s.pdf" % (_dn_out, metric_y)
 	env["FN_OUT"] = fn_out
-	env["MAX_NUM_REQS"] = str(1571389)
+	#env["MAX_NUM_REQS"] = str(1571389)
 	env["LABEL_Y"] = label_y.replace("\n", "\\n")
 	env["Y_COL"] = str(y_col)
 	env["Y_ALPHA"] = str(y_alpha)
