@@ -15,16 +15,17 @@ METRIC_Y = system("echo $METRIC_Y")
 set terminal pdfcairo enhanced size 3in, 2in
 set output FN_OUT
 
-set xlabel "K requests / day"
+#set xlabel "K requests / day"
+set xlabel "K requests / sec"
 set ylabel LABEL_Y offset 0.5,0
 
 set border back
 set grid back
-set xtics scale 0.5,0 #autofreq 0,10
+set xtics scale 0.5,0 format "%.1f" #autofreq 0,10
 set ytics scale 0.5,0
 set tics back
 
-set xrange [0:]
+set xrange [0:2.75]
 set yrange [0:]
 
 set key top left
@@ -38,10 +39,14 @@ INST_STORE_COST=0.527583
 y_val(a)=(METRIC_Y eq "cost" ? (0.02 * column(3) / 1024 / 1024 / 1024 + INST_STORE_COST * column(14) / 1024 * 6) \
 : column(Y_COL)*Y_ALPHA)
 
-req_per_day(a)=a / (365.25 / 2) / 1000
+# # of reqs per simulated time in day
+reqs0(a)=a / (365.25 / 2) / 1000
+
+# # of reqs per simulation time in mins
+reqs1(a)=a / (10.0 * 60) / 1000
 
 plot \
-"data-cass"  u (req_per_day($1)):(y_val(1))                  w lp pt 6 lt 0 lc rgb "blue" not , \
-"data-cass"  u (req_per_day($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "blue" t "Cassandra", \
-"data-acorn" u (req_per_day($1)):(y_val(1))                  w lp pt 7 lt 0 lc rgb "red"  not, \
-"data-acorn" u (req_per_day($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "red"  t "Acorn (U+T)"
+"data-cass"  u (reqs1($1)):(y_val(1))                 w lp pt 6 lt 0 lc rgb "blue" not , \
+"data-cass"  u (reqs1($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "blue" t "Cassandra", \
+"data-acorn" u (reqs1($1)):(y_val(1))                 w lp pt 7 lt 0 lc rgb "red"  not, \
+"data-acorn" u (reqs1($1)):($16 == 0 ? y_val(1): 1/0) w lp pt 7      lc rgb "red"  t "Acorn (U+T)"
