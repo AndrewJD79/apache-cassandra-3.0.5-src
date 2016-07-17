@@ -6,6 +6,8 @@ Y_COL = system("echo $Y_COL")
 # Cast to a number
 Y_COL = Y_COL + 0
 
+Y_MAX = system("echo $Y_MAX")
+
 set terminal pdfcairo enhanced size 3in, 2in
 set output FN_OUT
 
@@ -20,6 +22,12 @@ set tics back
 
 set xrange [0:]
 
+if (strlen(Y_MAX) > 0) {
+	set yrange [1:Y_MAX]
+} else {
+	set yrange [1:]
+}
+
 set key top left
 
 set pointsize 0.4
@@ -30,6 +38,8 @@ XDC_NETWORK_COST=0.02
 
 # column 3 is eth0_tx, 14 is storage used in MB
 cost(a)=(XDC_NETWORK_COST * column(3) / 1024 / 1024 / 1024 + INST_STORE_COST * column(14) / 1024 * 6)
+
+set logscale y
 
 plot \
 "data-cass"  u (cost(0)):(column(Y_COL))                 w lp pt 6 lt 0 lc rgb "blue" not , \

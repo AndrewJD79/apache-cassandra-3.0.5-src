@@ -12,6 +12,10 @@ Y_ALPHA = Y_ALPHA + 0.0
 
 METRIC_Y = system("echo $METRIC_Y")
 
+Y_MAX = system("echo $Y_MAX")
+#set print "-"
+#print sprintf("[%s]", Y_MAX)
+
 set terminal pdfcairo enhanced size 3in, 2in
 set output FN_OUT
 
@@ -25,8 +29,13 @@ set xtics scale 0.5,0 format "%.1f" #autofreq 0,10
 set ytics scale 0.5,0
 set tics back
 
+if (strlen(Y_MAX) > 0) {
+	set yrange [1:Y_MAX]
+} else {
+	set yrange [1:]
+}
+
 set xrange [0:2.75]
-set yrange [0:]
 
 set key top left
 
@@ -44,6 +53,8 @@ reqs0(a)=a / (365.25 / 2) / 1000
 
 # # of reqs per simulation time in mins
 reqs1(a)=a / (10.0 * 60) / 1000
+
+set logscale y
 
 plot \
 "data-cass"  u (reqs1($1)):(y_val(1))                 w lp pt 6 lt 0 lc rgb "blue" not , \
