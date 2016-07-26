@@ -1,0 +1,10 @@
+# Exclude GovCloud
+
+# Longi, Lati
+
+# us-east-1: N. Virginia
+ -77.539001  39.018002
+# us-west-1: N. California
+-121.741798  37.178699
+# us-west-2: Boardman, Oregon
+-119.688004  45.869598

@@ -1,0 +1,42 @@
+# Lati, Longi
+#
+# More edge locations from
+#   https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
+#
+# Locations by the city names
+
+# Atlanta, GA
+33.755 -84.39
+
+#Chicago, IL
+41.836944 -87.684722
+
+#Dallas/Fort Worth, TX (2)
+32.775833 -96.796667
+32.757358 -97.333181
+
+#Hayward, CA
+37.668889 -122.080833
+
+#Jacksonville, FL
+
+#Los Angeles, CA (2)
+34.05 -118.25
+
+#Miami, FL
+25.775278 -80.208889
+
+#New York, NY (3)
+
+#Newark, NJ
+
+#Palo Alto, CA
+#San Jose, CA
+
+#Seattle, WA
+
+#South Bend, IN
+41.6725 -86.255278
+
+#St. Louis, MO
+38.627222 -90.197778
