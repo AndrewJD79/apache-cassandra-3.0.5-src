@@ -3,7 +3,8 @@
 FN_IN = "../worldmap/world_110m.txt"
 FN_OUT = system("echo $FN_OUT")
 
-set terminal pdfcairo enhanced size 3in,2in
+#set terminal pdfcairo enhanced size 3in,2in
+set terminal pdfcairo enhanced size 4.5in,3in
 set output FN_OUT
 
 #set grid lc rgb "#C0C0C0"
